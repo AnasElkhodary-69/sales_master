@@ -1,0 +1,306 @@
+{% extends "base.html" %}
+
+{% block title %}Breach Checker - SalesBreachPro{% endblock %}
+
+{% block extra_head %}
+<style>
+    .breach-card {
+        transition: all 0.3s ease;
+        border: none;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    .breach-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    }
+
+    .result-breached {
+        background: linear-gradient(135deg, #dc3545 0%, #b02a37 100%);
+        color: white;
+    }
+
+    .result-safe {
+        background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
+        color: white;
+    }
+
+    .result-unknown {
+        background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
+        color: white;
+    }
+
+    .search-box {
+        max-width: 600px;
+        margin: 0 auto;
+    }
+
+    .spinner-custom {
+        width: 2rem;
+        height: 2rem;
+    }
+
+    .breach-details {
+        background: rgba(255,255,255,0.1);
+        border-radius: 8px;
+        padding: 15px;
+        margin-top: 15px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">
+                        <i class="fas fa-search text-primary me-2"></i>
+                        Breach Checker
+                    </h1>
+                    <p class="text-muted mb-0">Check if an email or domain has been involved in data breaches</p>
+                </div>
+                <a href="/dashboard" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>Back to Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search Form -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="search-box">
+                        <form id="breachCheckForm">
+                            <div class="input-group input-group-lg">
+                                <span class="input-group-text">
+                                    <i class="fas fa-envelope"></i>
+                                </span>
+                                <input type="text"
+                                       class="form-control"
+                                       id="searchInput"
+                                       placeholder="Enter email address or domain (e.g., test@example.com or example.com)"
+                                       required>
+                                <button type="submit" class="btn btn-primary" id="searchBtn">
+                                    <i class="fas fa-search me-1"></i>Check Breach
+                                </button>
+                            </div>
+                            <div class="form-text text-center mt-2">
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    We'll check against our comprehensive breach database
+                                </small>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Section -->
+    <div class="row" id="resultsSection" style="display: none;">
+        <div class="col-12">
+            <div class="card breach-card" id="resultCard">
+                <div class="card-body text-center" id="resultBody">
+                    <!-- Results will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Section -->
+    <div class="row" id="loadingSection" style="display: none;">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center py-5">
+                    <div class="spinner-border spinner-custom text-primary mb-3" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <h5 class="text-muted">Checking breach databases...</h5>
+                    <p class="text-muted mb-0">This may take a few seconds</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Checks (optional for future enhancement) -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">
+                        <i class="fas fa-history me-2"></i>How It Works
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 text-center mb-3">
+                            <i class="fas fa-search fa-2x text-primary mb-2"></i>
+                            <h6>1. Search</h6>
+                            <p class="text-muted small">Enter an email or domain to check</p>
+                        </div>
+                        <div class="col-md-4 text-center mb-3">
+                            <i class="fas fa-database fa-2x text-info mb-2"></i>
+                            <h6>2. Scan</h6>
+                            <p class="text-muted small">We search our comprehensive breach database</p>
+                        </div>
+                        <div class="col-md-4 text-center mb-3">
+                            <i class="fas fa-shield-alt fa-2x text-success mb-2"></i>
+                            <h6>3. Results</h6>
+                            <p class="text-muted small">Get detailed breach information instantly</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('breachCheckForm');
+    const searchInput = document.getElementById('searchInput');
+    const searchBtn = document.getElementById('searchBtn');
+    const loadingSection = document.getElementById('loadingSection');
+    const resultsSection = document.getElementById('resultsSection');
+    const resultCard = document.getElementById('resultCard');
+    const resultBody = document.getElementById('resultBody');
+
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        checkBreach();
+    });
+
+    function checkBreach() {
+        const query = searchInput.value.trim();
+        if (!query) return;
+
+        // Show loading
+        showLoading();
+
+        // Determine if it's an email or domain
+        const isEmail = query.includes('@');
+        const domain = isEmail ? query.split('@')[1] : query;
+
+        // Make API call
+        fetch(`/api/breach-lookup/${encodeURIComponent(domain)}`)
+            .then(response => response.json())
+            .then(data => {
+                showResults(query, data, isEmail);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showError('Failed to check breach data. Please try again.');
+            });
+    }
+
+    function showLoading() {
+        loadingSection.style.display = 'block';
+        resultsSection.style.display = 'none';
+        searchBtn.disabled = true;
+        searchBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Checking...';
+    }
+
+    function showResults(query, data, isEmail) {
+        loadingSection.style.display = 'none';
+        resultsSection.style.display = 'block';
+        searchBtn.disabled = false;
+        searchBtn.innerHTML = '<i class="fas fa-search me-1"></i>Check Breach';
+
+        // Reset card classes
+        resultCard.className = 'card breach-card';
+
+        if (data.success && data.breach_data) {
+            const breach = data.breach_data;
+
+            if (breach.records_affected > 0) {
+                // Breached
+                resultCard.classList.add('result-breached');
+                resultBody.innerHTML = `
+                    <div class="mb-3">
+                        <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
+                        <h4>Breach Found!</h4>
+                        <p class="mb-0">This ${isEmail ? 'email' : 'domain'} has been found in data breaches</p>
+                    </div>
+                    <div class="breach-details">
+                        <div class="row text-start">
+                            <div class="col-md-6">
+                                <strong>Records Affected:</strong><br>
+                                <span class="h6">${breach.records_affected.toLocaleString()}</span>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Last Updated:</strong><br>
+                                <span class="h6">${new Date(breach.last_updated).toLocaleDateString()}</span>
+                            </div>
+                        </div>
+                        ${breach.breach_year ? `
+                        <div class="mt-2">
+                            <strong>Breach Year:</strong> ${breach.breach_year}
+                        </div>
+                        ` : ''}
+                    </div>
+                    <div class="mt-3">
+                        <small><i class="fas fa-info-circle me-1"></i>This information helps assess security risks</small>
+                    </div>
+                `;
+            } else {
+                // Safe
+                resultCard.classList.add('result-safe');
+                resultBody.innerHTML = `
+                    <div class="mb-3">
+                        <i class="fas fa-shield-check fa-3x mb-3"></i>
+                        <h4>No Breaches Found</h4>
+                        <p class="mb-0">This ${isEmail ? 'email' : 'domain'} appears to be safe</p>
+                    </div>
+                    <div class="breach-details">
+                        <p class="mb-0">No records found in our comprehensive breach database</p>
+                    </div>
+                    <div class="mt-3">
+                        <small><i class="fas fa-check-circle me-1"></i>Last checked: ${new Date().toLocaleString()}</small>
+                    </div>
+                `;
+            }
+        } else {
+            // Unknown/Error
+            resultCard.classList.add('result-unknown');
+            resultBody.innerHTML = `
+                <div class="mb-3">
+                    <i class="fas fa-question-circle fa-3x mb-3"></i>
+                    <h4>Unable to Verify</h4>
+                    <p class="mb-0">Could not complete the breach check</p>
+                </div>
+                <div class="breach-details">
+                    <p class="mb-0">The breach database may be temporarily unavailable or this domain may not be in our records yet.</p>
+                </div>
+                <div class="mt-3">
+                    <small><i class="fas fa-clock me-1"></i>Try again in a few moments</small>
+                </div>
+            `;
+        }
+    }
+
+    function showError(message) {
+        loadingSection.style.display = 'none';
+        resultsSection.style.display = 'block';
+        searchBtn.disabled = false;
+        searchBtn.innerHTML = '<i class="fas fa-search me-1"></i>Check Breach';
+
+        resultCard.className = 'card breach-card result-unknown';
+        resultBody.innerHTML = `
+            <div class="mb-3">
+                <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
+                <h4>Error</h4>
+                <p class="mb-0">${message}</p>
+            </div>
+        `;
+    }
+});
+</script>
+{% endblock %}

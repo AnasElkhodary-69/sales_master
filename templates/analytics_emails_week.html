@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block title %}Emails This Week - SalesBreachPro{% endblock %}
+
+{% block extra_head %}
+<style>
+    .stat-card {
+        transition: transform 0.2s ease;
+    }
+    .stat-card:hover {
+        transform: translateY(-3px);
+    }
+    .email-row:hover {
+        background-color: #f8f9fa;
+    }
+    .badge-delivered { background-color: #22c55e; }
+    .badge-opened { background-color: #3b82f6; }
+    .badge-clicked { background-color: #8b5cf6; }
+    .badge-bounced { background-color: #ef4444; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h2 mb-1">
+                        <i class="fas fa-envelope text-primary me-2"></i>
+                        Emails This Week
+                    </h1>
+                    <p class="text-muted mb-0">Analysis of email activity from the past 7 days</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('dashboard.index') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Overview -->
+    <div class="row mb-4">
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card stat-card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Total Sent</h6>
+                            <h3 class="mb-0">{{ stats.total_sent or 0 }}</h3>
+                        </div>
+                        <div class="text-primary">
+                            <i class="fas fa-paper-plane fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card stat-card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Delivered</h6>
+                            <h3 class="mb-0">{{ stats.delivered or 0 }}</h3>
+                            <small class="text-success">{{ stats.delivery_rate }}%</small>
+                        </div>
+                        <div class="text-success">
+                            <i class="fas fa-check-circle fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card stat-card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Opened</h6>
+                            <h3 class="mb-0">{{ stats.opened or 0 }}</h3>
+                            <small class="text-info">{{ stats.open_rate }}%</small>
+                        </div>
+                        <div class="text-info">
+                            <i class="fas fa-envelope-open fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card stat-card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Clicked</h6>
+                            <h3 class="mb-0">{{ stats.clicked or 0 }}</h3>
+                            <small class="text-purple">{{ stats.click_rate }}%</small>
+                        </div>
+                        <div class="text-purple">
+                            <i class="fas fa-mouse-pointer fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
+            <div class="card stat-card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Replied</h6>
+                            <h3 class="mb-0">{{ stats.replied or 0 }}</h3>
+                            <small class="text-warning">{{ stats.reply_rate }}%</small>
+                        </div>
+                        <div class="text-warning">
+                            <i class="fas fa-reply fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Daily Breakdown -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>Daily Activity
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for day, count in daily_stats.items() %}
+                        <div class="col">
+                            <div class="text-center">
+                                <h6 class="text-muted">{{ day[:3] }}</h6>
+                                <div class="bg-primary text-white rounded p-2">
+                                    {{ count }}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Email List -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list me-2"></i>Email Details
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if emails %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Recipient</th>
+                                    <th>Campaign</th>
+                                    <th>Sent At</th>
+                                    <th>Status</th>
+                                    <th>Opens</th>
+                                    <th>Clicks</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for email, contact, campaign in emails %}
+                                <tr class="email-row">
+                                    <td>
+                                        <strong>{{ contact.first_name }} {{ contact.last_name }}</strong><br>
+                                        <small class="text-muted">{{ contact.email }}</small>
+                                    </td>
+                                    <td>
+                                        {% if campaign %}
+                                            <span class="badge bg-secondary">{{ campaign.name }}</span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if email.sent_at %}
+                                            {{ email.sent_at.strftime('%Y-%m-%d %H:%M') }}
+                                        {% else %}
+                                            <span class="text-muted">Not sent</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if email.status == 'delivered' %}
+                                            <span class="badge badge-delivered">Delivered</span>
+                                        {% elif email.status == 'bounced' %}
+                                            <span class="badge badge-bounced">Bounced</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ email.status or 'Pending' }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if email.opened_at %}
+                                            <i class="fas fa-check text-success"></i>
+                                        {% else %}
+                                            <i class="fas fa-times text-muted"></i>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if email.clicked_at %}
+                                            <i class="fas fa-check text-success"></i>
+                                        {% else %}
+                                            <i class="fas fa-times text-muted"></i>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">No emails sent this week</p>
+                        <a href="{{ url_for('campaigns.new_campaign') }}" class="btn btn-primary">
+                            <i class="fas fa-plus me-2"></i>Create Campaign
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

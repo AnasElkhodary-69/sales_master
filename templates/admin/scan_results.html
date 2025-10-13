@@ -1,0 +1,705 @@
+{% extends "base.html" %}
+
+{% block title %}FlawTrack Scan Results - SalesBreachPro{% endblock %}
+
+{% block extra_head %}
+<style>
+    .table-hover tbody tr:hover {
+        background-color: #f8fafc;
+    }
+
+    .scan-status-breached { color: #dc2626; }
+    .scan-status-not-breached { color: #16a34a; }
+    .scan-status-unknown { color: #ca8a04; }
+
+    .risk-score-high { color: #dc2626; font-weight: bold; }
+    .risk-score-medium { color: #d97706; font-weight: bold; }
+    .risk-score-low { color: #16a34a; font-weight: bold; }
+
+    .breach-details-card {
+        transition: all 0.3s ease;
+        border-left: 4px solid;
+    }
+
+    .breach-details-card.status-breached {
+        border-left-color: #dc2626;
+    }
+
+    .breach-details-card.status-not-breached {
+        border-left-color: #16a34a;
+    }
+
+    .breach-details-card.status-unknown {
+        border-left-color: #ca8a04;
+    }
+
+    .credentials-table {
+        font-size: 0.85rem;
+    }
+
+    .filter-badge {
+        cursor: pointer;
+        margin: 2px;
+    }
+
+    .filter-badge:hover {
+        opacity: 0.8;
+    }
+
+    .search-box {
+        max-width: 400px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="h3 mb-0">
+                    <i class="fas fa-database text-primary me-2"></i>
+                    FlawTrack Scan Results
+                </h1>
+                <p class="text-muted mb-0">Browse and analyze breach scan results</p>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="{{ url_for('flawtrack_admin.index') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>Back to Management
+                </a>
+                <button class="btn btn-outline-primary" onclick="refreshResults()">
+                    <i class="fas fa-sync me-1"></i>Refresh
+                </button>
+                <a href="{{ url_for('flawtrack_admin.export_results') }}" class="btn btn-success">
+                    <i class="fas fa-download me-1"></i>Export All
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Summary Statistics -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center">
+                <div class="h2 text-primary mb-0" id="totalDomains">{{ total_results }}</div>
+                <div class="text-muted">Total Domains</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center">
+                <div class="h2 text-danger mb-0" id="breachedCount">{{ breached_count }}</div>
+                <div class="text-muted">Breached</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center">
+                <div class="h2 text-success mb-0" id="cleanCount">{{ clean_count }}</div>
+                <div class="text-muted">Clean</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center">
+                <div class="h2 text-warning mb-0" id="unknownCount">{{ unknown_count }}</div>
+                <div class="text-muted">Unknown</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters and Search -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-4">
+                        <div class="search-box">
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="searchInput"
+                                       placeholder="Search domains..." onkeyup="filterResults()">
+                                <button class="btn btn-outline-secondary" onclick="clearSearch()">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-8">
+                        <div class="d-flex align-items-center">
+                            <span class="text-muted me-2">Filter by status:</span>
+                            <span class="badge bg-primary filter-badge" onclick="filterByStatus('all')" id="filter-all">
+                                All ({{ total_results }})
+                            </span>
+                            <span class="badge bg-danger filter-badge" onclick="filterByStatus('breached')" id="filter-breached">
+                                Breached ({{ breached_count }})
+                            </span>
+                            <span class="badge bg-success filter-badge" onclick="filterByStatus('not_breached')" id="filter-not_breached">
+                                Clean ({{ clean_count }})
+                            </span>
+                            <span class="badge bg-warning filter-badge" onclick="filterByStatus('unknown')" id="filter-unknown">
+                                Unknown ({{ unknown_count }})
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Results Container -->
+<div id="resultsContainer">
+    <div class="text-center">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-2 text-muted">Loading scan results...</p>
+    </div>
+</div>
+
+<!-- Pagination -->
+<div id="paginationContainer" class="d-flex justify-content-center mt-4">
+    <!-- Pagination will be populated by JavaScript -->
+</div>
+
+<!-- Detailed Breach Data Modal -->
+<div class="modal fade" id="breachDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-database me-2"></i>
+                    Detailed Breach Data - <span id="modalDomainName"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="modalBreachContent">
+                    <!-- Content will be populated by JavaScript -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" onclick="exportModalData()">
+                    <i class="fas fa-download me-1"></i>Export Data
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentResults = [];
+let currentPage = 1;
+let currentFilter = 'all';
+let currentSearch = '';
+let breachDetailsModal;
+
+document.addEventListener('DOMContentLoaded', function() {
+    breachDetailsModal = new bootstrap.Modal(document.getElementById('breachDetailsModal'));
+    loadResults();
+});
+
+function loadResults(page = 1, status = null, search = null) {
+    currentPage = page;
+    if (status !== null) currentFilter = status;
+    if (search !== null) currentSearch = search;
+
+    const params = new URLSearchParams({
+        page: currentPage,
+        per_page: 20
+    });
+
+    if (currentFilter && currentFilter !== 'all') {
+        params.append('status', currentFilter);
+    }
+
+    if (currentSearch) {
+        params.append('domain', currentSearch);
+    }
+
+    fetch(`/admin/flawtrack/scan-results?${params.toString()}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                currentResults = data.results;
+                displayResults(data.results);
+                updatePagination(data.pagination);
+            } else {
+                displayError(data.error);
+            }
+        })
+        .catch(error => {
+            displayError('Failed to load results: ' + error.message);
+        });
+}
+
+function displayResults(results) {
+    const container = document.getElementById('resultsContainer');
+
+    if (!results || results.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-5">
+                <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">No results found</h5>
+                <p class="text-muted">Try adjusting your filters or search terms</p>
+            </div>
+        `;
+        return;
+    }
+
+    let html = '';
+    results.forEach((result, index) => {
+        const statusClass = getStatusClass(result.breach_status);
+        const statusIcon = getStatusIcon(result.breach_status);
+        const riskClass = getRiskClass(result.risk_score || 0);
+
+        html += `
+            <div class="card mb-3 breach-details-card status-${result.breach_status}" data-domain="${result.domain}" data-status="${result.breach_status}">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-${statusIcon} text-${statusClass} me-2"></i>
+                        <h6 class="mb-0 me-3">${result.domain}</h6>
+                        <span class="badge bg-${statusClass}">${result.breach_status.replace('_', ' ').toUpperCase()}</span>
+                        ${result.contact_count ? `<span class="badge bg-info ms-2">${result.contact_count} contacts</span>` : ''}
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        ${result.records_affected > 0 ? `
+                            <button class="btn btn-sm btn-outline-primary" onclick="viewBreachDetails('${result.domain}', ${index})">
+                                <i class="fas fa-eye me-1"></i>View Details
+                            </button>
+                        ` : ''}
+                        <small class="text-muted">
+                            ${result.last_updated ? new Date(result.last_updated).toLocaleDateString() : 'No date'}
+                        </small>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <div class="h5 mb-0 text-${statusClass}">${(result.records_affected || 0).toLocaleString()}</div>
+                                <small class="text-muted">Records Affected</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <div class="h5 mb-0">${result.breach_year || 'Unknown'}</div>
+                                <small class="text-muted">Breach Year</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <div class="h5 mb-0 risk-score-${getRiskLevel(result.risk_score || 0)}">${result.risk_score || 0}</div>
+                                <small class="text-muted">Risk Score</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <div class="h6 mb-0">
+                                    ${result.scan_status === 'completed' ?
+                                        '<i class="fas fa-check-circle text-success"></i> Complete' :
+                                        result.scan_status === 'failed' ?
+                                        '<i class="fas fa-exclamation-triangle text-danger"></i> Failed' :
+                                        '<i class="fas fa-clock text-warning"></i> ' + (result.scan_status || 'Pending')
+                                    }
+                                </div>
+                                <small class="text-muted">Scan Status</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    ${result.scan_error ? `
+                        <div class="mt-3">
+                            <div class="alert alert-warning small">
+                                <i class="fas fa-exclamation-triangle me-1"></i>
+                                <strong>Scan Error:</strong> ${result.scan_error}
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+function updatePagination(pagination) {
+    const container = document.getElementById('paginationContainer');
+
+    if (pagination.pages <= 1) {
+        container.innerHTML = '';
+        return;
+    }
+
+    let html = '<nav><ul class="pagination">';
+
+    // Previous button
+    if (pagination.has_prev) {
+        html += `<li class="page-item"><a class="page-link" href="#" onclick="loadResults(${pagination.page - 1})">Previous</a></li>`;
+    }
+
+    // Page numbers
+    for (let i = Math.max(1, pagination.page - 2); i <= Math.min(pagination.pages, pagination.page + 2); i++) {
+        if (i === pagination.page) {
+            html += `<li class="page-item active"><span class="page-link">${i}</span></li>`;
+        } else {
+            html += `<li class="page-item"><a class="page-link" href="#" onclick="loadResults(${i})">${i}</a></li>`;
+        }
+    }
+
+    // Next button
+    if (pagination.has_next) {
+        html += `<li class="page-item"><a class="page-link" href="#" onclick="loadResults(${pagination.page + 1})">Next</a></li>`;
+    }
+
+    html += '</ul></nav>';
+    container.innerHTML = html;
+}
+
+function displayError(error) {
+    const container = document.getElementById('resultsContainer');
+    container.innerHTML = `
+        <div class="alert alert-danger">
+            <i class="fas fa-exclamation-circle me-2"></i>
+            <strong>Error:</strong> ${error}
+        </div>
+    `;
+}
+
+function filterByStatus(status) {
+    // Update active filter badge
+    document.querySelectorAll('.filter-badge').forEach(badge => {
+        badge.classList.remove('bg-primary', 'bg-danger', 'bg-success', 'bg-warning');
+        badge.classList.add('bg-light', 'text-dark');
+    });
+
+    const activeBadge = document.getElementById(`filter-${status}`);
+    activeBadge.classList.remove('bg-light', 'text-dark');
+
+    switch(status) {
+        case 'all': activeBadge.classList.add('bg-primary'); break;
+        case 'breached': activeBadge.classList.add('bg-danger'); break;
+        case 'not_breached': activeBadge.classList.add('bg-success'); break;
+        case 'unknown': activeBadge.classList.add('bg-warning'); break;
+    }
+
+    loadResults(1, status);
+}
+
+function filterResults() {
+    const searchTerm = document.getElementById('searchInput').value;
+    loadResults(1, null, searchTerm);
+}
+
+function clearSearch() {
+    document.getElementById('searchInput').value = '';
+    loadResults(1, null, '');
+}
+
+function refreshResults() {
+    loadResults(currentPage, currentFilter, currentSearch);
+}
+
+function viewBreachDetails(domain, resultIndex) {
+    const result = currentResults[resultIndex];
+
+    // Set modal title
+    document.getElementById('modalDomainName').textContent = domain;
+
+    // First, try to get detailed data from the existing scan
+    const modalContent = document.getElementById('modalBreachContent');
+    modalContent.innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading detailed data...</span>
+            </div>
+            <p class="mt-2 text-muted">Fetching detailed breach information...</p>
+        </div>
+    `;
+
+    // Show the modal
+    breachDetailsModal.show();
+
+    // Fetch detailed breach data using the search endpoint
+    fetch('/admin/flawtrack/search', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            query: domain,
+            source: 'unified'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.results && data.results.length > 0) {
+            displayDetailedBreachData(data.results[0]);
+        } else {
+            displayBasicBreachInfo(result);
+        }
+    })
+    .catch(error => {
+        console.error('Error fetching detailed data:', error);
+        displayBasicBreachInfo(result);
+    });
+}
+
+function displayDetailedBreachData(breachData) {
+    const modalContent = document.getElementById('modalBreachContent');
+
+    let html = `
+        <div class="alert alert-${getStatusClass(breachData.breach_status)}">
+            <i class="fas fa-${getStatusIcon(breachData.breach_status)} me-2"></i>
+            <strong>Breach Status:</strong> ${breachData.breach_status.replace('_', ' ').toUpperCase()}
+            - ${breachData.records_affected} records affected
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <h6 class="fw-bold">Breach Information</h6>
+                <ul class="list-unstyled">
+                    <li><strong>Domain:</strong> ${breachData.domain}</li>
+                    <li><strong>Records Affected:</strong> ${(breachData.records_affected || 0).toLocaleString()}</li>
+                    <li><strong>Breach Year:</strong> ${breachData.breach_year || 'Unknown'}</li>
+                    <li><strong>Risk Score:</strong> ${breachData.risk_score || 0}/100</li>
+                </ul>
+            </div>
+            <div class="col-md-6">
+                <h6 class="fw-bold">Additional Details</h6>
+                <ul class="list-unstyled">
+                    <li><strong>Severity:</strong> ${breachData.severity || 'Unknown'}</li>
+                    <li><strong>Data Types:</strong> ${breachData.data_types || 'Not specified'}</li>
+                    <li><strong>Data Source:</strong> ${breachData.data_source || 'Unknown'}</li>
+                    <li><strong>Last Updated:</strong> ${formatDate(breachData.last_updated)}</li>
+                </ul>
+            </div>
+        </div>
+    `;
+
+    if (breachData.breach_details) {
+        html += `
+            <div class="mb-4">
+                <h6 class="fw-bold">Breach Details</h6>
+                <p class="text-muted">${breachData.breach_details}</p>
+            </div>
+        `;
+    }
+
+    if (breachData.raw_records && breachData.raw_records.length > 0) {
+        html += `
+            <div class="mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="fw-bold mb-0">
+                        <i class="fas fa-database me-2"></i>
+                        Compromised Credentials (${breachData.raw_records.length} records)
+                    </h6>
+                    <div>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="searchInModal()">
+                            <i class="fas fa-search me-1"></i>Search
+                        </button>
+                    </div>
+                </div>
+
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Security Notice:</strong> This data contains actual compromised credentials. Handle with appropriate care.
+                </div>
+
+                <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                    <table class="table table-sm table-striped credentials-table" id="credentialsTable">
+                        <thead class="table-dark sticky-top">
+                            <tr>
+                                <th style="width: 5%;">#</th>
+                                <th style="width: 30%;">Email/Username</th>
+                                <th style="width: 25%;">Password</th>
+                                <th style="width: 25%;">Service</th>
+                                <th style="width: 15%;">Source</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+        `;
+
+        breachData.raw_records.forEach((record, index) => {
+            const email = record.email || record.username || record.identifier || 'Not specified';
+            const password = record.password || 'Not available';
+            const service = record.service_name || record.url || record.service || 'Unknown';
+            const source = record.source || 'Unknown';
+
+            html += `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td class="font-monospace text-primary">${email}</td>
+                    <td class="font-monospace text-danger" style="word-break: break-all;">${password}</td>
+                    <td class="text-info">${service}</td>
+                    <td><span class="badge bg-secondary">${source}</span></td>
+                </tr>
+            `;
+        });
+
+        html += `
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    }
+
+    if (breachData.recommendations) {
+        html += `
+            <div class="alert alert-warning">
+                <h6 class="fw-bold text-warning">
+                    <i class="fas fa-lightbulb me-2"></i>Recommendations
+                </h6>
+                <p class="mb-0">${breachData.recommendations}</p>
+            </div>
+        `;
+    }
+
+    modalContent.innerHTML = html;
+}
+
+function displayBasicBreachInfo(result) {
+    const modalContent = document.getElementById('modalBreachContent');
+    modalContent.innerHTML = `
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>
+            Showing basic scan information. Detailed breach records may not be available.
+        </div>
+
+        <div class="row">
+            <div class="col-md-6">
+                <h6 class="fw-bold">Scan Information</h6>
+                <ul class="list-unstyled">
+                    <li><strong>Domain:</strong> ${result.domain}</li>
+                    <li><strong>Status:</strong> ${result.breach_status.replace('_', ' ').toUpperCase()}</li>
+                    <li><strong>Records:</strong> ${(result.records_affected || 0).toLocaleString()}</li>
+                    <li><strong>Scan Status:</strong> ${result.scan_status || 'Unknown'}</li>
+                </ul>
+            </div>
+            <div class="col-md-6">
+                <h6 class="fw-bold">Metadata</h6>
+                <ul class="list-unstyled">
+                    <li><strong>Risk Score:</strong> ${result.risk_score || 0}</li>
+                    <li><strong>Last Updated:</strong> ${formatDate(result.last_updated)}</li>
+                    <li><strong>Contact Count:</strong> ${result.contact_count || 0}</li>
+                </ul>
+            </div>
+        </div>
+
+        ${result.scan_error ? `
+            <div class="alert alert-danger mt-3">
+                <h6 class="fw-bold">Scan Error</h6>
+                <p class="mb-0">${result.scan_error}</p>
+            </div>
+        ` : ''}
+    `;
+}
+
+// Helper functions
+function getStatusClass(status) {
+    switch(status) {
+        case 'breached': return 'danger';
+        case 'not_breached': return 'success';
+        case 'unknown': return 'warning';
+        default: return 'secondary';
+    }
+}
+
+function getStatusIcon(status) {
+    switch(status) {
+        case 'breached': return 'exclamation-triangle';
+        case 'not_breached': return 'check-circle';
+        case 'unknown': return 'question-circle';
+        default: return 'info-circle';
+    }
+}
+
+function getRiskClass(score) {
+    if (score >= 70) return 'danger';
+    if (score >= 40) return 'warning';
+    return 'success';
+}
+
+function getRiskLevel(score) {
+    if (score >= 70) return 'high';
+    if (score >= 40) return 'medium';
+    return 'low';
+}
+
+function formatDate(dateString) {
+    if (!dateString) return 'Unknown';
+    try {
+        return new Date(dateString).toLocaleDateString();
+    } catch (e) {
+        return dateString;
+    }
+}
+
+function searchInModal() {
+    const searchTerm = prompt('Enter search term to filter credentials:');
+    if (!searchTerm) return;
+
+    const table = document.getElementById('credentialsTable');
+    if (!table) return;
+
+    const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+    let visibleCount = 0;
+
+    for (let i = 0; i < rows.length; i++) {
+        const text = rows[i].textContent.toLowerCase();
+        if (text.includes(searchTerm.toLowerCase())) {
+            rows[i].style.display = '';
+            visibleCount++;
+        } else {
+            rows[i].style.display = 'none';
+        }
+    }
+
+    // Show search results
+    const existingAlert = table.parentElement.querySelector('.search-alert');
+    if (existingAlert) existingAlert.remove();
+
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-info search-alert mt-2';
+    alertDiv.innerHTML = `
+        <i class="fas fa-search me-2"></i>
+        Found ${visibleCount} records for "${searchTerm}"
+        <button class="btn btn-sm btn-outline-secondary ms-2" onclick="clearModalSearch()">
+            Clear Filter
+        </button>
+    `;
+    table.parentElement.appendChild(alertDiv);
+}
+
+function clearModalSearch() {
+    const table = document.getElementById('credentialsTable');
+    if (!table) return;
+
+    const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+    for (let i = 0; i < rows.length; i++) {
+        rows[i].style.display = '';
+    }
+
+    const alert = table.parentElement.querySelector('.search-alert');
+    if (alert) alert.remove();
+}
+
+function exportModalData() {
+    const domain = document.getElementById('modalDomainName').textContent;
+    alert(`Export functionality for ${domain} will be implemented. For now, use the main export button.`);
+}
+</script>
+{% endblock %}

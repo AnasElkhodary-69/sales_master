@@ -1,0 +1,657 @@
+{% extends "base.html" %}
+
+{% block title %}Lead Management - SalesBreachPro{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="h3 mb-1">
+                        <i class="fas fa-star text-warning me-2"></i>
+                        Lead Management
+                    </h1>
+                    <p class="text-muted mb-0">Track, score, and manage your sales leads</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('dashboard.index') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-1"></i>Back to Dashboard
+                    </a>
+                    <button class="btn btn-primary ms-2" data-bs-toggle="modal" data-bs-target="#leadFiltersModal">
+                        <i class="fas fa-filter me-1"></i>Filters
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lead Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 bg-danger text-white">
+                <div class="card-body text-center">
+                    <h3>{{ stats.hot_leads or 0 }}</h3>
+                    <p class="mb-0">🔥 Hot Leads</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 bg-warning text-white">
+                <div class="card-body text-center">
+                    <h3>{{ stats.warm_leads or 0 }}</h3>
+                    <p class="mb-0">🌡️ Warm Leads</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 bg-info text-white">
+                <div class="card-body text-center">
+                    <h3>{{ stats.cold_leads or 0 }}</h3>
+                    <p class="mb-0">❄️ Cold Leads</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 bg-success text-white">
+                <div class="card-body text-center">
+                    <h3>{{ stats.converted_leads or 0 }}</h3>
+                    <p class="mb-0">✅ Converted</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lead Actions Bar -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center">
+                        <div class="d-flex flex-wrap gap-2">
+                            <button class="btn btn-sm btn-success" onclick="bulkAction('followUp')">
+                                <i class="fas fa-reply me-1"></i>Bulk Follow-Up
+                            </button>
+                            <button class="btn btn-sm btn-info" onclick="bulkAction('addToSequence')">
+                                <i class="fas fa-layer-group me-1"></i>Add to Sequence
+                            </button>
+                            <button class="btn btn-sm btn-warning" onclick="bulkAction('scheduleCall')">
+                                <i class="fas fa-phone me-1"></i>Schedule Calls
+                            </button>
+                            <button class="btn btn-sm btn-secondary" onclick="bulkAction('updateScore')">
+                                <i class="fas fa-star me-1"></i>Update Scores
+                            </button>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <span class="text-muted me-2">Selected: <strong id="selectedCount">0</strong></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leads Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Active Leads</h5>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <input type="radio" class="btn-check" name="leadFilter" id="allLeads" autocomplete="off" checked>
+                            <label class="btn btn-outline-secondary" for="allLeads">All</label>
+                            
+                            <input type="radio" class="btn-check" name="leadFilter" id="hotLeads" autocomplete="off">
+                            <label class="btn btn-outline-danger" for="hotLeads">Hot</label>
+                            
+                            <input type="radio" class="btn-check" name="leadFilter" id="warmLeads" autocomplete="off">
+                            <label class="btn btn-outline-warning" for="warmLeads">Warm</label>
+                            
+                            <input type="radio" class="btn-check" name="leadFilter" id="coldLeads" autocomplete="off">
+                            <label class="btn btn-outline-info" for="coldLeads">Cold</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    {% if leads %}
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th width="40">
+                                            <input type="checkbox" id="masterCheckbox">
+                                        </th>
+                                        <th>Contact</th>
+                                        <th>Lead Score</th>
+                                        <th>Last Activity</th>
+                                        <th>Response Type</th>
+                                        <th>Campaign</th>
+                                        <th>Next Action</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="leadsTableBody">
+                                    {% for lead in leads %}
+                                        <tr data-lead-score="{{ lead.lead_score or 0 }}" data-lead-type="{{ lead.lead_type or 'cold' }}">
+                                            <td>
+                                                <input type="checkbox" class="lead-checkbox" value="{{ lead.contact_id }}">
+                                            </td>
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    <div class="avatar-sm bg-{{ 'danger' if lead.lead_score >= 8 else 'warning' if lead.lead_score >= 5 else 'info' }} text-white rounded-circle d-flex align-items-center justify-content-center me-2">
+                                                        {{ lead.lead_score or 0 }}
+                                                    </div>
+                                                    <div>
+                                                        <strong>{{ lead.contact_name or 'Unknown' }}</strong><br>
+                                                        <small class="text-muted">{{ lead.contact_email }}</small>
+                                                        {% if lead.company %}
+                                                            <br><small class="text-muted">{{ lead.company }}</small>
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="text-center">
+                                                <div class="lead-score-container">
+                                                    {% set score = lead.lead_score or 0 %}
+                                                    {% if score >= 8 %}
+                                                        <span class="badge bg-danger fs-6">{{ score }}/10</span>
+                                                        <br><small class="text-danger">🔥 Hot</small>
+                                                    {% elif score >= 5 %}
+                                                        <span class="badge bg-warning fs-6">{{ score }}/10</span>
+                                                        <br><small class="text-warning">🌡️ Warm</small>
+                                                    {% else %}
+                                                        <span class="badge bg-info fs-6">{{ score }}/10</span>
+                                                        <br><small class="text-info">❄️ Cold</small>
+                                                    {% endif %}
+                                                </div>
+                                            </td>
+                                            <td>
+                                                {% if lead.last_response_date %}
+                                                    <small>{{ lead.last_response_date.strftime('%m/%d/%Y') }}</small>
+                                                    <br><small class="text-muted">{{ lead.activity_type or 'Email Response' }}</small>
+                                                {% else %}
+                                                    <span class="text-muted">No activity</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if lead.response_type %}
+                                                    {% if lead.response_type == 'positive' %}
+                                                        <span class="badge bg-success">✅ Positive</span>
+                                                    {% elif lead.response_type == 'negative' %}
+                                                        <span class="badge bg-danger">❌ Negative</span>
+                                                    {% elif lead.response_type == 'neutral' %}
+                                                        <span class="badge bg-secondary">➖ Neutral</span>
+                                                    {% else %}
+                                                        <span class="badge bg-info">{{ lead.response_type|title }}</span>
+                                                    {% endif %}
+                                                {% else %}
+                                                    <span class="text-muted">No response</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if lead.campaign_name %}
+                                                    <a href="/campaigns/{{ lead.campaign_id }}" class="text-decoration-none">
+                                                        <span class="badge bg-primary">{{ lead.campaign_name }}</span>
+                                                    </a>
+                                                {% else %}
+                                                    <span class="text-muted">No campaign</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if lead.next_action %}
+                                                    <span class="badge bg-warning">{{ lead.next_action }}</span>
+                                                    {% if lead.next_action_date %}
+                                                        <br><small class="text-muted">{{ lead.next_action_date.strftime('%m/%d') }}</small>
+                                                    {% endif %}
+                                                {% else %}
+                                                    <button class="btn btn-sm btn-outline-primary" onclick="setNextAction({{ lead.contact_id }})">
+                                                        <i class="fas fa-plus"></i> Set Action
+                                                    </button>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="btn-group btn-group-sm">
+                                                    <button type="button" class="btn btn-outline-success" 
+                                                            onclick="quickAction('followUp', {{ lead.contact_id }})" 
+                                                            title="Follow Up">
+                                                        <i class="fas fa-reply"></i>
+                                                    </button>
+                                                    <button type="button" class="btn btn-outline-warning" 
+                                                            onclick="quickAction('scheduleCall', {{ lead.contact_id }})" 
+                                                            title="Schedule Call">
+                                                        <i class="fas fa-phone"></i>
+                                                    </button>
+                                                    <button type="button" class="btn btn-outline-info" 
+                                                            onclick="viewLeadHistory({{ lead.contact_id }})" 
+                                                            title="View History">
+                                                        <i class="fas fa-history"></i>
+                                                    </button>
+                                                    <button type="button" class="btn btn-outline-primary" 
+                                                            onclick="updateLeadScore({{ lead.contact_id }}, {{ lead.lead_score or 0 }})" 
+                                                            title="Update Score">
+                                                        <i class="fas fa-star"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-star fs-1 text-muted mb-3"></i>
+                            <h5>No leads found</h5>
+                            <p class="text-muted">Start sending campaigns to generate leads!</p>
+                            <a href="{{ url_for('campaigns.new_campaign') }}" class="btn btn-primary">
+                                <i class="fas fa-rocket me-1"></i>Create Campaign
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Lead Action Modal -->
+<div class="modal fade" id="leadActionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="leadActionTitle">Lead Action</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="leadActionContent">
+                <!-- Dynamic content will be loaded here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Lead History Modal -->
+<div class="modal fade" id="leadHistoryModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Lead Activity History</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="leadHistoryContent">
+                <div class="text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Lead Filters Modal -->
+<div class="modal fade" id="leadFiltersModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Lead Filters</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="leadFiltersForm">
+                    <div class="mb-3">
+                        <label class="form-label">Lead Score Range</label>
+                        <div class="row">
+                            <div class="col-6">
+                                <input type="range" class="form-range" id="minScore" min="0" max="10" value="0">
+                                <label for="minScore" class="form-label small">Min: <span id="minScoreValue">0</span></label>
+                            </div>
+                            <div class="col-6">
+                                <input type="range" class="form-range" id="maxScore" min="0" max="10" value="10">
+                                <label for="maxScore" class="form-label small">Max: <span id="maxScoreValue">10</span></label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Response Type</label>
+                        <select class="form-select" id="responseTypeFilter">
+                            <option value="">All Response Types</option>
+                            <option value="positive">Positive</option>
+                            <option value="negative">Negative</option>
+                            <option value="neutral">Neutral</option>
+                            <option value="auto_reply">Auto Reply</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Last Activity</label>
+                        <select class="form-select" id="activityFilter">
+                            <option value="">Any Time</option>
+                            <option value="today">Today</option>
+                            <option value="week">This Week</option>
+                            <option value="month">This Month</option>
+                            <option value="quarter">This Quarter</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="actionRequiredFilter">
+                            <label class="form-check-label" for="actionRequiredFilter">
+                                Only leads requiring action
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="applyFilters()">Apply Filters</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Lead management functions
+function quickAction(action, contactId) {
+    const modal = new bootstrap.Modal(document.getElementById('leadActionModal'));
+    const actionTitle = document.getElementById('leadActionTitle');
+    const actionContent = document.getElementById('leadActionContent');
+    
+    switch(action) {
+        case 'followUp':
+            actionTitle.textContent = 'Follow Up';
+            actionContent.innerHTML = `
+                <div class="mb-3">
+                    <label class="form-label">Follow-up Type</label>
+                    <select class="form-select" id="followUpType">
+                        <option value="email">Email Follow-up</option>
+                        <option value="call">Phone Call</option>
+                        <option value="meeting">Schedule Meeting</option>
+                        <option value="linkedin">LinkedIn Message</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Template</label>
+                    <select class="form-select" id="followUpTemplate">
+                        <option value="interested">Interested Follow-up</option>
+                        <option value="not_responded">No Response Follow-up</option>
+                        <option value="custom">Custom Message</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Schedule For</label>
+                    <input type="datetime-local" class="form-control" id="followUpDate" 
+                           value="${new Date(Date.now() + 24*60*60*1000).toISOString().slice(0,16)}">
+                </div>
+                <div class="d-grid">
+                    <button class="btn btn-success" onclick="executeFollowUp(${contactId})">
+                        <i class="fas fa-paper-plane me-1"></i>Schedule Follow-up
+                    </button>
+                </div>
+            `;
+            break;
+            
+        case 'scheduleCall':
+            actionTitle.textContent = 'Schedule Call';
+            actionContent.innerHTML = `
+                <div class="mb-3">
+                    <label class="form-label">Call Purpose</label>
+                    <select class="form-select" id="callPurpose">
+                        <option value="discovery">Discovery Call</option>
+                        <option value="demo">Product Demo</option>
+                        <option value="closing">Closing Call</option>
+                        <option value="follow_up">Follow-up Call</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Preferred Date & Time</label>
+                    <input type="datetime-local" class="form-control" id="callDateTime"
+                           value="${new Date(Date.now() + 7*24*60*60*1000).toISOString().slice(0,16)}">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Duration (minutes)</label>
+                    <select class="form-select" id="callDuration">
+                        <option value="15">15 minutes</option>
+                        <option value="30" selected>30 minutes</option>
+                        <option value="45">45 minutes</option>
+                        <option value="60">1 hour</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Notes</label>
+                    <textarea class="form-control" rows="3" id="callNotes" 
+                              placeholder="Add any notes about this call..."></textarea>
+                </div>
+                <div class="d-grid">
+                    <button class="btn btn-warning" onclick="scheduleCall(${contactId})">
+                        <i class="fas fa-calendar-plus me-1"></i>Schedule Call
+                    </button>
+                </div>
+            `;
+            break;
+    }
+    
+    modal.show();
+}
+
+function updateLeadScore(contactId, currentScore) {
+    const modal = new bootstrap.Modal(document.getElementById('leadActionModal'));
+    document.getElementById('leadActionTitle').textContent = 'Update Lead Score';
+    document.getElementById('leadActionContent').innerHTML = `
+        <div class="mb-3">
+            <label class="form-label">Lead Score (0-10)</label>
+            <input type="range" class="form-range" id="newLeadScore" 
+                   min="0" max="10" value="${currentScore}" 
+                   oninput="document.getElementById('scoreValue').textContent = this.value">
+            <div class="d-flex justify-content-between">
+                <span class="text-muted">0 (Cold)</span>
+                <span class="fw-bold">Score: <span id="scoreValue">${currentScore}</span></span>
+                <span class="text-muted">10 (Hot)</span>
+            </div>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Reason for Score Update</label>
+            <select class="form-select" id="scoreReason">
+                <option value="email_response">Positive email response</option>
+                <option value="website_visit">Website visit</option>
+                <option value="content_engagement">Content engagement</option>
+                <option value="referral">Referral</option>
+                <option value="meeting_scheduled">Meeting scheduled</option>
+                <option value="budget_confirmed">Budget confirmed</option>
+                <option value="decision_maker">Decision maker identified</option>
+                <option value="other">Other</option>
+            </select>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Notes</label>
+            <textarea class="form-control" rows="2" id="scoreNotes" 
+                      placeholder="Additional notes about this score update..."></textarea>
+        </div>
+        <div class="d-grid">
+            <button class="btn btn-primary" onclick="saveLeadScore(${contactId})">
+                <i class="fas fa-save me-1"></i>Update Score
+            </button>
+        </div>
+    `;
+    modal.show();
+}
+
+function viewLeadHistory(contactId) {
+    const modal = new bootstrap.Modal(document.getElementById('leadHistoryModal'));
+    modal.show();
+    
+    fetch(`/api/leads/${contactId}/history`)
+        .then(response => response.json())
+        .then(data => {
+            let historyHtml = '<div class="timeline">';
+            
+            if (data.activities && data.activities.length > 0) {
+                data.activities.forEach(activity => {
+                    const date = new Date(activity.date).toLocaleDateString();
+                    const icon = getActivityIcon(activity.type);
+                    const color = getActivityColor(activity.type);
+                    
+                    historyHtml += `
+                        <div class="timeline-item border-start border-2 border-${color} ps-3 pb-3">
+                            <div class="d-flex align-items-center mb-1">
+                                <i class="fas ${icon} text-${color} me-2"></i>
+                                <strong>${activity.title}</strong>
+                                <small class="text-muted ms-auto">${date}</small>
+                            </div>
+                            <p class="text-muted mb-0">${activity.description}</p>
+                            ${activity.details ? `<small class="text-muted">${activity.details}</small>` : ''}
+                        </div>
+                    `;
+                });
+            } else {
+                historyHtml += '<div class="text-center py-4"><p class="text-muted">No activity history found</p></div>';
+            }
+            
+            historyHtml += '</div>';
+            document.getElementById('leadHistoryContent').innerHTML = historyHtml;
+        })
+        .catch(error => {
+            document.getElementById('leadHistoryContent').innerHTML = `
+                <div class="alert alert-danger">
+                    <h6>Error Loading History</h6>
+                    <p>Unable to load lead activity history.</p>
+                </div>
+            `;
+        });
+}
+
+function getActivityIcon(type) {
+    const icons = {
+        'email_sent': 'fa-paper-plane',
+        'email_opened': 'fa-envelope-open',
+        'email_replied': 'fa-reply',
+        'call_scheduled': 'fa-phone',
+        'meeting_scheduled': 'fa-calendar',
+        'score_updated': 'fa-star',
+        'campaign_added': 'fa-bullhorn',
+        'follow_up_scheduled': 'fa-clock'
+    };
+    return icons[type] || 'fa-info-circle';
+}
+
+function getActivityColor(type) {
+    const colors = {
+        'email_sent': 'primary',
+        'email_opened': 'info',
+        'email_replied': 'success',
+        'call_scheduled': 'warning',
+        'meeting_scheduled': 'success',
+        'score_updated': 'primary',
+        'campaign_added': 'secondary',
+        'follow_up_scheduled': 'warning'
+    };
+    return colors[type] || 'secondary';
+}
+
+// Bulk actions
+function bulkAction(action) {
+    const selectedLeads = Array.from(document.querySelectorAll('.lead-checkbox:checked')).map(cb => cb.value);
+    
+    if (selectedLeads.length === 0) {
+        alert('Please select at least one lead');
+        return;
+    }
+    
+    switch(action) {
+        case 'followUp':
+            alert(`Follow-up scheduled for ${selectedLeads.length} leads`);
+            break;
+        case 'addToSequence':
+            alert(`${selectedLeads.length} leads added to email sequence`);
+            break;
+        case 'scheduleCall':
+            alert(`Calls scheduled for ${selectedLeads.length} leads`);
+            break;
+        case 'updateScore':
+            alert(`Scores updated for ${selectedLeads.length} leads`);
+            break;
+    }
+}
+
+// Filter functions
+function applyFilters() {
+    const filters = {
+        minScore: document.getElementById('minScore').value,
+        maxScore: document.getElementById('maxScore').value,
+        responseType: document.getElementById('responseTypeFilter').value,
+        activity: document.getElementById('activityFilter').value,
+        actionRequired: document.getElementById('actionRequiredFilter').checked
+    };
+    
+    // Apply filters to table rows
+    const rows = document.querySelectorAll('#leadsTableBody tr');
+    rows.forEach(row => {
+        const leadScore = parseInt(row.dataset.leadScore) || 0;
+        const showRow = leadScore >= filters.minScore && leadScore <= filters.maxScore;
+        
+        row.style.display = showRow ? '' : 'none';
+    });
+    
+    bootstrap.Modal.getInstance(document.getElementById('leadFiltersModal')).hide();
+}
+
+// Placeholder action functions
+function executeFollowUp(contactId) {
+    alert('Follow-up scheduled! (Feature coming soon)');
+    bootstrap.Modal.getInstance(document.getElementById('leadActionModal')).hide();
+}
+
+function scheduleCall(contactId) {
+    alert('Call scheduled! (Feature coming soon)');
+    bootstrap.Modal.getInstance(document.getElementById('leadActionModal')).hide();
+}
+
+function saveLeadScore(contactId) {
+    const newScore = document.getElementById('newLeadScore').value;
+    alert(`Lead score updated to ${newScore}! (Feature coming soon)`);
+    bootstrap.Modal.getInstance(document.getElementById('leadActionModal')).hide();
+}
+
+function setNextAction(contactId) {
+    alert('Set next action feature coming soon!');
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize filter sliders
+    const minScore = document.getElementById('minScore');
+    const maxScore = document.getElementById('maxScore');
+    
+    minScore.oninput = function() {
+        document.getElementById('minScoreValue').textContent = this.value;
+    };
+    
+    maxScore.oninput = function() {
+        document.getElementById('maxScoreValue').textContent = this.value;
+    };
+    
+    // Initialize checkbox handling
+    document.getElementById('masterCheckbox').addEventListener('change', function() {
+        const checkboxes = document.querySelectorAll('.lead-checkbox');
+        checkboxes.forEach(cb => cb.checked = this.checked);
+        updateSelectedCount();
+    });
+    
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('lead-checkbox')) {
+            updateSelectedCount();
+        }
+    });
+    
+    function updateSelectedCount() {
+        const selected = document.querySelectorAll('.lead-checkbox:checked').length;
+        document.getElementById('selectedCount').textContent = selected;
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,1195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Sequence Analytics - SalesBreachPro</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Font Awesome Pro -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Chart.js with plugins -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+
+    <style>
+        :root {
+            /* Modern Color System */
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            --warning-gradient: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            --accent-gradient: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            --dark-gradient: linear-gradient(135deg, #2d3748 0%, #4a5568 100%);
+
+            --primary-color: #667eea;
+            --primary-light: #818cf8;
+            --primary-dark: #4338ca;
+
+            --secondary-color: #8892b0;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --info-color: #3b82f6;
+
+            --text-primary: #1e293b;
+            --text-secondary: #334155;
+            --text-muted: #475569;
+            --text-light: #64748b;
+
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8fafc;
+            --bg-tertiary: #f1f5f9;
+            --bg-glass: rgba(255, 255, 255, 0.8);
+
+            --border-color: #e2e8f0;
+            --border-light: #f1f5f9;
+
+            /* Modern Shadows */
+            --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            --shadow-glow: 0 0 20px rgba(102, 126, 234, 0.4);
+
+            /* Modern Radiuses */
+            --radius-xs: 0.25rem;
+            --radius-sm: 0.5rem;
+            --radius-md: 0.75rem;
+            --radius-lg: 1rem;
+            --radius-xl: 1.5rem;
+            --radius-2xl: 2rem;
+            --radius-full: 9999px;
+        }
+
+        /* Global Styles */
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            color: var(--text-primary);
+            line-height: 1.6;
+            font-weight: 400;
+            overflow-x: hidden;
+        }
+
+        /* Modern Navigation */
+        .modern-navbar {
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-light);
+            box-shadow: var(--shadow-sm);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .navbar-brand {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+            font-size: 1.5rem;
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-decoration: none;
+        }
+
+        .nav-link {
+            font-weight: 500;
+            color: var(--text-secondary);
+            transition: all 0.3s ease;
+            border-radius: var(--radius-md);
+            padding: 0.5rem 1rem;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            color: var(--primary-color);
+            background: rgba(102, 126, 234, 0.1);
+            transform: translateY(-1px);
+        }
+
+        /* Hero Section */
+        .hero-section {
+            background: var(--bg-primary);
+            border-radius: var(--radius-2xl);
+            padding: 2.5rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow-lg);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--primary-gradient);
+            opacity: 0.02;
+            border-radius: var(--radius-2xl);
+        }
+
+        .hero-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+            font-size: 2.5rem;
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+
+        .hero-subtitle {
+            color: var(--text-secondary);
+            font-size: 1.125rem;
+            font-weight: 500;
+        }
+
+        /* Modern Stats Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stats-card {
+            background: var(--bg-primary);
+            border-radius: var(--radius-xl);
+            padding: 2rem;
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--border-light);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .stats-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-xl);
+        }
+
+        .stats-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--primary-gradient);
+        }
+
+        .stats-card.secondary::before {
+            background: var(--secondary-gradient);
+        }
+
+        .stats-card.success::before {
+            background: var(--success-gradient);
+        }
+
+        .stats-card.warning::before {
+            background: var(--warning-gradient);
+        }
+
+        .stats-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: var(--radius-lg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+            color: white;
+        }
+
+        .stats-icon.primary {
+            background: var(--primary-gradient);
+        }
+
+        .stats-icon.secondary {
+            background: var(--secondary-gradient);
+        }
+
+        .stats-icon.success {
+            background: var(--success-gradient);
+        }
+
+        .stats-icon.warning {
+            background: var(--warning-gradient);
+        }
+
+        .stats-value {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--text-primary) !important;
+            margin-bottom: 0.5rem;
+            line-height: 1;
+        }
+
+        .stats-label {
+            color: var(--text-secondary) !important;
+            font-weight: 600;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .stats-change {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            margin-top: 0.75rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .stats-change.positive {
+            color: var(--success-color);
+        }
+
+        .stats-change.negative {
+            color: var(--danger-color);
+        }
+
+        /* Modern Cards */
+        .modern-card {
+            background: var(--bg-primary);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--border-light);
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .modern-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .card-header {
+            padding: 1.5rem 2rem 1rem;
+            border-bottom: 1px solid var(--border-light);
+            background: var(--bg-secondary);
+        }
+
+        .card-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 600;
+            font-size: 1.25rem;
+            color: var(--text-primary);
+            margin: 0;
+        }
+
+        .card-body {
+            padding: 1.5rem 2rem;
+        }
+
+        /* Campaign Cards */
+        .campaign-card {
+            background: var(--bg-primary);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--border-light);
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .campaign-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .campaign-header {
+            padding: 1.5rem 2rem;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-light);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .campaign-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 600;
+            font-size: 1.25rem;
+            color: var(--text-primary);
+            margin: 0;
+        }
+
+        .campaign-meta {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin-top: 0.25rem;
+        }
+
+        /* Sequence Steps */
+        .sequence-step {
+            background: var(--bg-secondary);
+            border-radius: var(--radius-lg);
+            margin: 1rem 2rem;
+            border: 1px solid var(--border-light);
+            transition: all 0.3s ease;
+        }
+
+        .sequence-step:hover {
+            box-shadow: var(--shadow-sm);
+            transform: translateY(-1px);
+        }
+
+        .sequence-step-header {
+            padding: 1.25rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .sequence-step-name {
+            font-weight: 600;
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .sequence-metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 1rem;
+            padding: 1rem 1.5rem;
+            border-top: 1px solid var(--border-light);
+            background: var(--bg-primary);
+        }
+
+        .metric-box {
+            text-align: center;
+            padding: 1rem;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-light);
+            transition: all 0.3s ease;
+        }
+
+        .metric-box:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .metric-value {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 0.25rem;
+        }
+
+        .metric-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 600;
+        }
+
+        /* Timeline */
+        .timeline-container {
+            max-height: 500px;
+            overflow-y: auto;
+            padding-right: 0.5rem;
+        }
+
+        .timeline-container::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .timeline-container::-webkit-scrollbar-track {
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-full);
+        }
+
+        .timeline-container::-webkit-scrollbar-thumb {
+            background: var(--primary-color);
+            border-radius: var(--radius-full);
+        }
+
+        .timeline-item {
+            background: var(--bg-primary);
+            border-radius: var(--radius-lg);
+            padding: 1rem 1.25rem;
+            margin-bottom: 0.75rem;
+            border: 1px solid var(--border-light);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .timeline-item:hover {
+            transform: translateX(4px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            border-radius: var(--radius-full);
+        }
+
+        .timeline-item.sent::before {
+            background: var(--info-color);
+        }
+
+        .timeline-item.opened::before {
+            background: var(--success-color);
+        }
+
+        .timeline-item.clicked::before {
+            background: var(--warning-color);
+        }
+
+        .timeline-item.replied::before {
+            background: var(--primary-color);
+        }
+
+        .timeline-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius-full);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+
+        .timeline-icon.sent {
+            background: linear-gradient(135deg, var(--info-color) 0%, #60a5fa 100%);
+        }
+
+        .timeline-icon.opened {
+            background: linear-gradient(135deg, var(--success-color) 0%, #34d399 100%);
+        }
+
+        .timeline-icon.clicked {
+            background: linear-gradient(135deg, var(--warning-color) 0%, #fbbf24 100%);
+        }
+
+        .timeline-icon.replied {
+            background: linear-gradient(135deg, var(--primary-color) 0%, #8b5cf6 100%);
+        }
+
+        .timeline-content h6 {
+            margin: 0 0 0.25rem 0;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .timeline-content small {
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        /* Buttons */
+        .btn-modern {
+            border-radius: var(--radius-md);
+            font-weight: 500;
+            padding: 0.625rem 1.25rem;
+            transition: all 0.3s ease;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary-modern {
+            background: var(--primary-gradient);
+            color: white;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .btn-primary-modern:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+            color: white;
+        }
+
+        .btn-outline-modern {
+            background: transparent;
+            border: 2px solid var(--primary-color);
+            color: var(--primary-color);
+        }
+
+        .btn-outline-modern:hover {
+            background: var(--primary-color);
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        /* Badges */
+        .badge-modern {
+            padding: 0.375rem 0.75rem;
+            border-radius: var(--radius-full);
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .badge-primary {
+            background: rgba(102, 126, 234, 0.1);
+            color: var(--primary-color);
+        }
+
+        .badge-success {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success-color);
+        }
+
+        .badge-warning {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--warning-color);
+        }
+
+        .badge-danger {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger-color);
+        }
+
+        /* Text Visibility Overrides - Fix Bootstrap conflicts */
+        .stats-card .stats-value,
+        .stats-card .stats-label,
+        .stats-card .stats-change,
+        .modern-card .card-title,
+        .modern-card .card-body,
+        .modern-card .metric-value,
+        .modern-card .metric-label,
+        .timeline-content h6,
+        .timeline-content small,
+        .campaign-title,
+        .campaign-meta,
+        .sequence-step .metric-value,
+        .sequence-step .metric-label {
+            color: var(--text-primary) !important;
+        }
+
+        .stats-label,
+        .metric-label,
+        .timeline-content small,
+        .campaign-meta {
+            color: var(--text-secondary) !important;
+        }
+
+        /* Ensure no Bootstrap overrides */
+        .stats-card,
+        .modern-card,
+        .timeline-item,
+        .sequence-step {
+            color: var(--text-primary) !important;
+        }
+
+        /* Chart Container */
+        .chart-container {
+            position: relative;
+            height: 320px;
+            padding: 1rem;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .hero-title {
+                font-size: 2rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .sequence-metrics {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .campaign-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+        }
+
+        /* Loading States */
+        .loading-shimmer {
+            background: linear-gradient(
+                90deg,
+                var(--bg-tertiary) 25%,
+                var(--bg-secondary) 50%,
+                var(--bg-tertiary) 75%
+            );
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+
+        @keyframes shimmer {
+            0% {
+                background-position: -200% 0;
+            }
+            100% {
+                background-position: 200% 0;
+            }
+        }
+
+        /* Animations */
+        .fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Modern Navigation -->
+    <nav class="navbar navbar-expand-lg modern-navbar">
+        <div class="container-fluid px-4">
+            <a class="navbar-brand" href="/dashboard">
+                <i class="fas fa-chart-line me-2"></i>SalesBreachPro
+            </a>
+
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/dashboard">
+                    <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                </a>
+                <a class="nav-link active" href="/sequence-analytics">
+                    <i class="fas fa-envelope-open-text me-2"></i>Sequence Analytics
+                </a>
+                <a class="nav-link" href="/campaigns">
+                    <i class="fas fa-bullhorn me-2"></i>Campaigns
+                </a>
+                <a class="nav-link" href="/contacts">
+                    <i class="fas fa-users me-2"></i>Contacts
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container-fluid px-4 py-4">
+        <!-- Hero Section -->
+        <div class="hero-section fade-in">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="hero-title">Email Sequence Analytics</h1>
+                    <p class="hero-subtitle">Complete visibility into every email in your workflow with real-time engagement tracking</p>
+                </div>
+                <div class="d-flex gap-3">
+                    <button class="btn btn-outline-modern" onclick="refreshData()">
+                        <i class="fas fa-sync-alt"></i>Refresh Data
+                    </button>
+                    <span id="lastUpdated" class="text-muted small align-self-center"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="stats-grid fade-in">
+            <div class="stats-card">
+                <div class="stats-icon primary">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="stats-value">{{ stats.overview.total_contacts or 0 }}</div>
+                <div class="stats-label">Total Contacts</div>
+                <div class="stats-change positive">
+                    <i class="fas fa-arrow-up"></i>
+                    +12% this month
+                </div>
+            </div>
+
+            <div class="stats-card secondary">
+                <div class="stats-icon secondary">
+                    <i class="fas fa-paper-plane"></i>
+                </div>
+                <div class="stats-value">{{ stats.overview.sent_emails or 0 }}</div>
+                <div class="stats-label">Emails Sent</div>
+                <div class="stats-change positive">
+                    <i class="fas fa-arrow-up"></i>
+                    +8% this week
+                </div>
+            </div>
+
+            <div class="stats-card success">
+                <div class="stats-icon success">
+                    <i class="fas fa-envelope-open"></i>
+                </div>
+                <div class="stats-value">{{ stats.engagement.open_rate or 0 }}%</div>
+                <div class="stats-label">Open Rate</div>
+                <div class="stats-change positive">
+                    <i class="fas fa-arrow-up"></i>
+                    +3.2% vs average
+                </div>
+            </div>
+
+            <div class="stats-card warning">
+                <div class="stats-icon warning">
+                    <i class="fas fa-reply"></i>
+                </div>
+                <div class="stats-value">{{ stats.engagement.reply_rate or 0 }}%</div>
+                <div class="stats-label">Reply Rate</div>
+                <div class="stats-change positive">
+                    <i class="fas fa-arrow-up"></i>
+                    +1.8% vs last month
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Campaign Performance -->
+            <div class="col-lg-8">
+                <div class="modern-card fade-in">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-bullhorn me-2 text-primary"></i>
+                            Campaign Performance by Sequence
+                        </h3>
+                    </div>
+                    <div class="card-body">
+                        {% if campaigns %}
+                            {% for campaign in campaigns %}
+                            <div class="campaign-card">
+                                <div class="campaign-header">
+                                    <div>
+                                        <h4 class="campaign-title">{{ campaign.name }}</h4>
+                                        <div class="campaign-meta">
+                                            <i class="fas fa-users me-1"></i>{{ campaign.total_contacts }} contacts
+                                            <i class="fas fa-envelope ms-3 me-1"></i>{{ campaign.total_emails }} emails
+                                            <i class="fas fa-calendar ms-3 me-1"></i>{{ campaign.created_at[:10] if campaign.created_at }}
+                                        </div>
+                                    </div>
+                                    <button class="btn btn-outline-modern btn-sm" onclick="viewCampaignDetails({{ campaign.id }})">
+                                        <i class="fas fa-eye"></i>View Details
+                                    </button>
+                                </div>
+
+                                {% for step in campaign.sequence_metrics %}
+                                <div class="sequence-step">
+                                    <div class="sequence-step-header" onclick="toggleSequenceDetails({{ loop.index0 }})">
+                                        <div class="sequence-step-name">
+                                            <i class="fas fa-envelope"></i>
+                                            <span>{{ step.name }}</span>
+                                            <span class="badge-modern badge-primary ms-2">{{ step.sent }} sent</span>
+                                        </div>
+                                        <i class="fas fa-chevron-down transition-all" id="chevron-{{ loop.index0 }}"></i>
+                                    </div>
+
+                                    <div class="sequence-metrics" id="metrics-{{ loop.index0 }}">
+                                        <div class="metric-box">
+                                            <div class="metric-value">{{ step.delivery_rate }}%</div>
+                                            <div class="metric-label">Delivered</div>
+                                        </div>
+                                        <div class="metric-box">
+                                            <div class="metric-value text-success">{{ step.open_rate }}%</div>
+                                            <div class="metric-label">Opened</div>
+                                        </div>
+                                        <div class="metric-box">
+                                            <div class="metric-value text-warning">{{ step.click_rate }}%</div>
+                                            <div class="metric-label">Clicked</div>
+                                        </div>
+                                        <div class="metric-box">
+                                            <div class="metric-value text-info">{{ step.reply_rate }}%</div>
+                                            <div class="metric-label">Replied</div>
+                                        </div>
+                                    </div>
+
+                                    {% if step.emails %}
+                                    <div class="email-list" id="emails-{{ loop.index0 }}" style="display: none;">
+                                        <div class="table-responsive p-3">
+                                            <table class="table table-hover">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Contact</th>
+                                                        <th>Subject</th>
+                                                        <th>Status</th>
+                                                        <th>Engagement</th>
+                                                        <th>Actions</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for email in step.emails[:10] %}
+                                                    <tr>
+                                                        <td>
+                                                            <small class="text-primary" style="cursor: pointer;"
+                                                                   onclick="viewContactDetails({{ email.contact_id }})">
+                                                                Contact #{{ email.contact_id }}
+                                                            </small>
+                                                        </td>
+                                                        <td>
+                                                            <small title="{{ email.subject }}">
+                                                                {{ email.subject[:40] }}{% if email.subject|length > 40 %}...{% endif %}
+                                                            </small>
+                                                        </td>
+                                                        <td>
+                                                            <span class="badge-modern
+                                                                {% if email.status == 'clicked' %}badge-warning
+                                                                {% elif email.status == 'opened' %}badge-success
+                                                                {% elif email.status == 'delivered' %}badge-primary
+                                                                {% else %}badge-secondary{% endif %}">
+                                                                {{ email.status.title() }}
+                                                            </span>
+                                                        </td>
+                                                        <td>
+                                                            <div class="d-flex gap-2">
+                                                                {% if email.delivered %}
+                                                                <i class="fas fa-check-circle text-info" title="Delivered"></i>
+                                                                {% endif %}
+                                                                {% if email.opened %}
+                                                                <i class="fas fa-envelope-open text-success" title="Opened"></i>
+                                                                {% endif %}
+                                                                {% if email.clicked %}
+                                                                <i class="fas fa-mouse-pointer text-warning" title="Clicked"></i>
+                                                                {% endif %}
+                                                                {% if email.replied %}
+                                                                <i class="fas fa-reply text-primary" title="Replied"></i>
+                                                                {% endif %}
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            <button class="btn btn-outline-modern btn-sm"
+                                                                    onclick="viewEmailDetails({{ email.id }})">
+                                                                <i class="fas fa-eye"></i>
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="text-center py-5">
+                                <div class="mb-4">
+                                    <i class="fas fa-inbox fa-4x text-muted"></i>
+                                </div>
+                                <h4 class="text-muted mb-3">No Campaigns Found</h4>
+                                <p class="text-muted mb-4">Create your first campaign to start tracking email sequences.</p>
+                                <a href="/campaigns/new" class="btn btn-primary-modern">
+                                    <i class="fas fa-plus"></i>Create Your First Campaign
+                                </a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="col-lg-4">
+                <!-- Recent Activity -->
+                <div class="modern-card fade-in mb-4">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-clock me-2 text-info"></i>
+                            Recent Activity
+                        </h3>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="timeline-container p-3">
+                            {% if engagement_timeline %}
+                                {% for event in engagement_timeline[:10] %}
+                                <div class="timeline-item {{ event.type }} fade-in">
+                                    <div class="timeline-icon {{ event.type }}">
+                                        {% if event.type == 'sent' %}
+                                            <i class="fas fa-paper-plane"></i>
+                                        {% elif event.type == 'opened' %}
+                                            <i class="fas fa-envelope-open"></i>
+                                        {% elif event.type == 'clicked' %}
+                                            <i class="fas fa-mouse-pointer"></i>
+                                        {% elif event.type == 'replied' %}
+                                            <i class="fas fa-reply"></i>
+                                        {% endif %}
+                                    </div>
+                                    <div class="timeline-content flex-grow-1">
+                                        <h6>{{ event.description }}</h6>
+                                        <small>
+                                            <i class="fas fa-tag me-1"></i>{{ event.sequence_step }}
+                                            <i class="fas fa-clock ms-2 me-1"></i>{{ event.timestamp.strftime('%b %d, %I:%M %p') }}
+                                        </small>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="text-center py-4">
+                                    <i class="fas fa-history fa-2x text-muted mb-3"></i>
+                                    <h6 class="text-muted">No Recent Activity</h6>
+                                    <p class="text-muted small">Email engagement events will appear here</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Performance Chart -->
+                {% if sequence_performance %}
+                <div class="modern-card fade-in mb-4">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-chart-bar me-2 text-warning"></i>
+                            Sequence Performance
+                        </h3>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="chart-container">
+                            <canvas id="sequenceChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Quick Stats -->
+                <div class="modern-card fade-in">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-tachometer-alt me-2 text-success"></i>
+                            Quick Metrics
+                        </h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-6 mb-3">
+                                <div class="metric-value text-success">{{ stats.engagement.opened_emails or 0 }}</div>
+                                <div class="metric-label">Total Opens</div>
+                            </div>
+                            <div class="col-6 mb-3">
+                                <div class="metric-value text-warning">{{ stats.engagement.clicked_emails or 0 }}</div>
+                                <div class="metric-label">Total Clicks</div>
+                            </div>
+                            <div class="col-6">
+                                <div class="metric-value text-info">{{ stats.recent_activity.sent_week or 0 }}</div>
+                                <div class="metric-label">Sent This Week</div>
+                            </div>
+                            <div class="col-6">
+                                <div class="metric-value text-primary">{{ stats.recent_activity.replied_week or 0 }}</div>
+                                <div class="metric-label">Replies This Week</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeCharts();
+            updateLastUpdated();
+            animateCounters();
+        });
+
+        function initializeCharts() {
+            {% if sequence_performance %}
+            const ctx = document.getElementById('sequenceChart').getContext('2d');
+
+            // Modern chart configuration
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: [{% for step in sequence_performance %}'{{ step.name }}'{% if not loop.last %},{% endif %}{% endfor %}],
+                    datasets: [{
+                        label: 'Open Rate %',
+                        data: [{% for step in sequence_performance %}{{ step.open_rate }}{% if not loop.last %},{% endif %}{% endfor %}],
+                        backgroundColor: 'rgba(16, 185, 129, 0.8)',
+                        borderColor: 'rgb(16, 185, 129)',
+                        borderWidth: 2,
+                        borderRadius: 8,
+                        borderSkipped: false,
+                    }, {
+                        label: 'Click Rate %',
+                        data: [{% for step in sequence_performance %}{{ step.click_rate }}{% if not loop.last %},{% endif %}{% endfor %}],
+                        backgroundColor: 'rgba(245, 158, 11, 0.8)',
+                        borderColor: 'rgb(245, 158, 11)',
+                        borderWidth: 2,
+                        borderRadius: 8,
+                        borderSkipped: false,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 20,
+                                font: {
+                                    family: 'Inter',
+                                    size: 12,
+                                    weight: '500'
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            grid: {
+                                color: 'rgba(226, 232, 240, 0.8)'
+                            },
+                            ticks: {
+                                font: {
+                                    family: 'Inter',
+                                    size: 11
+                                }
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                font: {
+                                    family: 'Inter',
+                                    size: 11
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            {% endif %}
+        }
+
+        function toggleSequenceDetails(index) {
+            const metrics = document.getElementById(`metrics-${index}`);
+            const emails = document.getElementById(`emails-${index}`);
+            const chevron = document.getElementById(`chevron-${index}`);
+
+            const isVisible = metrics.style.display !== 'none';
+
+            if (isVisible) {
+                metrics.style.display = 'none';
+                if (emails) emails.style.display = 'none';
+                chevron.style.transform = 'rotate(0deg)';
+            } else {
+                metrics.style.display = 'grid';
+                if (emails) emails.style.display = 'block';
+                chevron.style.transform = 'rotate(180deg)';
+            }
+        }
+
+        function viewCampaignDetails(campaignId) {
+            window.location.href = `/campaigns/${campaignId}`;
+        }
+
+        function viewContactDetails(contactId) {
+            window.location.href = `/contacts/${contactId}`;
+        }
+
+        function viewEmailDetails(emailId) {
+            // Implementation for viewing email details modal
+            console.log('View email details:', emailId);
+        }
+
+        function refreshData() {
+            const refreshBtn = document.querySelector('button[onclick="refreshData()"]');
+            const originalText = refreshBtn.innerHTML;
+            refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>Refreshing...';
+            refreshBtn.disabled = true;
+
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        }
+
+        function updateLastUpdated() {
+            {% if stats.updated_at %}
+            document.getElementById('lastUpdated').textContent = 'Updated: {{ stats.updated_at }}';
+            {% endif %}
+        }
+
+        function animateCounters() {
+            // Animate counter numbers on load
+            const counters = document.querySelectorAll('.stats-value');
+            counters.forEach(counter => {
+                const target = parseInt(counter.textContent.replace(/[^0-9]/g, ''));
+                if (target && target > 0) {
+                    let current = 0;
+                    const increment = target / 30;
+                    const timer = setInterval(() => {
+                        current += increment;
+                        if (current >= target) {
+                            counter.textContent = counter.textContent.replace(/[0-9]+/, target);
+                            clearInterval(timer);
+                        } else {
+                            counter.textContent = counter.textContent.replace(/[0-9]+/, Math.floor(current));
+                        }
+                    }, 50);
+                }
+            });
+        }
+
+        // Auto-refresh functionality
+        setInterval(() => {
+            fetch('/api/realtime-stats')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.updated_at) {
+                        document.getElementById('lastUpdated').textContent = `Updated: ${data.updated_at}`;
+                    }
+                })
+                .catch(error => console.log('Auto-refresh failed:', error));
+        }, 300000); // 5 minutes
+
+        // Add smooth scrolling
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+    </script>
+</body>
+</html>

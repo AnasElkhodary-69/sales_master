@@ -1,0 +1,376 @@
+{% extends "base.html" %}
+
+{% block title %}Email Template Management - SalesBreachPro{% endblock %}
+
+{% block extra_css %}
+<style>
+.template-card {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    transition: all 0.2s;
+}
+
+.template-card:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+}
+
+.template-type-badge {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.template-type-breached {
+    background: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeaa7;
+}
+
+.template-type-proactive {
+    background: #d1ecf1;
+    color: #0c5460;
+    border: 1px solid #bee5eb;
+}
+
+.template-type-unknown {
+    background: #e2e3e5;
+    color: #495057;
+    border: 1px solid #ced4da;
+}
+
+.template-preview {
+    background: #f8f9fa;
+    border-radius: 6px;
+    padding: 15px;
+    margin: 15px 0;
+    max-height: 120px;
+    overflow: hidden;
+    position: relative;
+}
+
+.template-preview::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 30px;
+    width: 100%;
+    background: linear-gradient(transparent, #f8f9fa);
+}
+
+.template-subject {
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+.template-body {
+    font-size: 13px;
+    color: #6c757d;
+    line-height: 1.4;
+}
+
+.template-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 15px;
+}
+
+.btn-xs {
+    padding: 2px 8px;
+    font-size: 11px;
+    border-radius: 4px;
+}
+
+.template-variables {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 10px 0;
+}
+
+.variable-tag {
+    background: #e9ecef;
+    color: #495057;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-family: monospace;
+}
+
+.template-stats {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    background: #f8f9fa;
+    border-top: 1px solid #e9ecef;
+    border-radius: 0 0 8px 8px;
+    font-size: 12px;
+    color: #6c757d;
+}
+
+.section-header {
+    display: flex;
+    justify-content: between;
+    align-items: center;
+    margin: 30px 0 20px 0;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #e9ecef;
+}
+
+.template-count {
+    background: #007bff;
+    color: white;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2><i class="fas fa-envelope"></i> Email Template Management</h2>
+                    <p class="text-muted">Create and manage email templates with dynamic variables</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('sequences.new_template') }}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> New Template
+                    </a>
+                    <a href="{{ url_for('sequences.sequence_configs') }}" class="btn btn-secondary">
+                        <i class="fas fa-sitemap"></i> Back to Sequences
+                    </a>
+                </div>
+            </div>
+
+            <!-- Templates by Type -->
+            {% if templates_by_type %}
+                {% for template_type, templates in templates_by_type.items() %}
+                <div class="section-header">
+                    <h4>
+                        {% if template_type == 'breached' %}
+                            <i class="fas fa-exclamation-triangle text-warning"></i> Breach Response Templates
+                        {% elif template_type == 'proactive' %}
+                            <i class="fas fa-shield-alt text-info"></i> Proactive Security Templates
+                        {% else %}
+                            <i class="fas fa-envelope text-secondary"></i> {{ template_type.title() }} Templates
+                        {% endif %}
+                    </h4>
+                    <span class="template-count">{{ templates|length }}</span>
+                </div>
+
+                <div class="row">
+                    {% for template in templates %}
+                    <div class="col-lg-6 col-xl-4">
+                        <div class="template-card">
+                            <div class="p-3" style="position: relative;">
+                                <span class="template-type-badge template-type-{{ template_type }}">
+                                    {{ template_type }}
+                                </span>
+                                
+                                <h5 class="mb-2 pr-4">{{ template.name }}</h5>
+                                
+                                <!-- Template Preview -->
+                                <div class="template-preview">
+                                    <div class="template-subject">{{ template.subject_line }}</div>
+                                    <div class="template-body">
+                                        {{ (template.email_body_html or template.email_body or 'No content')[:200] }}
+                                        {% if (template.email_body_html or template.email_body or '')|length > 200 %}...{% endif %}
+                                    </div>
+                                </div>
+
+                                <!-- Template Variables -->
+                                <div class="template-variables">
+                                    {% set variables = [] %}
+                                    {% set content = (template.subject_line + ' ' + (template.email_body_html or template.email_body or '')) %}
+                                    {% for var in ['{{name}}', '{{first_name}}', '{{last_name}}', '{{company}}', '{{email}}', '{{industry}}', '{{title}}'] %}
+                                        {% if var in content %}
+                                            {% set _ = variables.append(var) %}
+                                        {% endif %}
+                                    {% endfor %}
+                                    
+                                    {% for variable in variables %}
+                                    <span class="variable-tag">{{ variable }}</span>
+                                    {% endfor %}
+                                    
+                                    {% if not variables %}
+                                    <span class="variable-tag" style="background: #f8d7da; color: #721c24;">
+                                        No variables
+                                    </span>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Actions -->
+                                <div class="template-actions">
+                                    <a href="{{ url_for('sequences.preview_template', template_id=template.id) }}" 
+                                       class="btn btn-outline-primary btn-xs">
+                                        <i class="fas fa-eye"></i> Preview
+                                    </a>
+                                    <a href="{{ url_for('sequences.edit_template', template_id=template.id) }}" 
+                                       class="btn btn-outline-secondary btn-xs">
+                                        <i class="fas fa-edit"></i> Edit
+                                    </a>
+                                    <button class="btn btn-outline-info btn-xs" 
+                                            onclick="copyTemplate({{ template.id }})">
+                                        <i class="fas fa-copy"></i> Copy
+                                    </button>
+                                    <button class="btn btn-outline-danger btn-xs" 
+                                            onclick="deleteTemplate({{ template.id }})">
+                                        <i class="fas fa-trash"></i> Delete
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Stats Footer -->
+                            <div class="template-stats">
+                                <span>Created: {{ template.created_at.strftime('%m/%d/%Y') if template.created_at else 'Unknown' }}</span>
+                                <span>
+                                    {% if template.active %}
+                                        <i class="fas fa-check-circle text-success"></i> Active
+                                    {% else %}
+                                        <i class="fas fa-pause-circle text-warning"></i> Inactive
+                                    {% endif %}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+            {% else %}
+                <!-- Empty State -->
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-body text-center py-5">
+                                <i class="fas fa-envelope fa-3x text-muted mb-3"></i>
+                                <h4>No Email Templates Found</h4>
+                                <p class="text-muted mb-4">
+                                    Create your first email template to start building automated sequences with dynamic content.
+                                </p>
+                                <a href="{{ url_for('sequences.new_template') }}" class="btn btn-primary">
+                                    <i class="fas fa-plus"></i> Create First Template
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Quick Template Variables Reference -->
+<div class="modal fade" id="variablesModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Template Variables Reference</h5>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Use these variables in your templates to personalize emails:</p>
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Variable</th>
+                            <th>Description</th>
+                            <th>Example</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>{{name}}</code></td>
+                            <td>First name</td>
+                            <td>John</td>
+                        </tr>
+                        <tr>
+                            <td><code>{{first_name}}</code></td>
+                            <td>First name</td>
+                            <td>John</td>
+                        </tr>
+                        <tr>
+                            <td><code>{{last_name}}</code></td>
+                            <td>Last name</td>
+                            <td>Smith</td>
+                        </tr>
+                        <tr>
+                            <td><code>{{company}}</code></td>
+                            <td>Company name</td>
+                            <td>Acme Corp</td>
+                        </tr>
+                        <tr>
+                            <td><code>{{email}}</code></td>
+                            <td>Email address</td>
+                            <td>john@acme.com</td>
+                        </tr>
+                        <tr>
+                            <td><code>{{industry}}</code></td>
+                            <td>Industry</td>
+                            <td>Healthcare</td>
+                        </tr>
+                        <tr>
+                            <td><code>{{title}}</code></td>
+                            <td>Job title</td>
+                            <td>IT Director</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function copyTemplate(templateId) {
+    if (confirm('Create a copy of this template?')) {
+        // For now, just redirect to edit with a copy flag
+        // Could be enhanced to actual duplication
+        alert('Copy feature coming soon! For now, use Edit to create variations.');
+    }
+}
+
+function deleteTemplate(templateId) {
+    if (!confirm('Are you sure you want to delete this template? This action cannot be undone.')) {
+        return;
+    }
+    
+    // Would implement actual delete functionality
+    alert('Delete functionality coming soon! Templates can be deactivated in the edit form.');
+}
+
+// Show variables modal if user needs help
+document.addEventListener('DOMContentLoaded', function() {
+    // Could add a floating help button
+    const helpHtml = `
+        <div class="floating-help" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000;">
+            <button class="btn btn-info btn-sm" onclick="$('#variablesModal').modal('show')">
+                <i class="fas fa-question-circle"></i> Variables Help
+            </button>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', helpHtml);
+});
+</script>
+{% endblock %}

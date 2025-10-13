@@ -1,0 +1,402 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Edit' if template else 'Create' }} Template - SalesBreachPro{% endblock %}
+
+{% block extra_head %}
+<!-- Quill Editor CSS -->
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+<style>
+    .variable-tag {
+        background-color: #e3f2fd;
+        color: #1976d2;
+        padding: 2px 6px;
+        border-radius: 12px;
+        font-size: 0.85rem;
+        cursor: pointer;
+        display: inline-block;
+        margin: 2px;
+        border: 1px solid #bbdefb;
+    }
+    
+    .variable-tag:hover {
+        background-color: #bbdefb;
+    }
+    
+    .variables-panel {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    
+    .preview-pane {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        padding: 1rem;
+        min-height: 200px;
+    }
+    
+    #email-editor {
+        min-height: 300px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2>
+                        <i class="fas fa-{{ 'edit' if template else 'plus' }} me-2"></i>
+                        {{ 'Edit' if template else 'Create' }} Email Template
+                    </h2>
+                    <p class="text-muted mb-0">
+                        {{ 'Modify existing template' if template else 'Create a new email template for your campaigns' }}
+                    </p>
+                </div>
+                <div>
+                    <a href="{{ url_for('templates.templates') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-1"></i>Back to Templates
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <form method="POST" id="template-form">
+        <div class="row">
+            <!-- Main Editor -->
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-edit me-2"></i>Template Content</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Basic Info -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="name" class="form-label">Template Name *</label>
+                                <input type="text" class="form-control" id="name" name="name" 
+                                       value="{{ template.name if template else '' }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="template_type" class="form-label">Template Type *</label>
+                                <select class="form-select" id="template_type" name="template_type" required>
+                                    <option value="initial" {{ 'selected' if template and template.template_type == 'initial' else '' }}>Initial Email</option>
+                                    <option value="follow_up" {{ 'selected' if template and template.template_type == 'follow_up' else '' }}>Follow-up Email</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="breach_status" class="form-label">Target Audience *</label>
+                                <select class="form-select" id="breach_status" name="breach_status" required>
+                                    <option value="breached" {{ 'selected' if template and template.risk_level == 'breached' else '' }}>🔴 Breached Companies</option>
+                                    <option value="not_breached" {{ 'selected' if template and template.risk_level == 'not_breached' else '' }}>🟢 Not Breached Companies</option>
+                                    <option value="unknown" {{ 'selected' if template and template.risk_level == 'unknown' else '' }}>⚪ Unknown Status</option>
+                                    <option value="all" {{ 'selected' if template and template.risk_level == 'all' else '' }}>📧 All Companies</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Calculated Delay</label>
+                                <div class="form-control-plaintext" id="delay_preview">
+                                    <span class="text-muted">Enter delay settings below</span>
+                                </div>
+                                <small class="text-muted">This shows how long after enrollment the email will be sent</small>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-3">
+                                <label for="sequence_order" class="form-label">Sequence Order</label>
+                                <input type="number" class="form-control" id="sequence_order" name="sequence_order" 
+                                       value="{{ (template.sequence_step + 1) if template and template.sequence_step is not none else '1' }}" min="1" max="10">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="delay_unit" class="form-label">Delay Unit</label>
+                                <select class="form-select" id="delay_unit" name="delay_unit">
+                                    <option value="minutes" {{ 'selected' if template and template.delay_unit == 'minutes' else '' }}>Minutes</option>
+                                    <option value="hours" {{ 'selected' if template and template.delay_unit == 'hours' else '' }}>Hours</option>
+                                    <option value="days" {{ 'selected' if template and template.delay_unit == 'days' else ('selected' if not template else '') }}>Days</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="delay_amount" class="form-label">Delay Amount</label>
+                                <input type="number" class="form-control" id="delay_amount" name="delay_amount" 
+                                       value="{{ template.delay_amount if template else '0' }}" min="0" max="999"
+                                       placeholder="Enter delay amount (e.g., 15, 30, 2)">
+                            </div>
+                        </div>
+
+                        <!-- Subject Line -->
+                        <div class="mb-3">
+                            <label for="subject_line" class="form-label">Subject Line *</label>
+                            <input type="text" class="form-control" id="subject_line" name="subject_line" 
+                                   value="{{ template.subject_line if template else '' }}" required 
+                                   placeholder="Enter email subject line...">
+                            <div class="form-text">Use variables like {first_name} or {company} for personalization</div>
+                        </div>
+
+                        <!-- Email Body -->
+                        <div class="mb-3">
+                            <label class="form-label">Email Body *</label>
+                            <div id="email-editor"></div>
+                            <textarea id="email_body" name="email_body" style="display: none;">{{ template.email_body if template else '' }}</textarea>
+                        </div>
+
+                        <!-- HTML Body (Hidden) -->
+                        <textarea id="email_body_html" name="email_body_html" style="display: none;">{{ template.email_body_html if template else '' }}</textarea>
+                        
+                        <!-- Created By -->
+                        <div class="mb-3">
+                            <label for="created_by" class="form-label">Created By</label>
+                            <input type="text" class="form-control" id="created_by" name="created_by" 
+                                   value="{{ template.created_by if template else 'System' }}">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Preview Card -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-eye me-2"></i>Live Preview</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="preview-pane" id="preview-content">
+                            <p class="text-muted">Preview will appear as you type...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="col-lg-4">
+                <!-- Template Variables -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-tags me-2"></i>Template Variables</h5>
+                    </div>
+                    <div class="card-body variables-panel">
+                        <p class="text-muted mb-3">Click to insert variables into your template:</p>
+                        
+                        <h6 class="text-primary mb-2">Contact Information</h6>
+                        <div class="mb-3">
+                            <span class="variable-tag" data-variable="first_name">{first_name}</span>
+                            <span class="variable-tag" data-variable="last_name">{last_name}</span>
+                            <span class="variable-tag" data-variable="company">{company}</span>
+                            <span class="variable-tag" data-variable="domain">{domain}</span>
+                            <span class="variable-tag" data-variable="title">{title}</span>
+                            <span class="variable-tag" data-variable="industry">{industry}</span>
+                        </div>
+
+                        <h6 class="text-danger mb-2">Breach Information</h6>
+                        <div class="mb-3">
+                            <span class="variable-tag" data-variable="breach_name">{breach_name}</span>
+                            <span class="variable-tag" data-variable="breach_year">{breach_year}</span>
+                            <span class="variable-tag" data-variable="breach_date">{breach_date}</span>
+                            <span class="variable-tag" data-variable="records_affected">{records_affected}</span>
+                            <span class="variable-tag" data-variable="risk_score">{risk_score}</span>
+                            <span class="variable-tag" data-variable="severity">{severity}</span>
+                            <span class="variable-tag" data-variable="breach_sample">{breach_sample}</span>
+                        </div>
+
+                        <h6 class="text-info mb-2">Sample Values</h6>
+                        <small class="text-muted">
+                            • {first_name} → John<br>
+                            • {company} → Acme Corp<br>
+                            • {breach_name} → Acme Data Breach<br>
+                            • {records_affected} → 50,000<br>
+                            • {breach_sample} → Sample credentials list<br>
+                        </small>
+                    </div>
+                </div>
+
+                <!-- Template Settings -->
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-cog me-2"></i>Settings</h5>
+                    </div>
+                    <div class="card-body">
+                        {% if template %}
+                        <div class="mb-3">
+                            <small class="text-muted">
+                                <strong>Created:</strong> {{ template.created_at.strftime('%b %d, %Y at %I:%M %p') if template.created_at }}<br>
+                                <strong>Updated:</strong> {{ template.updated_at.strftime('%b %d, %Y at %I:%M %p') if template.updated_at }}<br>
+                                <strong>Usage Count:</strong> {{ template.usage_count }}<br>
+                                <strong>Success Rate:</strong> {{ template.success_rate }}%
+                            </small>
+                        </div>
+                        <hr>
+                        {% endif %}
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i>{{ 'Update' if template else 'Create' }} Template
+                            </button>
+                            {% if template %}
+                            <a href="{{ url_for('templates.preview_template', template_id=template.id) }}" class="btn btn-outline-info" target="_blank">
+                                <i class="fas fa-eye me-1"></i>Full Preview
+                            </a>
+                            {% endif %}
+                            <button type="button" class="btn btn-outline-secondary" onclick="clearForm()">
+                                <i class="fas fa-eraser me-1"></i>Clear Form
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Quill Editor JS -->
+<script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize Quill editor
+    const quill = new Quill('#email-editor', {
+        theme: 'snow',
+        modules: {
+            toolbar: [
+                ['bold', 'italic', 'underline'],
+                ['link'],
+                [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                [{ 'size': ['small', false, 'large'] }],
+                [{ 'color': [] }, { 'background': [] }],
+                ['clean']
+            ]
+        }
+    });
+    
+    // Sample data for preview
+    const sampleData = {
+        'first_name': 'John',
+        'last_name': 'Smith',
+        'company': 'Acme Corp',
+        'domain': 'acmecorp.com',
+        'title': 'IT Director',
+        'industry': 'Technology',
+        'breach_name': 'Acme Corp Data Breach',
+        'breach_year': '2023',
+        'breach_date': 'March 15, 2023',
+        'records_affected': '50,000',
+        'risk_score': '7.8',
+        'severity': 'High',
+        'breach_sample': 'Sample exposed credentials:\n• jo***h@acmecorp.com (LinkedIn)'
+    };
+    
+    // Update preview function
+    function updatePreview() {
+        let subject = document.getElementById('subject_line').value;
+        let body = quill.root.innerHTML; // Use HTML content instead of plain text
+        
+        // Replace variables with sample data
+        Object.keys(sampleData).forEach(key => {
+            const regex = new RegExp(`{${key}}`, 'g');
+            subject = subject.replace(regex, sampleData[key]);
+            body = body.replace(regex, sampleData[key]);
+        });
+        
+        const previewContent = document.getElementById('preview-content');
+        previewContent.innerHTML = `
+            <div class="mb-3">
+                <strong>Subject:</strong> ${subject || 'Enter subject line...'}
+            </div>
+            <div class="border-top pt-3">
+                ${body || 'Enter email body...'}
+            </div>
+        `;
+    }
+    
+    // Sync Quill content with hidden textarea
+    function syncContent() {
+        // Store the HTML content as the main email body (preserving formatting)
+        document.getElementById('email_body').value = quill.root.innerHTML;
+        document.getElementById('email_body_html').value = quill.root.innerHTML;
+        updatePreview();
+    }
+    
+    // Update delay preview function
+    function updateDelayPreview() {
+        const amount = parseInt(document.getElementById('delay_amount').value) || 0;
+        const unit = document.getElementById('delay_unit').value;
+        const previewElement = document.getElementById('delay_preview');
+        
+        if (amount === 0) {
+            previewElement.innerHTML = '<span class="text-success"><i class="fas fa-bolt me-1"></i>Immediate (sent right away)</span>';
+        } else if (amount === 1) {
+            previewElement.innerHTML = `<span class="text-info"><i class="fas fa-clock me-1"></i>Send after 1 ${unit.slice(0, -1)}</span>`;
+        } else {
+            previewElement.innerHTML = `<span class="text-info"><i class="fas fa-clock me-1"></i>Send after ${amount} ${unit}</span>`;
+        }
+    }
+
+    // Listen for content changes
+    quill.on('text-change', syncContent);
+    document.getElementById('subject_line').addEventListener('input', updatePreview);
+    document.getElementById('delay_amount').addEventListener('input', updateDelayPreview);
+    document.getElementById('delay_unit').addEventListener('change', updateDelayPreview);
+    
+    // Variable tag click handlers
+    document.querySelectorAll('.variable-tag').forEach(tag => {
+        tag.addEventListener('click', function() {
+            const variable = `{${this.dataset.variable}}`;
+            const selection = quill.getSelection();
+            if (selection) {
+                quill.insertText(selection.index, variable);
+            } else {
+                const length = quill.getLength();
+                quill.insertText(length - 1, variable);
+            }
+            quill.focus();
+            syncContent();
+        });
+    });
+    
+    // Form submission handler
+    document.getElementById('template-form').addEventListener('submit', function(e) {
+        syncContent();
+        
+        // Validate required fields - check if there's actual content (not just empty HTML tags)
+        const textContent = quill.getText().trim();
+        if (!textContent) {
+            e.preventDefault();
+            alert('Please enter email body content');
+            return false;
+        }
+    });
+    
+    // Initialize editor with existing content if editing a template
+    {% if template and template.email_body %}
+    // If we have HTML content, use it; otherwise use the plain text
+    const existingContent = {{ template.email_body_html|tojson if template.email_body_html else template.email_body|tojson }};
+    if (existingContent) {
+        // Check if content looks like HTML
+        if (existingContent.includes('<') && existingContent.includes('>')) {
+            quill.root.innerHTML = existingContent;
+        } else {
+            // Plain text content - convert line breaks to HTML
+            quill.root.innerHTML = existingContent.replace(/\n/g, '<br>');
+        }
+    }
+    {% endif %}
+    
+    // Initialize previews
+    updatePreview();
+    updateDelayPreview();
+});
+
+function clearForm() {
+    if (confirm('Are you sure you want to clear all form data?')) {
+        document.getElementById('template-form').reset();
+        quill.setText('');
+        document.getElementById('preview-content').innerHTML = '<p class="text-muted">Preview will appear as you type...</p>';
+    }
+}
+</script>
+{% endblock %}

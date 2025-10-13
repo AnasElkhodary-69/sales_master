@@ -1,0 +1,301 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - SalesBreachPro{% endblock %}
+
+{% block extra_head %}
+<style>
+    .api-status-card {
+        transition: all 0.3s ease;
+        border: none;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    }
+
+    .api-status-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+    }
+
+    .status-healthy {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+    }
+
+    .status-unhealthy {
+        background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);
+        color: white;
+    }
+
+    .status-loading {
+        background: linear-gradient(135deg, #6c757d 0%, #adb5bd 100%);
+        color: white;
+    }
+
+    .action-button {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        border: none;
+        border-radius: 12px;
+        padding: 20px;
+        min-height: 120px;
+    }
+
+    .action-button:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+
+    .breach-check-btn {
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+        color: white;
+    }
+
+    .manage-btn {
+        background: linear-gradient(135deg, #6f42c1 0%, #5a32a3 100%);
+        color: white;
+    }
+
+    .pulse-ring {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        width: 20px;
+        height: 20px;
+    }
+
+    .pulse-ring::before {
+        content: '';
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        border: 2px solid #28a745;
+        border-radius: 50%;
+        animation: pulse 2s ease-out infinite;
+    }
+
+    @keyframes pulse {
+        0% { transform: scale(1); opacity: 1; }
+        100% { transform: scale(2); opacity: 0; }
+    }
+
+    .main-container {
+        max-width: 900px;
+        margin: 0 auto;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <div class="main-container">
+        <!-- Header -->
+        <div class="row mb-5">
+            <div class="col-12 text-center">
+                <h1 class="display-5 fw-bold text-primary mb-2">SalesBreachPro</h1>
+                <p class="lead text-muted">Email Security & Breach Detection Platform</p>
+            </div>
+        </div>
+
+        <!-- FlawTrack API Status -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card api-status-card" id="flawtrack-status-card">
+                    <div class="card-body status-loading text-center p-4" id="status-body">
+                        <div class="position-relative">
+                            <div class="pulse-ring d-none" id="pulse-indicator"></div>
+                            <div class="d-flex align-items-center justify-content-center mb-3">
+                                <i class="fas fa-shield-alt fa-3x me-3" id="status-icon"></i>
+                                <div class="text-start">
+                                    <h3 class="mb-0" id="status-title">FlawTrack API</h3>
+                                    <p class="mb-0 h6" id="status-message">Loading status...</p>
+                                </div>
+                            </div>
+
+                            <div class="row text-center" id="status-details">
+                                <div class="col-md-4">
+                                    <div class="mb-2">
+                                        <i class="fas fa-clock me-1"></i>
+                                        <span class="fw-bold" id="response-time">--</span>
+                                    </div>
+                                    <small class="opacity-75">Response Time</small>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-2">
+                                        <i class="fas fa-check-circle me-1"></i>
+                                        <span class="fw-bold" id="availability">--%</span>
+                                    </div>
+                                    <small class="opacity-75">Uptime (24h)</small>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-2">
+                                        <i class="fas fa-code me-1"></i>
+                                        <span class="fw-bold" id="api-version">--</span>
+                                    </div>
+                                    <small class="opacity-75">API Version</small>
+                                </div>
+                            </div>
+
+                            <div class="mt-3">
+                                <button class="btn btn-light btn-sm me-2" onclick="refreshStatus()">
+                                    <i class="fas fa-sync me-1"></i>Refresh
+                                </button>
+                                <button class="btn btn-light btn-sm" onclick="testConnection()">
+                                    <i class="fas fa-flask me-1"></i>Test Connection
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <button class="action-button breach-check-btn w-100 text-decoration-none" onclick="openBreachChecker()">
+                    <div class="text-center">
+                        <i class="fas fa-search fa-3x mb-3"></i>
+                        <h4 class="fw-bold mb-2">Check Email/Domain</h4>
+                        <p class="mb-0">Search for breach data on any email address or domain</p>
+                    </div>
+                </button>
+            </div>
+            <div class="col-md-6 mb-3">
+                <button class="action-button manage-btn w-100 text-decoration-none" onclick="openManagement()">
+                    <div class="text-center">
+                        <i class="fas fa-cogs fa-3x mb-3"></i>
+                        <h4 class="fw-bold mb-2">Manage FlawTrack</h4>
+                        <p class="mb-0">Configure API settings and view comprehensive scan data</p>
+                    </div>
+                </button>
+            </div>
+        </div>
+
+        <!-- Quick Stats Footer -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card border-0 bg-light">
+                    <div class="card-body text-center py-3">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Powered by FlawTrack API v2.0 | Real-time breach detection and monitoring
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize status monitoring
+    refreshStatus();
+
+    // Auto-refresh every 5 minutes
+    setInterval(refreshStatus, 5 * 60 * 1000);
+});
+
+function refreshStatus() {
+    const statusBody = document.getElementById('status-body');
+    const statusIcon = document.getElementById('status-icon');
+    const statusTitle = document.getElementById('status-title');
+    const statusMessage = document.getElementById('status-message');
+    const responseTime = document.getElementById('response-time');
+    const availability = document.getElementById('availability');
+    const apiVersion = document.getElementById('api-version');
+    const pulseIndicator = document.getElementById('pulse-indicator');
+
+    // Show loading state
+    statusBody.className = 'card-body status-loading text-center p-4';
+    statusMessage.textContent = 'Checking status...';
+    statusIcon.className = 'fas fa-spinner fa-spin fa-3x me-3';
+
+    // Fetch status
+    fetch('/api/flawtrack/status?refresh=true')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.status) {
+                const status = data.status;
+
+                // Update UI based on health
+                if (status.healthy) {
+                    statusBody.className = 'card-body status-healthy text-center p-4';
+                    statusIcon.className = 'fas fa-shield-alt fa-3x me-3';
+                    statusMessage.textContent = status.message || 'API is running normally';
+                    pulseIndicator.classList.remove('d-none');
+                } else {
+                    statusBody.className = 'card-body status-unhealthy text-center p-4';
+                    statusIcon.className = 'fas fa-exclamation-triangle fa-3x me-3';
+                    statusMessage.textContent = status.message || 'API is experiencing issues';
+                    pulseIndicator.classList.add('d-none');
+                }
+
+                // Update details
+                responseTime.textContent = status.response_time_ms + 'ms';
+                apiVersion.textContent = status.api_version || 'v2.0';
+            } else {
+                // Error state
+                statusBody.className = 'card-body status-unhealthy text-center p-4';
+                statusIcon.className = 'fas fa-times-circle fa-3x me-3';
+                statusMessage.textContent = 'Unable to check API status';
+                pulseIndicator.classList.add('d-none');
+            }
+        })
+        .catch(error => {
+            console.error('Status check failed:', error);
+            statusBody.className = 'card-body status-unhealthy text-center p-4';
+            statusIcon.className = 'fas fa-times-circle fa-3x me-3';
+            statusMessage.textContent = 'Status check failed';
+            pulseIndicator.classList.add('d-none');
+        });
+
+    // Fetch availability stats
+    fetch('/api/flawtrack/availability-stats?hours=24')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.stats) {
+                availability.textContent = data.stats.availability_percentage + '%';
+            }
+        })
+        .catch(error => {
+            console.error('Availability check failed:', error);
+        });
+}
+
+function testConnection() {
+    const button = event.target;
+    const originalText = button.innerHTML;
+
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Testing...';
+    button.disabled = true;
+
+    fetch('/api/flawtrack/test-connection', { method: 'POST' })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('✅ Connection test successful!\n\nAPI is responding normally.');
+            } else {
+                alert('❌ Connection test failed:\n\n' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            alert('❌ Connection test failed:\n\n' + error.message);
+        })
+        .finally(() => {
+            button.innerHTML = originalText;
+            button.disabled = false;
+            // Refresh status after test
+            setTimeout(refreshStatus, 1000);
+        });
+}
+
+function openBreachChecker() {
+    window.location.href = '/breach-checker';
+}
+
+function openManagement() {
+    window.location.href = '/admin/flawtrack/';
+}
+</script>
+{% endblock %}

@@ -1,0 +1,556 @@
+{% extends "base.html" %}
+
+{% block title %}Email Editor - {{ template.name }} - SalesBreachPro{% endblock %}
+
+{% block extra_head %}
+<style>
+    .email-preview {
+        background-color: white;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        max-width: 600px;
+        margin: 0 auto;
+    }
+
+    .email-header {
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+        padding: 1rem;
+        border-radius: 0.375rem 0.375rem 0 0;
+    }
+
+    .email-body {
+        padding: 2rem;
+        line-height: 1.6;
+    }
+
+    .variable-btn {
+        font-size: 0.75rem;
+        margin: 0.125rem;
+        cursor: pointer;
+    }
+
+    .editor-toolbar {
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+        padding: 0.5rem;
+    }
+
+    .split-view {
+        height: 70vh;
+        overflow: hidden;
+    }
+
+    .editor-panel {
+        height: 100%;
+        overflow-y: auto;
+    }
+
+    .preview-panel {
+        height: 100%;
+        overflow-y: auto;
+        border-left: 1px solid #dee2e6;
+    }
+
+    .form-control {
+        border-radius: 0.375rem;
+    }
+
+    .btn-variable {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+        margin: 0.125rem;
+    }
+
+    .test-email-section {
+        background-color: #f8f9fa;
+        border-radius: 0.375rem;
+        padding: 1rem;
+        margin-top: 1rem;
+    }
+
+    .live-preview-indicator {
+        color: #28a745;
+        font-size: 0.875rem;
+    }
+
+    #emailBodyEditor {
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.875rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2><i class="fas fa-edit me-2"></i>Email Editor</h2>
+                    <p class="text-muted mb-0">Edit and test your email template with live preview</p>
+                </div>
+                <div>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-success" onclick="saveTemplate()" id="saveButton">
+                            <i class="fas fa-save me-1"></i>Save Changes
+                        </button>
+                        <a href="{{ url_for('templates.preview_template', template_id=template.id) }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-eye me-1"></i>Preview Only
+                        </a>
+                        <a href="{{ url_for('templates.templates') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-1"></i>Back to Templates
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row split-view">
+        <!-- Editor Panel -->
+        <div class="col-lg-6 editor-panel">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-code me-2"></i>Email Editor
+                        <span class="live-preview-indicator ms-2">
+                            <i class="fas fa-circle"></i>Live Preview
+                        </span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Sender Information -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="senderName" class="form-label">Sender Name</label>
+                            <input type="text" class="form-control" id="senderName" value="Emily Carter">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="senderEmail" class="form-label">Sender Email</label>
+                            <input type="email" class="form-control" id="senderEmail" value="emily.carter@savety.ai">
+                        </div>
+                    </div>
+
+                    <!-- Subject Line -->
+                    <div class="mb-3">
+                        <label for="emailSubject" class="form-label">Subject Line</label>
+                        <input type="text" class="form-control" id="emailSubject" value="{{ template.subject_line }}">
+                    </div>
+
+                    <!-- Variable Insertion -->
+                    <div class="mb-3">
+                        <label class="form-label">Insert Variables</label>
+                        <div class="border rounded p-2" style="max-height: 120px; overflow-y: auto;">
+                            <div class="mb-2">
+                                <strong class="text-muted small">Contact Variables:</strong><br>
+                                <button type="button" class="btn btn-outline-primary btn-variable" onclick="insertVariable('first_name')">
+                                    {first_name}
+                                </button>
+                                <button type="button" class="btn btn-outline-primary btn-variable" onclick="insertVariable('last_name')">
+                                    {last_name}
+                                </button>
+                                <button type="button" class="btn btn-outline-primary btn-variable" onclick="insertVariable('company')">
+                                    {company}
+                                </button>
+                                <button type="button" class="btn btn-outline-primary btn-variable" onclick="insertVariable('email')">
+                                    {email}
+                                </button>
+                                <button type="button" class="btn btn-outline-primary btn-variable" onclick="insertVariable('domain')">
+                                    {domain}
+                                </button>
+                            </div>
+                            <div class="mb-2">
+                                <strong class="text-muted small">Sender Variables:</strong><br>
+                                <button type="button" class="btn btn-outline-secondary btn-variable" onclick="insertVariable('sender_name')">
+                                    {sender_name}
+                                </button>
+                            </div>
+                            <div>
+                                <strong class="text-muted small">Breach Variables:</strong><br>
+                                <button type="button" class="btn btn-outline-danger btn-variable" onclick="insertVariable('breach_count')">
+                                    {breach_count}
+                                </button>
+                                <button type="button" class="btn btn-outline-danger btn-variable" onclick="insertVariable('breach_sources_list')">
+                                    {breach_sources_list}
+                                </button>
+                                <button type="button" class="btn btn-outline-danger btn-variable" onclick="insertVariable('total_breached_accounts')">
+                                    {total_breached_accounts}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Email Body Editor -->
+                    <div class="mb-3">
+                        <label for="emailBodyEditor" class="form-label">Email Body (HTML)</label>
+                        <textarea class="form-control" id="emailBodyEditor" rows="15">{{ template.email_body_html or template.email_body }}</textarea>
+                    </div>
+
+                    <!-- Test Data Section -->
+                    <div class="test-email-section">
+                        <h6><i class="fas fa-flask me-1"></i>Test Data</h6>
+                        <div class="row mb-2">
+                            <div class="col-md-8">
+                                <input type="email" class="form-control" id="testDataEmail" placeholder="Enter test email (e.g., info@macnet.ca)">
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="useRealData">
+                                    <label class="form-check-label" for="useRealData">
+                                        Use Real Breach Data
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Send Test Email Section -->
+                    <div class="test-email-section mt-3">
+                        <h6><i class="fas fa-paper-plane me-1"></i>Send Test Email</h6>
+                        <div class="row">
+                            <div class="col-md-8">
+                                <input type="email" class="form-control" id="recipientEmail" placeholder="Enter recipient email address">
+                            </div>
+                            <div class="col-md-4">
+                                <button type="button" class="btn btn-success w-100" onclick="sendTestEmail()">
+                                    <i class="fas fa-paper-plane me-1"></i>Send Test
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <small class="text-muted">
+                                Email will be sent with [TEST] prefix to prevent confusion with real campaigns.
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Live Preview Panel -->
+        <div class="col-lg-6 preview-panel">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-eye me-2"></i>Live Preview
+                        <button type="button" class="btn btn-sm btn-outline-primary ms-2" onclick="refreshPreview()">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Preview Loading -->
+                    <div id="previewLoading" class="text-center text-muted" style="display: none;">
+                        <i class="fas fa-spinner fa-spin me-2"></i>Updating preview...
+                    </div>
+
+                    <!-- Email Preview -->
+                    <div id="emailPreviewContainer" class="email-preview">
+                        <!-- Email Header -->
+                        <div class="email-header">
+                            <div class="row">
+                                <div class="col-sm-2 text-muted">
+                                    <strong>From:</strong>
+                                </div>
+                                <div class="col-sm-10" id="previewSender">
+                                    emily.carter@savety.ai
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-sm-2 text-muted">
+                                    <strong>To:</strong>
+                                </div>
+                                <div class="col-sm-10" id="previewRecipient">
+                                    test@example.com
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-sm-2 text-muted">
+                                    <strong>Subject:</strong>
+                                </div>
+                                <div class="col-sm-10">
+                                    <strong id="previewSubject">{{ template.subject_line }}</strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Email Body -->
+                        <div class="email-body" id="previewBody">
+                            {{ template.email_body_html|safe or template.email_body|safe }}
+                        </div>
+
+                        <!-- Email Footer -->
+                        <div class="email-header border-top">
+                            <small class="text-muted">
+                                <p class="mb-1">
+                                    Best regards,<br>
+                                    <span id="previewSenderName">Emily Carter</span><br>
+                                    Security Consultant<br>
+                                    Savety AI
+                                </p>
+                                <hr>
+                                <p class="mb-0">
+                                    <strong>Unsubscribe:</strong> If you no longer wish to receive these emails,
+                                    <a href="#">click here to unsubscribe</a>.
+                                </p>
+                            </small>
+                        </div>
+                    </div>
+
+                    <!-- Preview Data Info -->
+                    <div class="mt-3">
+                        <div class="accordion" id="previewDataAccordion">
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#previewDataCollapse">
+                                        <i class="fas fa-database me-2"></i>Preview Data Used
+                                    </button>
+                                </h2>
+                                <div id="previewDataCollapse" class="accordion-collapse collapse" data-bs-parent="#previewDataAccordion">
+                                    <div class="accordion-body">
+                                        <div id="previewDataDetails" class="small">
+                                            <!-- Data details will be populated by JavaScript -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Success/Error Alerts -->
+<div class="position-fixed top-0 end-0 p-3" style="z-index: 11">
+    <div id="alertContainer"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentTemplate = {
+    id: {{ template.id }},
+    name: "{{ template.name }}",
+    type: "{{ template.template_type }}"
+};
+
+let previewTimeout = null;
+
+// Initialize editor
+document.addEventListener('DOMContentLoaded', function() {
+    // Setup live preview on input changes
+    ['emailSubject', 'emailBodyEditor', 'senderName', 'senderEmail', 'testDataEmail'].forEach(id => {
+        document.getElementById(id).addEventListener('input', debouncePreview);
+    });
+
+    document.getElementById('useRealData').addEventListener('change', debouncePreview);
+
+    // Initial preview
+    updatePreview();
+});
+
+function debouncePreview() {
+    clearTimeout(previewTimeout);
+    previewTimeout = setTimeout(updatePreview, 500);
+}
+
+function insertVariable(variable) {
+    const bodyEditor = document.getElementById('emailBodyEditor');
+    const cursorPos = bodyEditor.selectionStart;
+    const textBefore = bodyEditor.value.substring(0, cursorPos);
+    const textAfter = bodyEditor.value.substring(bodyEditor.selectionEnd);
+
+    bodyEditor.value = textBefore + '{' + variable + '}' + textAfter;
+    bodyEditor.focus();
+    bodyEditor.setSelectionRange(cursorPos + variable.length + 2, cursorPos + variable.length + 2);
+
+    updatePreview();
+}
+
+function updatePreview() {
+    const previewLoading = document.getElementById('previewLoading');
+    const previewContainer = document.getElementById('emailPreviewContainer');
+
+    previewLoading.style.display = 'block';
+
+    const data = {
+        subject: document.getElementById('emailSubject').value,
+        body: document.getElementById('emailBodyEditor').value,
+        test_email: document.getElementById('testDataEmail').value,
+        use_real_data: document.getElementById('useRealData').checked,
+        template_type: currentTemplate.type
+    };
+
+    fetch('/templates/api/live-preview', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        previewLoading.style.display = 'none';
+
+        if (result.success) {
+            document.getElementById('previewSubject').textContent = result.subject;
+            document.getElementById('previewBody').innerHTML = result.body;
+            document.getElementById('previewSender').textContent = document.getElementById('senderEmail').value;
+            document.getElementById('previewSenderName').textContent = document.getElementById('senderName').value;
+            document.getElementById('previewRecipient').textContent = data.test_email || 'test@example.com';
+
+            // Update preview data details
+            updatePreviewDataDetails(result.data_used);
+        } else {
+            showAlert('Preview Error: ' + result.error, 'danger');
+        }
+    })
+    .catch(error => {
+        previewLoading.style.display = 'none';
+        showAlert('Preview failed: ' + error.message, 'danger');
+    });
+}
+
+function updatePreviewDataDetails(data) {
+    const container = document.getElementById('previewDataDetails');
+    let html = '';
+
+    Object.entries(data).forEach(([key, value]) => {
+        html += `
+            <div class="row mb-1">
+                <div class="col-5">
+                    <code>{${key}}</code>:
+                </div>
+                <div class="col-7">${value}</div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+function refreshPreview() {
+    updatePreview();
+}
+
+function sendTestEmail() {
+    const recipientEmail = document.getElementById('recipientEmail').value;
+
+    if (!recipientEmail) {
+        showAlert('Please enter a recipient email address', 'warning');
+        return;
+    }
+
+    if (!validateEmail(recipientEmail)) {
+        showAlert('Please enter a valid email address', 'warning');
+        return;
+    }
+
+    const data = {
+        subject: document.getElementById('emailSubject').value,
+        body: document.getElementById('emailBodyEditor').value,
+        sender_name: document.getElementById('senderName').value,
+        sender_email: document.getElementById('senderEmail').value,
+        recipient_email: recipientEmail,
+        test_email: document.getElementById('testDataEmail').value,
+        use_real_data: document.getElementById('useRealData').checked,
+        template_type: currentTemplate.type
+    };
+
+    showAlert('Sending test email...', 'info');
+
+    fetch('/templates/api/send-test', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            showAlert(result.message, 'success');
+            document.getElementById('recipientEmail').value = '';
+        } else {
+            showAlert('Failed to send test email: ' + result.error, 'danger');
+        }
+    })
+    .catch(error => {
+        showAlert('Test email failed: ' + error.message, 'danger');
+    });
+}
+
+function validateEmail(email) {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(email);
+}
+
+function saveTemplate() {
+    const saveButton = document.getElementById('saveButton');
+    const originalText = saveButton.innerHTML;
+
+    // Disable button and show loading state
+    saveButton.disabled = true;
+    saveButton.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Saving...';
+
+    const data = {
+        subject: document.getElementById('emailSubject').value,
+        body: document.getElementById('emailBodyEditor').value
+    };
+
+    fetch(`/templates/api/${currentTemplate.id}/save`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            showAlert('Template saved successfully!', 'success');
+        } else {
+            showAlert('Failed to save template: ' + result.error, 'danger');
+        }
+    })
+    .catch(error => {
+        showAlert('Save failed: ' + error.message, 'danger');
+    })
+    .finally(() => {
+        // Re-enable button and restore original text
+        saveButton.disabled = false;
+        saveButton.innerHTML = originalText;
+    });
+}
+
+function showAlert(message, type) {
+    const alertContainer = document.getElementById('alertContainer');
+    const alertId = 'alert-' + Date.now();
+
+    const alertHtml = `
+        <div class="alert alert-${type} alert-dismissible fade show" role="alert" id="${alertId}">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+
+    alertContainer.insertAdjacentHTML('beforeend', alertHtml);
+
+    // Auto-dismiss success alerts after 5 seconds
+    if (type === 'success' || type === 'info') {
+        setTimeout(() => {
+            const alert = document.getElementById(alertId);
+            if (alert) {
+                const bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            }
+        }, 5000);
+    }
+}
+</script>
+{% endblock %}

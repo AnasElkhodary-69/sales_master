@@ -1,0 +1,449 @@
+{% extends "base.html" %}
+
+{% block title %}{{ ab_test.name }} - A/B Test Results - SalesBreachPro{% endblock %}
+
+{% block extra_head %}
+<style>
+    .results-card {
+        transition: all 0.3s ease;
+    }
+
+    .results-card.variant-a {
+        border-left: 4px solid #007bff;
+    }
+
+    .results-card.variant-b {
+        border-left: 4px solid #28a745;
+    }
+
+    .results-card.winner {
+        box-shadow: 0 4px 20px rgba(40, 167, 69, 0.3);
+        transform: scale(1.02);
+    }
+
+    .metric-card {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        text-align: center;
+        margin-bottom: 15px;
+    }
+
+    .metric-value {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #495057;
+    }
+
+    .metric-label {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-top: 5px;
+    }
+
+    .winner-badge {
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7); }
+        70% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
+    }
+
+    .significance-meter {
+        height: 10px;
+        background: #e9ecef;
+        border-radius: 5px;
+        overflow: hidden;
+        margin-top: 10px;
+    }
+
+    .significance-bar {
+        height: 100%;
+        background: linear-gradient(90deg, #dc3545, #ffc107, #28a745);
+        transition: width 0.5s ease;
+    }
+
+    .chart-container {
+        position: relative;
+        height: 300px;
+        margin: 20px 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2><i class="fas fa-chart-line me-2"></i>{{ ab_test.name }}</h2>
+                    <p class="text-muted mb-0">
+                        <span class="badge bg-{{ 'success' if ab_test.status == 'running' else 'info' if ab_test.status == 'completed' else 'secondary' }} me-2">
+                            {{ ab_test.status.title() }}
+                        </span>
+                        Created: {{ ab_test.created_at.strftime('%B %d, %Y') if ab_test.created_at }}
+                        {% if ab_test.start_date %}
+                        | Started: {{ ab_test.start_date.strftime('%B %d, %Y at %I:%M %p') }}
+                        {% endif %}
+                    </p>
+                </div>
+                <div>
+                    <div class="btn-group">
+                        <a href="/ab-testing/" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-1"></i>Back to Dashboard
+                        </a>
+                        {% if ab_test.status == 'draft' %}
+                        <button class="btn btn-success" onclick="startTest({{ ab_test.id }})">
+                            <i class="fas fa-play me-1"></i>Start Test
+                        </button>
+                        {% elif ab_test.status == 'running' %}
+                        <button class="btn btn-warning" onclick="stopTest({{ ab_test.id }})">
+                            <i class="fas fa-stop me-1"></i>Stop Test
+                        </button>
+                        {% endif %}
+                        <button class="btn btn-info" onclick="refreshResults({{ ab_test.id }})">
+                            <i class="fas fa-sync me-1"></i>Refresh
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Test Summary -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Test Summary</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="metric-card">
+                                <div class="metric-value">{{ performance_data.total_assignments }}</div>
+                                <div class="metric-label">Total Contacts</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="metric-card">
+                                <div class="metric-value">{{ performance_data.emails_sent }}</div>
+                                <div class="metric-label">Emails Sent</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="metric-card">
+                                <div class="metric-value">{{ ab_test.traffic_split }}% / {{ 100 - ab_test.traffic_split }}%</div>
+                                <div class="metric-label">Traffic Split</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="metric-card">
+                                <div class="metric-value">
+                                    {% if ab_test.statistical_significance %}
+                                        {{ "%.1f"|format(ab_test.statistical_significance) }}%
+                                    {% else %}
+                                        --
+                                    {% endif %}
+                                </div>
+                                <div class="metric-label">Statistical Significance</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if ab_test.description %}
+                    <div class="mt-3">
+                        <h6>Test Description:</h6>
+                        <p class="text-muted">{{ ab_test.description }}</p>
+                    </div>
+                    {% endif %}
+
+                    <!-- Statistical Significance Meter -->
+                    {% if ab_test.statistical_significance %}
+                    <div class="mt-3">
+                        <h6>Confidence Level</h6>
+                        <div class="significance-meter">
+                            <div class="significance-bar" style="width: {{ ab_test.statistical_significance if ab_test.statistical_significance <= 100 else 100 }}%"></div>
+                        </div>
+                        <div class="d-flex justify-content-between mt-1">
+                            <small class="text-muted">0%</small>
+                            <small class="text-muted">50%</small>
+                            <small class="text-muted">95%</small>
+                            <small class="text-muted">100%</small>
+                        </div>
+                        {% if ab_test.statistical_significance >= 95.0 %}
+                        <div class="mt-2">
+                            <span class="badge bg-success">
+                                <i class="fas fa-check-circle me-1"></i>Statistically Significant
+                            </span>
+                        </div>
+                        {% elif ab_test.statistical_significance >= 90.0 %}
+                        <div class="mt-2">
+                            <span class="badge bg-warning">
+                                <i class="fas fa-exclamation-triangle me-1"></i>Approaching Significance
+                            </span>
+                        </div>
+                        {% else %}
+                        <div class="mt-2">
+                            <span class="badge bg-secondary">
+                                <i class="fas fa-clock me-1"></i>Need More Data
+                            </span>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Variant Results -->
+    <div class="row">
+        {% for variant in variants %}
+        <div class="col-md-6 mb-4">
+            <div class="card results-card variant-{{ variant.variant_name.lower() }} h-100
+                        {% if ab_test.winning_variant and ab_test.winning_variant == variant.variant_name %}winner{% endif %}">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-flask me-2"></i>Variant {{ variant.variant_name }}
+                        {% if ab_test.winning_variant and ab_test.winning_variant == variant.variant_name %}
+                        <span class="badge bg-warning winner-badge ms-2">
+                            <i class="fas fa-trophy me-1"></i>Winner
+                        </span>
+                        {% endif %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Email Content Preview -->
+                    <div class="mb-3">
+                        <h6>Subject Line:</h6>
+                        <p class="bg-light p-2 rounded">{{ variant.subject_line }}</p>
+                    </div>
+
+                    {% if variant.sender_name or variant.sender_email %}
+                    <div class="mb-3">
+                        <h6>From:</h6>
+                        <p class="bg-light p-2 rounded">
+                            {% if variant.sender_name %}{{ variant.sender_name }}{% endif %}
+                            {% if variant.sender_email %}
+                            {% if variant.sender_name %} &lt;{% endif %}{{ variant.sender_email }}{% if variant.sender_name %}&gt;{% endif %}
+                            {% endif %}
+                        </p>
+                    </div>
+                    {% endif %}
+
+                    <div class="mb-4">
+                        <h6>Email Preview:</h6>
+                        <div class="bg-light p-2 rounded" style="max-height: 150px; overflow-y: auto;">
+                            {{ variant.email_body_html[:300] if variant.email_body_html else "No content" }}
+                            {% if variant.email_body_html and variant.email_body_html|length > 300 %}...{% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Performance Metrics -->
+                    <div class="row">
+                        <div class="col-6 col-lg-3">
+                            <div class="metric-card">
+                                <div class="metric-value">{{ variant.emails_sent or 0 }}</div>
+                                <div class="metric-label">Sent</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-lg-3">
+                            <div class="metric-card">
+                                <div class="metric-value">{{ variant.emails_delivered or 0 }}</div>
+                                <div class="metric-label">Delivered</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-lg-3">
+                            <div class="metric-card">
+                                <div class="metric-value">{{ variant.emails_opened or 0 }}</div>
+                                <div class="metric-label">Opened</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-lg-3">
+                            <div class="metric-card">
+                                <div class="metric-value">{{ variant.emails_clicked or 0 }}</div>
+                                <div class="metric-label">Clicked</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Conversion Rates -->
+                    <div class="mt-3">
+                        <h6>Conversion Rates:</h6>
+                        <div class="row">
+                            <div class="col-4">
+                                <div class="text-center">
+                                    <div class="fw-bold text-primary">{{ "%.1f"|format(variant.open_rate or 0) }}%</div>
+                                    <small>Open Rate</small>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="text-center">
+                                    <div class="fw-bold text-success">{{ "%.1f"|format(variant.click_rate or 0) }}%</div>
+                                    <small>Click Rate</small>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="text-center">
+                                    <div class="fw-bold text-info">{{ "%.1f"|format(variant.response_rate or 0) }}%</div>
+                                    <small>Response Rate</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Additional Metrics -->
+                    <div class="mt-3">
+                        <div class="row">
+                            <div class="col-6">
+                                <small class="text-muted">Bounced: {{ variant.emails_bounced or 0 }}</small>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-muted">Unsubscribed: {{ variant.emails_unsubscribed or 0 }}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Winner Declaration -->
+    {% if ab_test.winning_variant and ab_test.winner_declared_at %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="alert alert-success" role="alert">
+                <h4 class="alert-heading">
+                    <i class="fas fa-trophy me-2"></i>Test Complete - Winner Declared!
+                </h4>
+                <p class="mb-2">
+                    <strong>Variant {{ ab_test.winning_variant }}</strong> is the winner with
+                    <strong>{{ "%.1f"|format(ab_test.statistical_significance) }}% confidence</strong>.
+                </p>
+                <hr>
+                <p class="mb-0">
+                    Winner declared on {{ ab_test.winner_declared_at.strftime('%B %d, %Y at %I:%M %p') }}.
+                    You can now use this winning variant for your main campaigns.
+                </p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function startTest(testId) {
+    if (!confirm('Are you sure you want to start this A/B test? This will begin sending emails to the assigned contacts.')) {
+        return;
+    }
+
+    showLoadingToast('Starting A/B test...');
+
+    fetch(`/ab-testing/${testId}/start`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoadingToast();
+
+        if (data.success) {
+            showToast(`✅ A/B test started successfully! ${data.contacts_assigned} contacts assigned.`, 'success', 5000);
+            setTimeout(() => location.reload(), 2000);
+        } else {
+            showToast(`❌ Failed to start test: ${data.error}`, 'error', 5000);
+        }
+    })
+    .catch(error => {
+        hideLoadingToast();
+        console.error('Start test error:', error);
+        showToast('❌ Failed to start test. Please try again.', 'error', 5000);
+    });
+}
+
+function stopTest(testId) {
+    if (!confirm('Are you sure you want to stop this A/B test? This will finalize the results.')) {
+        return;
+    }
+
+    showLoadingToast('Stopping A/B test...');
+
+    fetch(`/ab-testing/${testId}/stop`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoadingToast();
+
+        if (data.success) {
+            let message = `✅ A/B test completed successfully!`;
+            if (data.winning_variant) {
+                message += ` Winner: Variant ${data.winning_variant} (${data.statistical_significance}% confidence)`;
+            }
+            showToast(message, 'success', 6000);
+            setTimeout(() => location.reload(), 2000);
+        } else {
+            showToast(`❌ Failed to stop test: ${data.error}`, 'error', 5000);
+        }
+    })
+    .catch(error => {
+        hideLoadingToast();
+        console.error('Stop test error:', error);
+        showToast('❌ Failed to stop test. Please try again.', 'error', 5000);
+    });
+}
+
+function refreshResults(testId) {
+    showLoadingToast('Refreshing results...');
+
+    fetch(`/ab-testing/api/tests/${testId}/results`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoadingToast();
+
+        if (data) {
+            showToast('✅ Results refreshed successfully!', 'success', 3000);
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast('❌ Failed to refresh results.', 'error', 3000);
+        }
+    })
+    .catch(error => {
+        hideLoadingToast();
+        console.error('Refresh error:', error);
+        showToast('❌ Failed to refresh results. Please try again.', 'error', 3000);
+    });
+}
+
+// Auto-refresh results every 30 seconds if test is running
+{% if ab_test.status == 'running' %}
+setInterval(() => {
+    fetch(`/ab-testing/api/tests/{{ ab_test.id }}/results`)
+        .then(response => response.json())
+        .then(data => {
+            // Update UI with new data without full page reload
+            console.log('Auto-refreshed results:', data);
+        })
+        .catch(error => console.log('Auto-refresh failed:', error));
+}, 30000);
+{% endif %}
+</script>
+{% endblock %}

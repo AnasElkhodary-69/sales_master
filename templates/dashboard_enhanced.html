@@ -1,0 +1,719 @@
+{% extends "base.html" %}
+
+{% block title %}Enhanced Dashboard - SalesBreachPro{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* Enhanced dashboard styling */
+    .sequence-flow-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        overflow: hidden;
+    }
+
+    .engagement-metric {
+        background: rgba(255,255,255,0.1);
+        border-radius: 8px;
+        padding: 1rem;
+        margin: 0.5rem 0;
+        transition: all 0.3s ease;
+    }
+
+    .engagement-metric:hover {
+        background: rgba(255,255,255,0.2);
+        transform: translateY(-2px);
+    }
+
+    .sequence-step {
+        display: inline-block;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #28a745;
+        color: white;
+        text-align: center;
+        line-height: 40px;
+        font-weight: bold;
+        margin: 0 10px;
+        position: relative;
+    }
+
+    .sequence-step.pending { background: #ffc107; }
+    .sequence-step.failed { background: #dc3545; }
+    .sequence-step.skipped { background: #6c757d; }
+
+    .sequence-step::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 100%;
+        width: 50px;
+        height: 2px;
+        background: #dee2e6;
+        transform: translateY(-50%);
+    }
+
+    .sequence-step:last-child::after {
+        display: none;
+    }
+
+    .real-time-updates {
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.7; }
+        100% { opacity: 1; }
+    }
+
+    .sequence-metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .activity-timeline {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+
+    .activity-item {
+        border-left: 3px solid;
+        padding-left: 1rem;
+        margin-bottom: 1rem;
+        position: relative;
+    }
+
+    .activity-item.sent { border-left-color: #28a745; }
+    .activity-item.opened { border-left-color: #17a2b8; }
+    .activity-item.clicked { border-left-color: #ffc107; }
+    .activity-item.replied { border-left-color: #28a745; }
+
+    .activity-item::before {
+        content: '';
+        position: absolute;
+        left: -8px;
+        top: 0;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: currentColor;
+    }
+
+    .chart-container {
+        position: relative;
+        height: 300px;
+        margin-bottom: 2rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Enhanced Header with Real-time Updates -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="h2 mb-1">
+                    <i class="fas fa-tachometer-alt text-primary me-2"></i>
+                    Enhanced Sequence Dashboard
+                </h1>
+                <p class="text-muted mb-0">Real-time sequence tracking with Brevo integration</p>
+            </div>
+            <div class="text-end">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="real-time-updates badge bg-success fs-6 px-3 py-2">
+                        <i class="fas fa-broadcast-tower me-1"></i>
+                        Live Updates
+                    </div>
+                    <button class="btn btn-outline-primary btn-sm" onclick="refreshSequenceData()">
+                        <i class="fas fa-sync-alt me-1"></i>
+                        Refresh
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Sequence Performance Metrics -->
+<div class="sequence-metrics-grid" id="sequence-metrics">
+    <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">
+        <div class="card-body text-white">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="mb-1"><i class="fas fa-play me-2"></i>Active Sequences</h6>
+                    <h3 class="mb-0" id="active-sequences-count">-</h3>
+                    <small class="opacity-75">Currently running</small>
+                </div>
+                <div class="opacity-30">
+                    <i class="fas fa-stream fa-2x"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+        <div class="card-body text-white">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="mb-1"><i class="fas fa-envelope me-2"></i>Emails Sent Today</h6>
+                    <h3 class="mb-0" id="emails-sent-today">-</h3>
+                    <small class="opacity-75">Last 24 hours</small>
+                </div>
+                <div class="opacity-30">
+                    <i class="fas fa-paper-plane fa-2x"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);">
+        <div class="card-body text-white">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="mb-1"><i class="fas fa-eye me-2"></i>Open Rate</h6>
+                    <h3 class="mb-0" id="overall-open-rate">-</h3>
+                    <small class="opacity-75">All sequences</small>
+                </div>
+                <div class="opacity-30">
+                    <i class="fas fa-eye fa-2x"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #feca57 0%, #ff9ff3 100%);">
+        <div class="card-body text-white">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="mb-1"><i class="fas fa-reply me-2"></i>Reply Rate</h6>
+                    <h3 class="mb-0" id="overall-reply-rate">-</h3>
+                    <small class="opacity-75">Conversations started</small>
+                </div>
+                <div class="opacity-30">
+                    <i class="fas fa-comments fa-2x"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Content Area -->
+<div class="row">
+    <!-- Active Sequences with Flow Visualization -->
+    <div class="col-md-8">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-project-diagram me-2 text-primary"></i>
+                    Active Sequence Flows
+                </h5>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-secondary" onclick="toggleView('flow')" id="flow-view-btn">
+                        <i class="fas fa-sitemap me-1"></i>Flow View
+                    </button>
+                    <button class="btn btn-outline-secondary" onclick="toggleView('list')" id="list-view-btn">
+                        <i class="fas fa-list me-1"></i>List View
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Flow View -->
+                <div id="flow-view">
+                    <div id="sequence-flows-container">
+                        <!-- Dynamic sequence flows will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- List View -->
+                <div id="list-view" style="display: none;">
+                    <div id="sequence-list-container">
+                        <!-- Dynamic sequence list will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Engagement Chart -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-white border-0">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-line me-2 text-success"></i>
+                    Sequence Engagement Trends
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="engagement-chart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar with Real-time Updates -->
+    <div class="col-md-4">
+        <!-- Real-time Activity Feed -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-clock me-2"></i>
+                    Real-time Activity
+                </h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="activity-timeline p-3" id="activity-timeline">
+                    <!-- Dynamic activity will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Upcoming Scheduled Emails -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0">
+                    <i class="fas fa-clock me-2"></i>
+                    Upcoming Emails
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="upcoming-emails">
+                    <!-- Dynamic upcoming emails will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-bolt me-2"></i>
+                    Quick Actions
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-primary" onclick="pauseAllSequences()">
+                        <i class="fas fa-pause me-2"></i>Pause All Sequences
+                    </button>
+                    <button class="btn btn-success" onclick="resumeAllSequences()">
+                        <i class="fas fa-play me-2"></i>Resume All Sequences
+                    </button>
+                    <button class="btn btn-warning" onclick="showSequenceSettings()">
+                        <i class="fas fa-cog me-2"></i>Sequence Settings
+                    </button>
+                    <a href="{{ url_for('campaigns.new_campaign') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-plus me-2"></i>New Campaign
+                    </a>
+                    <a href="/sequence-analytics" class="btn btn-gradient" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; font-weight: 600;">
+                        <i class="fas fa-chart-line me-2"></i>Sequence Analytics
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Contact Journey Modal -->
+<div class="modal fade" id="contactJourneyModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-route me-2"></i>
+                    Contact Sequence Journey
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="contact-journey-content">
+                    <!-- Dynamic journey content will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let engagementChart = null;
+let currentView = 'flow';
+let updateInterval = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    initializeEnhancedDashboard();
+    loadSequenceAnalytics();
+
+    // Start real-time updates
+    startRealTimeUpdates();
+});
+
+function initializeEnhancedDashboard() {
+    // Initialize engagement chart
+    const ctx = document.getElementById('engagement-chart').getContext('2d');
+    engagementChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Open Rate',
+                data: [],
+                borderColor: '#17a2b8',
+                backgroundColor: 'rgba(23, 162, 184, 0.1)',
+                tension: 0.4
+            }, {
+                label: 'Click Rate',
+                data: [],
+                borderColor: '#ffc107',
+                backgroundColor: 'rgba(255, 193, 7, 0.1)',
+                tension: 0.4
+            }, {
+                label: 'Reply Rate',
+                data: [],
+                borderColor: '#28a745',
+                backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                },
+                title: {
+                    display: true,
+                    text: 'Engagement Rates Over Time'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100
+                }
+            }
+        }
+    });
+}
+
+function loadSequenceAnalytics() {
+    fetch('/api/sequence-analytics')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                updateSequenceMetrics(data.performance_summary);
+                updateActiveSequences(data.active_sequences);
+                updateRealTimeActivity(data.real_time_updates);
+                updateEngagementChart(data.performance_summary.engagement_metrics);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading sequence analytics:', error);
+        });
+}
+
+function updateSequenceMetrics(summary) {
+    document.getElementById('active-sequences-count').textContent = summary.total_sequences || 0;
+    document.getElementById('emails-sent-today').textContent = summary.emails_sent || 0;
+    document.getElementById('overall-open-rate').textContent = (summary.engagement_metrics.open_rate || 0) + '%';
+    document.getElementById('overall-reply-rate').textContent = (summary.engagement_metrics.reply_rate || 0) + '%';
+}
+
+function updateActiveSequences(sequences) {
+    const container = document.getElementById('sequence-flows-container');
+    const listContainer = document.getElementById('sequence-list-container');
+
+    if (sequences.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-4">
+                <i class="fas fa-inbox fs-1 text-muted mb-3"></i>
+                <p class="text-muted">No active sequences found.</p>
+                <a href="/campaigns/new" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i>Create First Campaign
+                </a>
+            </div>
+        `;
+        listContainer.innerHTML = container.innerHTML;
+        return;
+    }
+
+    // Flow view
+    let flowHtml = '';
+    sequences.forEach(sequence => {
+        const campaign = sequence.campaign;
+        const stats = sequence.sequence_stats;
+
+        flowHtml += `
+            <div class="card mb-3 sequence-flow-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <h5 class="text-white mb-1">${campaign.name}</h5>
+                            <small class="text-white-50">${campaign.template_type} • ${campaign.status}</small>
+                        </div>
+                        <div class="text-end">
+                            <button class="btn btn-light btn-sm" onclick="showSequenceFlow(${campaign.id})">
+                                <i class="fas fa-chart-line me-1"></i>Details
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="engagement-metric">
+                                <div class="d-flex justify-content-between">
+                                    <span>Progress</span>
+                                    <span>${Math.round(stats.completion_rate || 0)}%</span>
+                                </div>
+                                <div class="progress mt-2" style="height: 8px;">
+                                    <div class="progress-bar bg-light" style="width: ${stats.completion_rate || 0}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="engagement-metric">
+                                <div class="d-flex justify-content-between">
+                                    <span>Emails</span>
+                                    <span>${stats.sent}/${stats.total}</span>
+                                </div>
+                                <small class="text-white-50">${stats.scheduled} scheduled, ${stats.skipped} skipped</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-3">
+                        <h6 class="text-white mb-2">Recent Activity</h6>
+                        <div class="recent-activity">
+                            ${renderRecentActivity(sequence.recent_activity)}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = flowHtml;
+
+    // List view (simplified)
+    let listHtml = '<div class="list-group">';
+    sequences.forEach(sequence => {
+        const campaign = sequence.campaign;
+        const stats = sequence.sequence_stats;
+
+        listHtml += `
+            <div class="list-group-item">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-1">${campaign.name}</h6>
+                        <small class="text-muted">${stats.sent}/${stats.total} emails sent • ${Math.round(stats.completion_rate || 0)}% complete</small>
+                    </div>
+                    <div>
+                        <button class="btn btn-outline-primary btn-sm" onclick="showSequenceFlow(${campaign.id})">
+                            View Details
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    listHtml += '</div>';
+
+    listContainer.innerHTML = listHtml;
+}
+
+function renderRecentActivity(activities) {
+    if (!activities || activities.length === 0) {
+        return '<small class="text-white-50">No recent activity</small>';
+    }
+
+    let html = '<div class="d-flex flex-wrap gap-2">';
+    activities.slice(0, 3).forEach(activity => {
+        const iconMap = {
+            'sent': 'paper-plane',
+            'opened': 'eye',
+            'clicked': 'mouse-pointer',
+            'replied': 'reply'
+        };
+
+        html += `
+            <span class="badge bg-light text-dark">
+                <i class="fas fa-${iconMap[activity.activity_type] || 'envelope'} me-1"></i>
+                ${activity.activity_type}
+            </span>
+        `;
+    });
+    html += '</div>';
+
+    return html;
+}
+
+function updateRealTimeActivity(updates) {
+    const timeline = document.getElementById('activity-timeline');
+
+    let html = `
+        <div class="activity-item sent mb-3">
+            <strong>Recently Sent</strong>
+            <div class="text-muted">${updates.recently_sent} emails in last 24h</div>
+        </div>
+        <div class="activity-item clicked mb-3">
+            <strong>Upcoming Scheduled</strong>
+            <div class="text-muted">${updates.upcoming_scheduled} emails in next 24h</div>
+        </div>
+        <div class="activity-item replied mb-3">
+            <strong>Recently Stopped</strong>
+            <div class="text-muted">${updates.recently_stopped} sequences stopped by replies</div>
+        </div>
+    `;
+
+    timeline.innerHTML = html;
+}
+
+function updateEngagementChart(metrics) {
+    if (!engagementChart) return;
+
+    // For now, show current metrics as a single point
+    // In a full implementation, you'd fetch historical data
+    engagementChart.data.labels = ['Current'];
+    engagementChart.data.datasets[0].data = [metrics.open_rate || 0];
+    engagementChart.data.datasets[1].data = [metrics.click_rate || 0];
+    engagementChart.data.datasets[2].data = [metrics.reply_rate || 0];
+
+    engagementChart.update();
+}
+
+function toggleView(view) {
+    currentView = view;
+
+    if (view === 'flow') {
+        document.getElementById('flow-view').style.display = 'block';
+        document.getElementById('list-view').style.display = 'none';
+        document.getElementById('flow-view-btn').classList.add('btn-primary');
+        document.getElementById('flow-view-btn').classList.remove('btn-outline-secondary');
+        document.getElementById('list-view-btn').classList.add('btn-outline-secondary');
+        document.getElementById('list-view-btn').classList.remove('btn-primary');
+    } else {
+        document.getElementById('flow-view').style.display = 'none';
+        document.getElementById('list-view').style.display = 'block';
+        document.getElementById('list-view-btn').classList.add('btn-primary');
+        document.getElementById('list-view-btn').classList.remove('btn-outline-secondary');
+        document.getElementById('flow-view-btn').classList.add('btn-outline-secondary');
+        document.getElementById('flow-view-btn').classList.remove('btn-primary');
+    }
+}
+
+function refreshSequenceData() {
+    loadSequenceAnalytics();
+}
+
+function startRealTimeUpdates() {
+    updateInterval = setInterval(() => {
+        loadSequenceAnalytics();
+    }, 30000); // Update every 30 seconds
+}
+
+function showSequenceFlow(campaignId) {
+    fetch(`/api/sequence-flow/${campaignId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Show detailed sequence flow (you could open a modal here)
+                console.log('Sequence flow data:', data.flow_data);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading sequence flow:', error);
+        });
+}
+
+function showContactJourney(contactId) {
+    fetch(`/api/contact-journey/${contactId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                renderContactJourney(data.journey);
+                new bootstrap.Modal(document.getElementById('contactJourneyModal')).show();
+            }
+        })
+        .catch(error => {
+            console.error('Error loading contact journey:', error);
+        });
+}
+
+function renderContactJourney(journey) {
+    const content = document.getElementById('contact-journey-content');
+
+    if (!journey || journey.length === 0) {
+        content.innerHTML = '<p class="text-muted">No journey data available.</p>';
+        return;
+    }
+
+    let html = '<div class="sequence-journey">';
+
+    journey.forEach((step, index) => {
+        const email = step.email;
+        const statusClass = email && email.status ? email.status : 'pending';
+
+        html += `
+            <div class="journey-step ${statusClass}">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6>Step ${step.sequence_step}: ${step.template_type}</h6>
+                        <small class="text-muted">${step.campaign_name}</small>
+                    </div>
+                    <div class="text-end">
+                        <span class="badge bg-${statusClass === 'sent' ? 'success' : statusClass === 'scheduled' ? 'warning' : 'secondary'}">
+                            ${step.status}
+                        </span>
+                    </div>
+                </div>
+
+                ${email ? `
+                    <div class="mt-2">
+                        <div><strong>Subject:</strong> ${email.subject}</div>
+                        ${email.sent_at ? `<div><small>Sent: ${new Date(email.sent_at).toLocaleString()}</small></div>` : ''}
+                        ${email.opened_at ? `<div><small>Opened: ${new Date(email.opened_at).toLocaleString()}</small></div>` : ''}
+                        ${email.clicked_at ? `<div><small>Clicked: ${new Date(email.clicked_at).toLocaleString()}</small></div>` : ''}
+                        ${email.replied_at ? `<div><small>Replied: ${new Date(email.replied_at).toLocaleString()}</small></div>` : ''}
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    });
+
+    html += '</div>';
+    content.innerHTML = html;
+}
+
+function pauseAllSequences() {
+    if (confirm('Are you sure you want to pause all active sequences?')) {
+        // Implementation would call API to pause sequences
+        alert('Feature coming soon: Pause all sequences');
+    }
+}
+
+function resumeAllSequences() {
+    if (confirm('Are you sure you want to resume all paused sequences?')) {
+        // Implementation would call API to resume sequences
+        alert('Feature coming soon: Resume all sequences');
+    }
+}
+
+function showSequenceSettings() {
+    // Implementation would show sequence settings modal
+    alert('Feature coming soon: Sequence settings');
+}
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', function() {
+    if (updateInterval) {
+        clearInterval(updateInterval);
+    }
+});
+</script>
+{% endblock %}

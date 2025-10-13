@@ -1,0 +1,970 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Contacts - TESTING 2025-09-13 3:47 AM{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="h3 mb-4">
+                <i class="fas fa-upload me-2"></i>Upload Contacts
+            </h1>
+        </div>
+    </div>
+    
+    <!-- Upload Section -->
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-file-csv me-2"></i>CSV File Upload
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Drag and Drop Area -->
+                    <div class="upload-area" id="uploadArea">
+                        <div class="text-center">
+                            <i class="fas fa-cloud-upload-alt fs-1 text-primary mb-3"></i>
+                            <h4>Drag & Drop CSV File Here</h4>
+                            <p class="text-muted mb-3">File will be previewed automatically after selection</p>
+                            <p class="text-danger small">DEBUG: Template updated at 2025-09-13 03:45 AM</p>
+                            <button type="button" class="btn btn-primary" id="chooseFileBtn">
+                                <i class="fas fa-folder-open me-1"></i>Choose File
+                            </button>
+                            <input type="file" id="fileInput" accept=".csv" style="display: none;">
+                        </div>
+                    </div>
+                    
+                    <!-- File Info -->
+                    <div class="file-info mt-3" id="fileInfo" style="display: none;">
+                        <div class="alert alert-info">
+                            <strong>Selected File:</strong> <span id="fileName"></span><br>
+                            <strong>Size:</strong> <span id="fileSize"></span><br>
+                            <strong>Type:</strong> <span id="fileType"></span>
+                        </div>
+                    </div>
+                    
+                    <!-- Progress Bar -->
+                    <div class="upload-progress mt-3" id="uploadProgress" style="display: none;">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>Uploading...</span>
+                            <span id="progressPercent">0%</span>
+                        </div>
+                        <div class="progress">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                 id="progressBar" role="progressbar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Processing Status -->
+                    <div class="processing-status mt-3" id="processingStatus" style="display: none;">
+                        <div class="alert alert-info">
+                            <div class="d-flex align-items-center">
+                                <div class="spinner-border spinner-border-sm me-2" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <div>
+                                    <strong>Processing your contacts...</strong><br>
+                                    <small id="processingStep">Validating CSV format...</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Upload Results -->
+                    <div class="upload-results mt-3" id="uploadResults" style="display: none;">
+                        <!-- Results will be populated by JavaScript -->
+                    </div>
+                    
+                    <!-- CSV Preview Section -->
+                    <div class="csv-preview mt-3" id="csvPreview" style="display: none;">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-eye me-2"></i>Review Contacts
+                                    <span class="badge bg-primary ms-2" id="previewCount">0 contacts</span>
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                                    <table class="table table-sm" id="previewTable">
+                                        <thead class="table-dark">
+                                            <tr>
+                                                <th>Email</th>
+                                                <th>Name</th>
+                                                <th>Company</th>
+                                                <th>Title</th>
+                                                <th>Domain</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="previewTableBody">
+                                            <!-- Preview rows will be populated here -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Campaign Selection Section -->
+                    <div class="campaign-selection mt-3" id="campaignSelection" style="display: none;">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-rocket me-2"></i>Campaign Assignment
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <strong>Smart Assignment:</strong> After uploading, contacts will be scanned for security breaches. 
+                                    Once scanning completes, they'll be automatically assigned to the appropriate campaign based on their breach status.
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="card border-danger">
+                                            <div class="card-header bg-danger text-white">
+                                                <h6 class="mb-0">
+                                                    <i class="fas fa-exclamation-triangle me-2"></i>Breached Contacts
+                                                </h6>
+                                            </div>
+                                            <div class="card-body">
+                                                <label for="breachedCampaign" class="form-label">Campaign for Breached Contacts:</label>
+                                                <select class="form-select" id="breachedCampaign" name="breached_campaign_id">
+                                                    <option value="">Select Campaign (Optional)</option>
+                                                    <!-- Will be populated with campaigns -->
+                                                </select>
+                                                <small class="text-muted">Contacts from domains with security breaches</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="card border-success">
+                                            <div class="card-header bg-success text-white">
+                                                <h6 class="mb-0">
+                                                    <i class="fas fa-shield-alt me-2"></i>Secure Contacts
+                                                </h6>
+                                            </div>
+                                            <div class="card-body">
+                                                <label for="secureCampaign" class="form-label">Campaign for Secure Contacts:</label>
+                                                <select class="form-select" id="secureCampaign" name="secure_campaign_id">
+                                                    <option value="">Select Campaign (Optional)</option>
+                                                    <!-- Will be populated with campaigns -->
+                                                </select>
+                                                <small class="text-muted">Contacts from domains with no known breaches</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="action-buttons mt-3" id="actionButtons" style="display: none;">
+                        <!-- Preview button hidden since we auto-preview -->
+                        <button type="button" class="btn btn-primary" id="previewButton" disabled style="display: none;">
+                            <i class="fas fa-eye me-1"></i>Preview Contacts
+                        </button>
+                        <button type="button" class="btn btn-success" id="uploadButton" disabled style="display: none;">
+                            <i class="fas fa-upload me-1"></i>Upload & Process
+                        </button>
+                        <button type="button" class="btn btn-secondary" id="cancelButton">
+                            <i class="fas fa-times me-1"></i>Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Instructions Sidebar -->
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>CSV Format Requirements
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <h6>Required Columns:</h6>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-check text-success me-1"></i> <strong>email</strong> - Contact email address</li>
+                    </ul>
+                    
+                    <h6 class="mt-3">Optional Columns:</h6>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-info text-info me-1"></i> first_name</li>
+                        <li><i class="fas fa-info text-info me-1"></i> last_name</li>
+                        <li><i class="fas fa-info text-info me-1"></i> company</li>
+                        <li><i class="fas fa-info text-info me-1"></i> title</li>
+                        <li><i class="fas fa-info text-info me-1"></i> phone</li>
+                        <li><i class="fas fa-info text-info me-1"></i> industry</li>
+                    </ul>
+                    
+                    <div class="alert alert-warning">
+                        <strong>Note:</strong> The system will automatically:
+                        <ul class="mb-0 mt-2">
+                            <li>Validate email formats</li>
+                            <li>Remove duplicates</li>
+                            <li>Extract company domains</li>
+                            <li>Clean and standardize data</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Sample CSV -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-download me-2"></i>Sample CSV Template
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <p class="small">Download a sample CSV file to get started:</p>
+                    <button type="button" class="btn btn-outline-primary btn-sm" id="downloadSample">
+                        <i class="fas fa-download me-1"></i>Download Template
+                    </button>
+                    
+                    <div class="mt-3">
+                        <strong>Sample format:</strong>
+                        <pre class="bg-light p-2 small">email,first_name,last_name,company,title
+john@example.com,John,Doe,Example Corp,IT Manager
+jane@company.com,Jane,Smith,Company Inc,CTO</pre>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Upload Statistics -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>Upload History
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <span>Total Contacts:</span>
+                        <strong id="totalContacts">{{ stats.total_contacts or 0 }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span>Active Contacts:</span>
+                        <strong id="activeContacts">{{ stats.active_contacts or 0 }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span>Last Upload:</span>
+                        <strong>Never</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Upload functionality
+class ContactUploader {
+    constructor() {
+        this.uploadArea = document.getElementById('uploadArea');
+        this.fileInput = document.getElementById('fileInput');
+        this.fileInfo = document.getElementById('fileInfo');
+        this.uploadProgress = document.getElementById('uploadProgress');
+        this.processingStatus = document.getElementById('processingStatus');
+        this.uploadResults = document.getElementById('uploadResults');
+        this.actionButtons = document.getElementById('actionButtons');
+        this.uploadButton = document.getElementById('uploadButton');
+        this.previewButton = document.getElementById('previewButton');
+        this.cancelButton = document.getElementById('cancelButton');
+        this.csvPreview = document.getElementById('csvPreview');
+        this.campaignSelection = document.getElementById('campaignSelection');
+        
+        this.selectedFile = null;
+        this.parsedContacts = null;
+        this.setupEventListeners();
+
+        // Load campaigns in background - don't block preview functionality
+        setTimeout(() => {
+            this.loadCampaigns();
+        }, 100);
+    }
+    
+    setupEventListeners() {
+        // Drag and drop events with better event handling
+        this.uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.uploadArea.classList.add('dragover');
+            console.log('Dragover event triggered');
+        });
+        
+        this.uploadArea.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.uploadArea.classList.add('dragover');
+            console.log('Dragenter event triggered');
+        });
+        
+        this.uploadArea.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            // Only remove dragover if leaving the uploadArea itself, not child elements
+            if (!this.uploadArea.contains(e.relatedTarget)) {
+                this.uploadArea.classList.remove('dragover');
+                console.log('Dragleave event triggered');
+            }
+        });
+        
+        this.uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.uploadArea.classList.remove('dragover');
+            console.log('Drop event triggered', e.dataTransfer.files);
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                console.log('File dropped:', files[0].name);
+                this.handleFileSelection(files[0]);
+            } else {
+                console.log('No files in drop event');
+            }
+        });
+        
+        // Prevent default drag behaviors on document
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            document.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            }, false);
+        });
+        
+        // File input change
+        this.fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                this.handleFileSelection(e.target.files[0]);
+            }
+        });
+        
+        // Click to browse (but not on button)
+        this.uploadArea.addEventListener('click', (e) => {
+            // Don't trigger if clicking on the button or its children
+            if (e.target.id === 'chooseFileBtn' || e.target.closest('#chooseFileBtn')) {
+                return;
+            }
+            this.fileInput.click();
+        });
+        
+        // Choose file button
+        const chooseFileBtn = document.getElementById('chooseFileBtn');
+        if (chooseFileBtn) {
+            chooseFileBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.fileInput.click();
+            });
+        }
+        
+        // Preview button
+        this.previewButton.addEventListener('click', () => {
+            this.previewContacts();
+        });
+        
+        // Upload button
+        this.uploadButton.addEventListener('click', () => {
+            this.uploadFile();
+        });
+        
+        // Cancel button
+        this.cancelButton.addEventListener('click', () => {
+            this.resetUpload();
+        });
+        
+        // Download sample
+        document.getElementById('downloadSample').addEventListener('click', () => {
+            this.downloadSample();
+        });
+    }
+    
+    handleFileSelection(file) {
+        console.log('=== FILE SELECTION STARTED ===');
+        console.log('File name:', file.name);
+        console.log('File size:', file.size);
+
+        // File selected - start preview process
+        console.log('FILE SELECTED: ' + file.name + '. About to start preview process...');
+
+        // Validate file type
+        if (!file.name.toLowerCase().endsWith('.csv')) {
+            alert('Please select a CSV file.');
+            return;
+        }
+
+        // Validate file size (10MB limit)
+        if (file.size > 10 * 1024 * 1024) {
+            alert('File size must be less than 10MB.');
+            return;
+        }
+
+        this.selectedFile = file;
+        this.showFileInfo(file);
+
+        // Show a clear message to user
+        console.log('=== STARTING PREVIEW (NOT UPLOAD) ===');
+
+        // Add a small delay to make it clear this is just preview
+        setTimeout(() => {
+            this.previewContacts();
+        }, 100);
+    }
+    
+    showFileInfo(file) {
+        document.getElementById('fileName').textContent = file.name;
+        document.getElementById('fileSize').textContent = this.formatFileSize(file.size);
+        document.getElementById('fileType').textContent = file.type || 'text/csv';
+
+        this.fileInfo.style.display = 'block';
+        // Don't show action buttons yet - they'll appear after preview
+    }
+    
+    formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+    
+    previewContacts() {
+        console.log('Preview button clicked');
+        if (!this.selectedFile) {
+            console.error('No file selected');
+            alert('Please select a file first');
+            return;
+        }
+
+        console.log('Reading file:', this.selectedFile.name);
+
+        // Parse CSV file
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                console.log('File read complete, parsing CSV...');
+                const csvText = e.target.result;
+                this.parsedContacts = this.parseCSV(csvText);
+                console.log('Parsed contacts:', this.parsedContacts.length);
+                this.displayPreview();
+            } catch (error) {
+                console.error('Error parsing CSV:', error);
+                alert('Error parsing CSV: ' + error.message);
+            }
+        };
+        reader.onerror = (e) => {
+            console.error('FileReader error:', e);
+            alert('Error reading file');
+        };
+        reader.readAsText(this.selectedFile);
+    }
+    
+    parseCSV(csvText) {
+        console.log('Parsing CSV text...');
+        const lines = csvText.split('\n').filter(line => line.trim()); // Remove empty lines
+        console.log('Total lines:', lines.length);
+
+        if (lines.length < 2) {
+            throw new Error('CSV file must have at least a header and one data row');
+        }
+
+        const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g, ''));
+        console.log('CSV Headers:', headers);
+        const contacts = [];
+
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+
+            // Better CSV parsing that handles quotes and commas within values
+            const values = this.parseCSVLine(line);
+            console.log(`Row ${i}:`, values);
+
+            const contact = {};
+
+            // Find email in any column
+            let email = null;
+            for (let j = 0; j < values.length && j < headers.length; j++) {
+                const value = values[j];
+                if (value && this.isValidEmail(value)) {
+                    email = value.toLowerCase();
+                    break;
+                }
+            }
+
+            if (!email) {
+                console.warn(`Row ${i}: No valid email found`);
+                continue;
+            }
+
+            contact.email = email;
+            contact.domain = email.split('@')[1];
+
+            // Map other fields
+            headers.forEach((header, index) => {
+                const value = (values[index] || '').trim();
+                if (value && value !== email) {
+                    if (header.includes('first') || header.includes('fname')) {
+                        contact.first_name = value;
+                    } else if (header.includes('last') || header.includes('lname')) {
+                        contact.last_name = value;
+                    } else if (header.includes('name') && !contact.first_name && !contact.last_name) {
+                        if (value.includes(' ')) {
+                            const parts = value.split(' ');
+                            contact.first_name = parts[0];
+                            contact.last_name = parts.slice(1).join(' ');
+                        } else {
+                            contact.first_name = value;
+                        }
+                    } else if (header.includes('company') || header.includes('org')) {
+                        contact.company = value;
+                    } else if (header.includes('title') || header.includes('position') || header.includes('job')) {
+                        contact.title = value;
+                    }
+                }
+            });
+
+            contacts.push(contact);
+        }
+
+        console.log('Parsed contacts:', contacts.length);
+        return contacts;
+    }
+
+    parseCSVLine(line) {
+        // Simple CSV line parser that handles basic quotes
+        const result = [];
+        let current = '';
+        let inQuotes = false;
+
+        for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+
+            if (char === '"') {
+                inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+                result.push(current.trim().replace(/^"|"$/g, ''));
+                current = '';
+            } else {
+                current += char;
+            }
+        }
+
+        result.push(current.trim().replace(/^"|"$/g, ''));
+        return result;
+    }
+    
+    isValidEmail(email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    }
+    
+    displayPreview() {
+        console.log('displayPreview() called');
+        console.log('parsedContacts:', this.parsedContacts);
+
+        if (!this.parsedContacts || this.parsedContacts.length === 0) {
+            console.error('No valid contacts found in CSV');
+            alert('No valid contacts found in CSV');
+            return;
+        }
+
+        console.log(`Displaying preview for ${this.parsedContacts.length} contacts`);
+
+        // Update count
+        document.getElementById('previewCount').textContent = `${this.parsedContacts.length} contacts`;
+
+        // Populate table
+        const tbody = document.getElementById('previewTableBody');
+        tbody.innerHTML = '';
+
+        // Show first 50 contacts in preview
+        const previewCount = Math.min(this.parsedContacts.length, 50);
+        for (let i = 0; i < previewCount; i++) {
+            const contact = this.parsedContacts[i];
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${contact.email}</td>
+                <td>${(contact.first_name || '') + ' ' + (contact.last_name || '')}</td>
+                <td>${contact.company || ''}</td>
+                <td>${contact.title || ''}</td>
+                <td><span class="badge bg-secondary">${contact.domain}</span></td>
+            `;
+            tbody.appendChild(row);
+        }
+
+        if (this.parsedContacts.length > 50) {
+            const row = document.createElement('tr');
+            row.innerHTML = `<td colspan="5" class="text-muted text-center">... and ${this.parsedContacts.length - 50} more contacts</td>`;
+            tbody.appendChild(row);
+        }
+
+        console.log('=== DISPLAYING PREVIEW SECTIONS ===');
+        console.log('This is ONLY a preview - NO upload happens yet!');
+
+        // Preview sections should now be visible
+        console.log('PREVIEW SECTIONS SHOULD BE SHOWING NOW! Check if you can see the preview table and campaign dropdowns.');
+
+        // Show preview and campaign selection
+        this.csvPreview.style.display = 'block';
+        this.campaignSelection.style.display = 'block';
+
+        // Show action buttons with upload enabled
+        this.actionButtons.style.display = 'block';
+        this.uploadButton.style.display = 'inline-block';
+        this.uploadButton.disabled = false;
+        this.previewButton.style.display = 'none'; // Hide preview button since we auto-preview
+
+        console.log('=== PREVIEW COMPLETE - USER MUST CLICK UPLOAD BUTTON TO PROCEED ===');
+    }
+    
+    loadCampaigns() {
+        // Load active campaigns for the dropdowns
+        console.log('Loading campaigns...');
+        fetch('/campaigns/api/campaigns', {
+            credentials: 'same-origin' // Include cookies for authentication
+        })
+            .then(response => {
+                console.log('Campaign API response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(campaigns => {
+                console.log('Campaigns loaded:', campaigns);
+                const breachedSelect = document.getElementById('breachedCampaign');
+                const secureSelect = document.getElementById('secureCampaign');
+
+                // Clear existing options (except first one)
+                breachedSelect.innerHTML = '<option value="">Select Campaign (Optional)</option>';
+                secureSelect.innerHTML = '<option value="">Select Campaign (Optional)</option>';
+
+                if (!campaigns || campaigns.length === 0) {
+                    console.warn('No campaigns found');
+                    breachedSelect.innerHTML = '<option value="">No active campaigns found</option>';
+                    secureSelect.innerHTML = '<option value="">No active campaigns found</option>';
+                    return;
+                }
+
+                campaigns.forEach(campaign => {
+                    console.log('Processing campaign:', campaign);
+                    if (campaign.status === 'active') {
+                        const option1 = new Option(campaign.name, campaign.id);
+                        const option2 = new Option(campaign.name, campaign.id);
+                        breachedSelect.add(option1);
+                        secureSelect.add(option2);
+                        console.log('Added campaign to dropdowns:', campaign.name);
+                    }
+                });
+            })
+            .catch(error => {
+                console.error('Error loading campaigns:', error);
+                // Don't let campaign loading errors break the preview functionality
+                const breachedSelect = document.getElementById('breachedCampaign');
+                const secureSelect = document.getElementById('secureCampaign');
+
+                breachedSelect.innerHTML = '<option value="">Campaign loading failed - upload will still work</option>';
+                secureSelect.innerHTML = '<option value="">Campaign loading failed - upload will still work</option>';
+
+                // Preview functionality should still work even if campaigns fail to load
+                console.log('Campaigns failed to load, but preview functionality should still work');
+            });
+    }
+
+    uploadFile() {
+        console.log('=== UPLOAD BUTTON CLICKED - STARTING ACTUAL UPLOAD ===');
+        console.log('This method should ONLY be called when user clicks Upload & Process button');
+
+        if (!this.selectedFile) {
+            console.error('No file selected for upload');
+            return;
+        }
+
+        console.log('Creating FormData for upload...');
+        const formData = new FormData();
+        formData.append('file', this.selectedFile);
+        
+        // Add campaign selections
+        const breachedCampaignId = document.getElementById('breachedCampaign').value;
+        const secureCampaignId = document.getElementById('secureCampaign').value;
+        
+        if (breachedCampaignId) {
+            formData.append('breached_campaign_id', breachedCampaignId);
+        }
+        if (secureCampaignId) {
+            formData.append('secure_campaign_id', secureCampaignId);
+        }
+        
+        // Show progress
+        this.showProgress();
+        
+        // Upload with progress tracking
+        const xhr = new XMLHttpRequest();
+        
+        xhr.upload.addEventListener('progress', (e) => {
+            if (e.lengthComputable) {
+                const percentComplete = (e.loaded / e.total) * 100;
+                this.updateProgress(percentComplete);
+            }
+        });
+        
+        xhr.addEventListener('load', () => {
+            // Ensure progress bar shows for at least 1 second
+            setTimeout(() => {
+                if (xhr.status === 200) {
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        // Show results immediately after progress bar finishes
+                        this.showResults(response);
+                    } catch (e) {
+                        this.showError('Invalid server response');
+                    }
+                } else {
+                    try {
+                        const error = JSON.parse(xhr.responseText);
+                        this.showError(error.error || 'Upload failed');
+                    } catch (e) {
+                        this.showError('Upload failed');
+                    }
+                }
+            }, 1000); // Minimum 1 second display time
+        });
+        
+        xhr.addEventListener('error', () => {
+            this.showError('Upload failed - network error');
+        });
+        
+        xhr.open('POST', '/contacts/upload/csv');
+        xhr.send(formData);
+    }
+    
+    showProgress() {
+        this.uploadProgress.style.display = 'block';
+        this.actionButtons.style.display = 'none';
+    }
+    
+    updateProgress(percent) {
+        document.getElementById('progressBar').style.width = percent + '%';
+        document.getElementById('progressPercent').textContent = Math.round(percent) + '%';
+    }
+    
+    showProcessing() {
+        this.uploadProgress.style.display = 'none';
+        this.processingStatus.style.display = 'block';
+    }
+    
+    updateProcessingStep(step) {
+        document.getElementById('processingStep').textContent = step;
+    }
+    
+    showResults(response) {
+        this.uploadProgress.style.display = 'none';
+        this.processingStatus.style.display = 'none';
+        this.uploadResults.style.display = 'block';
+        
+        let resultsHtml = '';
+        
+        if (response.success) {
+            resultsHtml = `
+                <div class="alert alert-success">
+                    <h6><i class="fas fa-check-circle me-2"></i>Upload Successful!</h6>
+                    <div class="row text-center mb-3">
+                        <div class="col-md-3">
+                            <strong>${response.summary.total_rows_processed}</strong><br>
+                            <small>Total Rows</small>
+                        </div>
+                        <div class="col-md-3">
+                            <strong class="text-success">${response.summary.contacts_created}</strong><br>
+                            <small>Valid Contacts</small>
+                        </div>
+                        <div class="col-md-3">
+                            <strong class="text-warning">${response.summary.duplicates_skipped}</strong><br>
+                            <small>Duplicates</small>
+                        </div>
+                        <div class="col-md-3">
+                            <strong class="text-danger">${response.summary.errors}</strong><br>
+                            <small>Invalid</small>
+                        </div>
+                    </div>
+            `;
+            
+            // Add breach analysis results if available
+            if (response.scan_results && response.scan_results.domains_to_scan > 0) {
+                resultsHtml += `
+                    <div class="border-top pt-3">
+                        <h6><i class="fas fa-shield-alt me-2"></i>Breach Scanning Started</h6>
+                        <div class="row text-center">
+                            <div class="col-md-4">
+                                <strong>${response.summary.domains_found}</strong><br>
+                                <small>Domains Found</small>
+                            </div>
+                            <div class="col-md-4">
+                                <strong class="text-info">${response.scan_results.domains_to_scan}</strong><br>
+                                <small>Scanning in Progress</small>
+                            </div>
+                            <div class="col-md-4">
+                                <strong class="text-success">✓</strong><br>
+                                <small>Background Job Started</small>
+                            </div>
+                        </div>
+                        <div class="alert alert-info mt-2">
+                            <i class="fas fa-info-circle me-2"></i>
+                            FlawTrack breach analysis is running in the background. Results will appear in your contacts list within a few minutes.
+                        </div>
+                    </div>
+                `;
+            }
+            
+            resultsHtml += '</div>';
+            
+            if (response.error_details && response.error_details.length > 0) {
+                resultsHtml += '<div class="alert alert-warning"><h6>Errors Found:</h6><ul>';
+                response.error_details.forEach(error => {
+                    resultsHtml += `<li>${error}</li>`;
+                });
+                resultsHtml += '</ul></div>';
+            }
+            
+            // Update statistics
+            this.updateStats();
+            
+        } else {
+            resultsHtml = `
+                <div class="alert alert-danger">
+                    <h6><i class="fas fa-exclamation-triangle me-2"></i>Upload Failed</h6>
+                    <p>${response.message || 'Unknown error occurred'}</p>
+                </div>
+            `;
+        }
+        
+        resultsHtml += `
+            <div class="mt-3">
+                <button type="button" class="btn btn-success me-2" onclick="createCampaignWithContacts(${response.summary.contacts_created})">
+                    <i class="fas fa-rocket me-1"></i>Create Campaign with These Contacts
+                </button>
+                <button type="button" class="btn btn-primary me-2" onclick="location.href='/contacts'">
+                    <i class="fas fa-users me-1"></i>View All Contacts
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="uploader.resetUpload()">
+                    <i class="fas fa-upload me-1"></i>Upload Another File
+                </button>
+            </div>
+        `;
+        
+        this.uploadResults.innerHTML = resultsHtml;
+    }
+    
+    showError(message) {
+        this.uploadProgress.style.display = 'none';
+        this.processingStatus.style.display = 'none';
+        this.uploadResults.style.display = 'block';
+        
+        this.uploadResults.innerHTML = `
+            <div class="alert alert-danger">
+                <h6><i class="fas fa-exclamation-triangle me-2"></i>Error</h6>
+                <p>${message}</p>
+            </div>
+            <button type="button" class="btn btn-secondary" onclick="uploader.resetUpload()">
+                <i class="fas fa-redo me-1"></i>Try Again
+            </button>
+        `;
+    }
+    
+    resetUpload() {
+        this.selectedFile = null;
+        this.parsedContacts = null;
+        this.fileInput.value = '';
+        
+        // Hide all sections
+        this.fileInfo.style.display = 'none';
+        this.uploadProgress.style.display = 'none';
+        this.processingStatus.style.display = 'none';
+        this.uploadResults.style.display = 'none';
+        this.csvPreview.style.display = 'none';
+        this.campaignSelection.style.display = 'none';
+        this.actionButtons.style.display = 'none';
+        
+        // Reset progress bar
+        document.getElementById('progressBar').style.width = '0%';
+        document.getElementById('progressPercent').textContent = '0%';
+        
+        // Reset buttons
+        this.previewButton.disabled = true;
+        this.previewButton.style.display = 'none'; // Keep hidden since we auto-preview
+        this.uploadButton.disabled = true;
+        this.uploadButton.style.display = 'none';
+        
+        // Clear campaign selections
+        document.getElementById('breachedCampaign').value = '';
+        document.getElementById('secureCampaign').value = '';
+    }
+    
+    downloadSample() {
+        const csvContent = `email,first_name,last_name,company,title,phone,industry
+john.doe@techcorp.com,John,Doe,TechCorp Inc,IT Manager,(555) 123-4567,Technology
+jane.smith@example.com,Jane,Smith,Example Ltd,CTO,(555) 987-6543,Software
+mike.wilson@startup.io,Mike,Wilson,Startup.io,Developer,(555) 555-0123,Technology`;
+        
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'contacts_sample.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+    }
+    
+    updateStats() {
+        // Refresh contact statistics
+        fetch('/api/contact-stats')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('totalContacts').textContent = data.total_contacts || 0;
+                document.getElementById('activeContacts').textContent = data.active_contacts || 0;
+            })
+            .catch(error => console.error('Error updating stats:', error));
+    }
+}
+
+// Campaign creation function
+function createCampaignWithContacts(contactCount) {
+    // Store upload info in session storage for campaign creation
+    sessionStorage.setItem('recentUpload', JSON.stringify({
+        contactCount: contactCount,
+        timestamp: new Date().toISOString(),
+        source: 'upload'
+    }));
+    
+    // Navigate to new campaign page
+    window.location.href = '/campaigns/new?source=upload';
+}
+
+// Initialize uploader when page loads
+let uploader;
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, initializing uploader...');
+    uploader = new ContactUploader();
+    console.log('Uploader initialized');
+
+    // Test if campaigns load after a short delay
+    setTimeout(() => {
+        console.log('Testing campaign dropdowns...');
+        const breachedSelect = document.getElementById('breachedCampaign');
+        const secureSelect = document.getElementById('secureCampaign');
+        console.log('Breached campaign options:', breachedSelect.options.length);
+        console.log('Secure campaign options:', secureSelect.options.length);
+    }, 2000);
+});
+</script>
+{% endblock %}

@@ -1,0 +1,503 @@
+{% extends "base.html" %}
+
+{% block title %}Campaigns - SalesBreachPro{% endblock %}
+
+{% block extra_head %}
+<style>
+    .campaign-card {
+        transition: all 0.3s ease;
+        border-left: 4px solid #3b82f6;
+    }
+    
+    .campaign-card.active {
+        border-left-color: #11998e;
+        background: linear-gradient(135deg, rgba(17, 153, 142, 0.05) 0%, rgba(56, 239, 125, 0.05) 100%);
+    }
+    
+    .campaign-card.paused {
+        border-left-color: #f59e0b;
+        background: linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, rgba(251, 191, 36, 0.05) 100%);
+    }
+    
+    .campaign-card.completed {
+        border-left-color: #6b7280;
+        background: linear-gradient(135deg, rgba(107, 114, 128, 0.05) 0%, rgba(156, 163, 175, 0.05) 100%);
+    }
+    
+    .campaign-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    }
+    
+    .status-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 1rem;
+        color: white !important;
+    }
+
+    /* Ensure all text is visible */
+    .campaign-card h6,
+    .campaign-card .fw-semibold,
+    .campaign-card .fs-4,
+    .campaign-card .fs-5,
+    .campaign-card .fw-bold {
+        color: #1f2937 !important;
+    }
+
+    .bg-light.text-dark {
+        color: #1f2937 !important;
+    }
+    
+    .progress-ring {
+        width: 60px;
+        height: 60px;
+    }
+    
+    .empty-state {
+        padding: 4rem 2rem;
+        text-align: center;
+    }
+    
+    /* Fix dropdown overlap issue */
+    .dropdown-menu {
+        z-index: 1050;
+    }
+    
+    .campaign-item {
+        position: relative;
+        z-index: 1;
+    }
+    
+    .campaign-item:hover {
+        z-index: 10;
+    }
+    
+    .dropdown.show {
+        z-index: 1055;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="h2 mb-1">
+                        <i class="fas fa-rocket text-primary me-2"></i>
+                        Email Campaigns
+                    </h2>
+                    <p class="text-muted mb-0">Manage and monitor your email marketing campaigns</p>
+                </div>
+                <div>
+                    <div class="btn-group">
+                        <a href="{{ url_for('campaigns.new_campaign') }}" class="btn btn-primary">
+                            <i class="fas fa-plus me-1"></i>New Campaign
+                        </a>
+                        <button type="button" class="btn btn-outline-secondary" onclick="refreshCampaigns()">
+                            <i class="fas fa-sync-alt me-1"></i>Refresh
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Campaign Stats -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">
+                <div class="card-body text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="fw-light mb-1" style="color: white !important;">Active Campaigns</h6>
+                            <h3 class="fw-bold mb-0" style="color: white !important;">{{ campaigns|selectattr('status', 'equalto', 'active')|list|length }}</h3>
+                        </div>
+                        <div class="opacity-20">
+                            <i class="fas fa-play-circle fa-2x" style="color: white !important;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);">
+                <div class="card-body text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="fw-light mb-1" style="color: white !important;">Total Campaigns</h6>
+                            <h3 class="fw-bold mb-0" style="color: white !important;">{{ campaigns|length }}</h3>
+                        </div>
+                        <div class="opacity-20">
+                            <i class="fas fa-envelope fa-2x" style="color: white !important;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);">
+                <div class="card-body text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="fw-light mb-1" style="color: white !important;">Avg Response Rate</h6>
+                            <h3 class="fw-bold mb-0" style="color: white !important;">
+                                {% set total_rate = campaigns|sum(attribute='response_rate') %}
+                                {% set count = campaigns|length %}
+                                {{ (total_rate / count)|round(1) if count > 0 else 0 }}%
+                            </h3>
+                        </div>
+                        <div class="opacity-20">
+                            <i class="fas fa-chart-line fa-2x" style="color: white !important;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);">
+                <div class="card-body text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="fw-light mb-1" style="color: white !important;">Total Emails Sent</h6>
+                            <h3 class="fw-bold mb-0" style="color: white !important;">{{ campaigns|sum(attribute='sent_count') }}</h3>
+                        </div>
+                        <div class="opacity-20">
+                            <i class="fas fa-paper-plane fa-2x" style="color: white !important;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Campaigns List -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list me-2"></i>All Campaigns
+                    </h5>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <input type="radio" class="btn-check" name="status-filter" id="all-campaigns" checked>
+                        <label class="btn btn-outline-secondary" for="all-campaigns">All</label>
+                        
+                        <input type="radio" class="btn-check" name="status-filter" id="active-campaigns">
+                        <label class="btn btn-outline-success" for="active-campaigns">Active</label>
+                        
+                        <input type="radio" class="btn-check" name="status-filter" id="paused-campaigns">
+                        <label class="btn btn-outline-warning" for="paused-campaigns">Paused</label>
+                        
+                        <input type="radio" class="btn-check" name="status-filter" id="completed-campaigns">
+                        <label class="btn btn-outline-secondary" for="completed-campaigns">Completed</label>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if campaigns %}
+                        <div class="row" id="campaigns-container">
+                            {% for campaign in campaigns %}
+                            <div class="col-12 mb-3 campaign-item" data-status="{{ campaign.status }}" data-campaign-id="{{ campaign.id }}">
+                                <div class="card campaign-card {{ campaign.status }} h-100" style="cursor: pointer;" onclick="viewCampaign({{ campaign.id }})">
+                                    <div class="card-body">
+                                        <div class="row align-items-center">
+                                            <div class="col-md-6">
+                                                <div class="d-flex align-items-start">
+                                                    <div class="flex-grow-1">
+                                                        <h6 class="mb-1 fw-semibold">{{ campaign.name }}</h6>
+                                                        <div class="mb-2">
+                                                            <span class="status-badge bg-{{ 'success' if campaign.status == 'active' else 'warning' if campaign.status == 'paused' else 'secondary' }}">
+                                                                <i class="fas fa-{{ 'play' if campaign.status == 'active' else 'pause' if campaign.status == 'paused' else 'check' }} me-1"></i>
+                                                                {{ campaign.status.title() }}
+                                                            </span>
+                                                            {% if campaign.template_type and campaign.template_type != 'unknown' %}
+                                                            <span class="badge bg-light text-dark ms-2">{{ campaign.template_type.replace('_', ' ').title() }}</span>
+                                                            {% else %}
+                                                            <span class="badge bg-light text-dark ms-2">Security Campaign</span>
+                                                            {% endif %}
+                                                        </div>
+                                                        <small class="text-muted">
+                                                            <i class="fas fa-calendar me-1"></i>
+                                                            Created: {{ campaign.created_at.strftime('%b %d, %Y') if campaign.created_at }}
+                                                        </small>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="col-md-3 text-center">
+                                                <div class="mb-2">
+                                                    <div class="fs-4 fw-bold">{{ campaign.sent_count }}</div>
+                                                    <small class="text-muted">Emails Sent</small>
+                                                </div>
+                                                <div class="progress" style="height: 8px;">
+                                                    <div class="progress-bar bg-success" role="progressbar" 
+                                                         style="width: {% if campaign.total_contacts > 0 %}{{ (campaign.sent_count / campaign.total_contacts * 100)|round }}{% else %}0{% endif %}%">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="col-md-2 text-center">
+                                                <div class="mb-1">
+                                                    <div class="fs-5 fw-bold text-primary">{{ campaign.response_rate }}%</div>
+                                                    <small class="text-muted">Response Rate</small>
+                                                </div>
+                                                <small class="text-muted">{{ campaign.response_count }} responses</small>
+                                                {% if campaign.bounce_count and campaign.bounce_count > 0 %}
+                                                    <br><small class="text-warning">{{ campaign.bounce_count }} bounced</small>
+                                                {% endif %}
+                                            </div>
+                                            
+                                            <div class="col-md-1 text-end">
+                                                <div class="dropdown" onclick="event.stopPropagation();">
+                                                    <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown">
+                                                        <i class="fas fa-ellipsis-v"></i>
+                                                    </button>
+                                                    <ul class="dropdown-menu">
+                                                        <li><a class="dropdown-item" href="#" onclick="viewCampaign({{ campaign.id }})">
+                                                            <i class="fas fa-eye me-2"></i>View Details
+                                                        </a></li>
+                                                        <li><a class="dropdown-item" href="#" onclick="editCampaign({{ campaign.id }})">
+                                                            <i class="fas fa-edit me-2"></i>Edit
+                                                        </a></li>
+                                                        <li><a class="dropdown-item" href="#" onclick="toggleCampaign({{ campaign.id }}, '{{ campaign.status }}')">
+                                                            <i class="fas fa-{{ 'pause' if campaign.status == 'active' else 'play' }} me-2"></i>
+                                                            {{ 'Pause' if campaign.status == 'active' else 'Resume' }}
+                                                        </a></li>
+                                                        <li><hr class="dropdown-divider"></li>
+                                                        <li><a class="dropdown-item text-danger" href="#" onclick="deleteCampaign({{ campaign.id }}, '{{ campaign.name }}')">
+                                                            <i class="fas fa-trash me-2"></i>Delete
+                                                        </a></li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="empty-state">
+                            <div class="text-center">
+                                <i class="fas fa-rocket text-muted fa-4x mb-3"></i>
+                                <h4 class="text-muted">No Campaigns Yet</h4>
+                                <p class="text-muted mb-4">Start your first email marketing campaign to reach your prospects</p>
+                                <a href="{{ url_for('campaigns.new_campaign') }}" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-plus me-2"></i>Create Your First Campaign
+                                </a>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Campaign filtering
+    const filterButtons = document.querySelectorAll('input[name="status-filter"]');
+    const campaignItems = document.querySelectorAll('.campaign-item');
+    
+    filterButtons.forEach(button => {
+        button.addEventListener('change', function() {
+            const filter = this.id;
+            
+            campaignItems.forEach(item => {
+                const status = item.dataset.status;
+                
+                if (filter === 'all-campaigns' || 
+                    (filter === 'active-campaigns' && status === 'active') ||
+                    (filter === 'paused-campaigns' && status === 'paused') ||
+                    (filter === 'completed-campaigns' && status === 'completed')) {
+                    item.style.display = 'block';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        });
+    });
+});
+
+function refreshCampaigns() {
+    const button = event.target;
+    const originalHtml = button.innerHTML;
+    
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Refreshing...';
+    button.disabled = true;
+    
+    // Simulate refresh (in real app, this would fetch updated data)
+    setTimeout(() => {
+        location.reload();
+    }, 1000);
+}
+
+// Toast notification system
+function showToast(message, type = 'info') {
+    // Remove existing toast if any
+    const existingToast = document.querySelector('.custom-toast');
+    if (existingToast) {
+        existingToast.remove();
+    }
+
+    // Create toast element
+    const toast = document.createElement('div');
+    toast.className = `custom-toast alert alert-${type} alert-dismissible position-fixed`;
+    toast.style.cssText = 'top: 20px; right: 20px; z-index: 1050; min-width: 300px;';
+    
+    toast.innerHTML = `
+        <div class="d-flex align-items-center">
+            <i class="fas fa-${
+                type === 'success' ? 'check-circle' : 
+                type === 'danger' ? 'exclamation-triangle' : 
+                type === 'warning' ? 'exclamation-circle' : 'info-circle'
+            } me-2"></i>
+            <span>${message}</span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    
+    document.body.appendChild(toast);
+    
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+        if (toast && toast.parentNode) {
+            toast.remove();
+        }
+    }, 5000);
+}
+
+function viewCampaign(campaignId) {
+    window.location.href = `/campaigns/${campaignId}`;
+}
+
+function editCampaign(campaignId) {
+    window.location.href = `/campaigns/${campaignId}/edit`;
+}
+
+function toggleCampaign(campaignId, currentStatus) {
+    const action = currentStatus === 'active' ? 'pause' : 'resume';
+    
+    // Make API call to toggle campaign
+    fetch(`/campaigns/${campaignId}/toggle`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            
+            // Update the UI
+            const campaignItem = document.querySelector(`[data-campaign-id="${campaignId}"]`);
+            if (campaignItem) {
+                campaignItem.dataset.status = data.new_status;
+                const campaignCard = campaignItem.querySelector('.campaign-card');
+                campaignCard.className = campaignCard.className.replace(/\b(active|paused|completed)\b/g, data.new_status);
+                
+                // Update status badge
+                const statusBadge = campaignItem.querySelector('.status-badge');
+                if (statusBadge) {
+                    statusBadge.textContent = data.new_status.charAt(0).toUpperCase() + data.new_status.slice(1);
+                    statusBadge.className = `badge status-badge bg-${
+                        data.new_status === 'active' ? 'success' : 
+                        data.new_status === 'paused' ? 'warning' : 'secondary'
+                    }`;
+                }
+            }
+        } else {
+            showToast(data.message, 'danger');
+        }
+    })
+    .catch(error => {
+        showToast('Error updating campaign status', 'danger');
+        console.error('Error:', error);
+    });
+}
+
+function deleteCampaign(campaignId, campaignName) {
+    // Modern confirmation modal instead of alert
+    const modal = document.createElement('div');
+    modal.className = 'modal fade';
+    modal.innerHTML = `
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Delete Campaign</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to delete the campaign <strong>"${campaignName}"</strong>?</p>
+                    <p class="text-muted small">This action cannot be undone.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" onclick="confirmDelete(${campaignId})" data-bs-dismiss="modal">
+                        <i class="fas fa-trash me-1"></i>Delete Campaign
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    const bsModal = new bootstrap.Modal(modal);
+    bsModal.show();
+    
+    // Clean up modal after it's hidden
+    modal.addEventListener('hidden.bs.modal', () => {
+        modal.remove();
+    });
+}
+
+function confirmDelete(campaignId) {
+    // Make API call to delete campaign
+    fetch(`/campaigns/${campaignId}/delete`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            
+            // Remove the campaign item from the UI
+            setTimeout(() => {
+                const campaignItem = document.querySelector(`[data-campaign-id="${campaignId}"]`);
+                if (campaignItem) {
+                    campaignItem.style.transition = 'all 0.3s ease';
+                    campaignItem.style.opacity = '0';
+                    campaignItem.style.transform = 'translateX(-100%)';
+                    
+                    setTimeout(() => {
+                        campaignItem.remove();
+                        
+                        // Check if no campaigns left and show empty state
+                        const remainingCampaigns = document.querySelectorAll('.campaign-item');
+                        if (remainingCampaigns.length === 0) {
+                            location.reload();
+                        }
+                    }, 300);
+                }
+            }, 100);
+        } else {
+            showToast(data.message, 'danger');
+        }
+    })
+    .catch(error => {
+        showToast('Error deleting campaign', 'danger');
+        console.error('Error:', error);
+    });
+}
+</script>
+{% endblock %}

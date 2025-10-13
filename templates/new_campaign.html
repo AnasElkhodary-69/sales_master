@@ -1,0 +1,1515 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Edit Campaign' if edit_mode else 'New Campaign' }} - SalesBreachPro{% endblock %}
+
+{% block extra_head %}
+<style>
+    .campaign-wizard {
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    .step-indicator {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 2rem;
+    }
+    
+    .step {
+        flex: 1;
+        text-align: center;
+        padding: 1rem;
+        position: relative;
+    }
+    
+    .step.active {
+        color: var(--primary-color);
+        font-weight: 600;
+    }
+    
+    .step.completed {
+        color: var(--success-color);
+    }
+    
+    .step::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        right: -50%;
+        width: 100%;
+        height: 2px;
+        background: #e5e7eb;
+        z-index: -1;
+    }
+    
+    .step:last-child::after {
+        display: none;
+    }
+    
+    .step.completed::after {
+        background: var(--success-color);
+    }
+    
+    .form-section {
+        display: none;
+    }
+    
+    .form-section.active {
+        display: block;
+    }
+    
+    .contact-selector {
+        max-height: 400px;
+        overflow-y: auto;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 1rem;
+    }
+    
+    .contact-item {
+        display: flex;
+        align-items: center;
+        justify-content: between;
+        padding: 0.5rem;
+        border-radius: 4px;
+        transition: background-color 0.2s;
+    }
+    
+    .contact-item:hover {
+        background-color: #f3f4f6;
+    }
+    
+    .risk-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 12px;
+        font-weight: 500;
+    }
+    
+    .risk-high { background: #fee2e2; color: #dc2626; }
+    .risk-medium { background: #fef3c7; color: #d97706; }
+    .risk-low { background: #dcfce7; color: #16a34a; }
+    
+    /* Error message styling */
+    #errorContainer {
+        border-left: 4px solid #dc3545;
+        border-radius: 8px;
+        animation: slideDown 0.3s ease-out;
+        margin-bottom: 1.5rem;
+    }
+    
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .btn-close {
+        background: none;
+        border: none;
+        color: #dc3545;
+        opacity: 0.7;
+    }
+    
+    .btn-close:hover {
+        opacity: 1;
+    }
+    
+    /* Campaign Type Selection */
+    .campaign-type-card {
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: 2px solid #e5e7eb;
+    }
+    
+    .campaign-type-card:hover {
+        border-color: #3b82f6;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+    }
+    
+    .campaign-type-card.selected {
+        border-color: #10b981;
+        background-color: #f0fdf4;
+    }
+    
+    .campaign-type-card.selected .card-body {
+        color: #065f46;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="h2 mb-1">
+                        <i class="fas fa-plus text-primary me-2"></i>
+                        Create New Campaign
+                    </h2>
+                    <p class="text-muted mb-0">Set up a new email campaign with targeted contacts</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('campaigns.index') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-1"></i>Back to Campaigns
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Campaign Wizard -->
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="campaign-wizard p-4">
+                <!-- Error Message Container -->
+                <div id="errorContainer" class="alert alert-danger" style="display: none;" role="alert">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <div id="errorMessage"></div>
+                        <button type="button" class="btn-close ms-auto" onclick="hideError()"></button>
+                    </div>
+                </div>
+                
+                <!-- Step Indicator -->
+                <div class="step-indicator">
+                    <div class="step active" data-step="1">
+                        <i class="fas fa-info-circle fa-2x mb-2"></i>
+                        <div>Campaign Details</div>
+                    </div>
+                    <div class="step" data-step="2">
+                        <i class="fas fa-users fa-2x mb-2"></i>
+                        <div>Select Contacts</div>
+                    </div>
+                    <div class="step" data-step="3">
+                        <i class="fas fa-envelope fa-2x mb-2"></i>
+                        <div>Email Template</div>
+                    </div>
+                    <div class="step" data-step="4">
+                        <i class="fas fa-cog fa-2x mb-2"></i>
+                        <div>Campaign Settings</div>
+                    </div>
+                    <div class="step" data-step="5">
+                        <i class="fas fa-rocket fa-2x mb-2"></i>
+                        <div>Launch</div>
+                    </div>
+                </div>
+
+                <!-- Form -->
+                <form id="campaignForm" method="POST" action="{{ url_for('campaigns.edit_campaign', campaign_id=campaign.id) if edit_mode else url_for('campaigns.new_campaign') }}">
+                    <!-- Step 1: Campaign Details -->
+                    <div class="form-section active" data-step="1">
+                        <h4 class="mb-3">Campaign Information</h4>
+                        
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="mb-3">
+                                    <label for="campaignName" class="form-label">Campaign Name *</label>
+                                    <input type="text" class="form-control" id="campaignName" name="name" 
+                                           value="{{ campaign.name if edit_mode else '' }}" placeholder="e.g., Q4 Security Awareness Campaign" required>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="campaignDescription" class="form-label">Description</label>
+                                    <textarea class="form-control" id="campaignDescription" name="description" 
+                                              rows="3" placeholder="Brief description of campaign goals and target audience">{{ campaign.description if edit_mode and campaign.description else '' }}</textarea>
+                                </div>
+                                
+                                <!-- Campaign Type Selection -->
+                                <div class="mb-4">
+                                    <label class="form-label">Campaign Type *</label>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="card campaign-type-card" onclick="selectCampaignType('single')" id="singleTypeCard">
+                                                <div class="card-body text-center">
+                                                    <i class="fas fa-envelope fa-2x text-primary mb-2"></i>
+                                                    <h6>Single Email</h6>
+                                                    <p class="small text-muted mb-0">Send one email using a selected template</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="card campaign-type-card" onclick="selectCampaignType('sequence')" id="sequenceTypeCard">
+                                                <div class="card-body text-center">
+                                                    <i class="fas fa-mail-bulk fa-2x text-success mb-2"></i>
+                                                    <h6>Email Sequence</h6>
+                                                    <p class="small text-muted mb-0">Send automated follow-up sequence</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <input type="hidden" id="campaignType" name="campaign_type" required>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="senderName" class="form-label">Sender Name *</label>
+                                            <input type="text" class="form-control" id="senderName" name="sender_name" 
+                                                   value="{{ campaign.sender_name if edit_mode else 'Security Team' }}" required>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="senderEmail" class="form-label">Sender Email *</label>
+                                            <input type="email" class="form-control" id="senderEmail" name="sender_email" 
+                                                   value="{{ campaign.sender_email if edit_mode else 'emily.carter@savety.ai' }}" required>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <h6>Quick Stats</h6>
+                                        <div class="mb-2">
+                                            <strong>{{ contact_stats.total_contacts }}</strong> total contacts
+                                        </div>
+                                        <div class="mb-2">
+                                            <span class="risk-badge risk-high">{{ contact_stats.breached }}</span> Breached
+                                        </div>
+                                        <div class="mb-2">
+                                            <span class="risk-badge risk-low">{{ contact_stats.secure }}</span> Secure
+                                        </div>
+                                        <div class="mb-2">
+                                            <span class="risk-badge risk-medium">{{ contact_stats.unknown }}</span> Unknown
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 2: Select Contacts -->
+                    <div class="form-section" data-step="2">
+                        <h4 class="mb-3">Target Audience</h4>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Breach Status Targeting</label>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" id="selectAllRiskLevels">
+                                        <label class="form-check-label text-primary fw-bold" for="selectAllRiskLevels">
+                                            Select All
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="targetBreached" name="target_risk_levels" value="breached" {{ 'checked' if edit_mode and campaign.target_risk_levels and 'breached' in campaign.target_risk_levels else '' }}>
+                                        <label class="form-check-label" for="targetBreached">
+                                            <span class="risk-badge risk-high">Breached</span> - Contacts from breached domains
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="targetSecure" name="target_risk_levels" value="secure" {{ 'checked' if edit_mode and campaign.target_risk_levels and 'secure' in campaign.target_risk_levels else '' }}>
+                                        <label class="form-check-label" for="targetSecure">
+                                            <span class="risk-badge risk-low">Secure</span> - No breaches detected
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="targetUnknown" name="target_risk_levels" value="unknown" {{ 'checked' if edit_mode and campaign.target_risk_levels and 'unknown' in campaign.target_risk_levels else '' }}>
+                                        <label class="form-check-label" for="targetUnknown">
+                                            <span class="risk-badge risk-medium">Unknown</span> - Status not determined
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Contact Selection</label>
+                                    <div class="btn-group w-100" role="group">
+                                        <input type="radio" class="btn-check" name="contact_selection" id="selectAll" value="all" checked>
+                                        <label class="btn btn-outline-primary" for="selectAll">All Matching Contacts</label>
+                                        
+                                        <input type="radio" class="btn-check" name="contact_selection" id="selectManual" value="manual">
+                                        <label class="btn btn-outline-primary" for="selectManual">Select Manually</label>
+                                    </div>
+                                </div>
+                                
+                                <div id="manualSelection" style="display: none;">
+                                    <div class="contact-selector">
+                                        <div id="contactsList">
+                                            <!-- Contacts will be loaded here -->
+                                            <div class="text-center text-muted">
+                                                <i class="fas fa-spinner fa-spin"></i> Loading contacts...
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-info">
+                            <strong>💡 Pro Tip:</strong> High-risk contacts typically have higher response rates for security-focused campaigns.
+                        </div>
+                    </div>
+
+                    <!-- Step 3: Email Template/Sequence -->
+                    <div class="form-section" data-step="3">
+                        <div id="step3Content">
+                            <!-- Will be populated based on campaign type selection -->
+                            <div class="text-center text-muted py-5">
+                                <i class="fas fa-arrow-left fa-2x mb-3"></i>
+                                <h5>Please select a campaign type first</h5>
+                                <p>Go back to Step 1 and choose between Single Email or Email Sequence</p>
+                            </div>
+                        </div>
+
+                        <!-- Single Email Template Selection -->
+                        <div id="singleEmailContent" style="display: none;">
+                            <h4 class="mb-3">Choose Email Template</h4>
+                            
+                            <div class="row">
+                                <div class="col-md-8">
+                                    {% if templates %}
+                                    <div class="mb-3">
+                                        <label for="templateSelect" class="form-label">Choose Template *</label>
+                                        <select class="form-select" id="templateSelect" name="template_id">
+                                            <option value="">Select an email template...</option>
+                                            {% for template in templates %}
+                                            <option value="{{ template.id }}" data-type="{{ template.template_type }}">
+                                                {{ template.name }} ({{ template.template_type.replace('_', ' ').title() }})
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    
+                                    <!-- Template Variants Selection -->
+                                    <div id="variantSelection" class="card" style="display: none;">
+                                        <div class="card-header">
+                                            <h6 class="mb-0">Choose Template Version</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div id="variantOptions">
+                                                <!-- Variant options will be loaded here -->
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div id="templatePreview" class="card" style="display: none;">
+                                        <div class="card-header">
+                                            <h6 class="mb-0">Template Preview</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div id="templateContent"></div>
+                                        </div>
+                                    </div>
+                                    {% else %}
+                                    <div class="alert alert-warning">
+                                        <h6><i class="fas fa-exclamation-triangle me-2"></i>No Templates Available</h6>
+                                        <p class="mb-2">You need to create email templates before launching campaigns.</p>
+                                        <a href="{{ url_for('campaigns.index') }}" class="btn btn-sm btn-primary">
+                                            <i class="fas fa-plus me-1"></i>Create Templates
+                                        </a>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-4">
+                                    <div class="card bg-light">
+                                        <div class="card-body">
+                                            <h6>Single Email Campaign</h6>
+                                            <div class="small text-muted">
+                                                <p>This will send one email to selected contacts using the chosen template.</p>
+                                                <strong>Best for:</strong><br>
+                                                • Announcements<br>
+                                                • One-time alerts<br>
+                                                • Simple outreach
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Email Sequence Selection -->
+                        <div id="sequenceEmailContent" style="display: none;">
+                            <h4 class="mb-3">Choose Email Sequence</h4>
+                            
+                            <div class="row">
+                                <div class="col-md-8">
+                                    {% if sequences %}
+                                    <div class="mb-3">
+                                        <label for="sequenceSelect" class="form-label">Choose Sequence *</label>
+                                        <select class="form-select" id="sequenceSelect" name="sequence_id">
+                                            <option value="">Select an email sequence...</option>
+                                            {% for sequence in sequences %}
+                                            <option value="{{ sequence.id }}" data-risk="{{ sequence.risk_level }}">
+                                                {{ sequence.name }} ({{ sequence.risk_level.title() }} - {{ sequence.description }})
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    
+                                    <div id="sequencePreview" class="card" style="display: none;">
+                                        <div class="card-header">
+                                            <h6 class="mb-0">Sequence Preview</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div id="sequenceContent"></div>
+                                        </div>
+                                    </div>
+                                    {% else %}
+                                    <div class="alert alert-warning">
+                                        <h6><i class="fas fa-exclamation-triangle me-2"></i>No Sequences Available</h6>
+                                        <p class="mb-2">You need to create email sequences before launching sequence campaigns.</p>
+                                        <a href="{{ url_for('campaigns.index') }}" class="btn btn-sm btn-primary">
+                                            <i class="fas fa-plus me-1"></i>Create Sequences
+                                        </a>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-4">
+                                    <div class="card bg-light">
+                                        <div class="card-body">
+                                            <h6>Email Sequence Campaign</h6>
+                                            <div class="small text-muted">
+                                                <p>This will send multiple emails automatically with specified delays.</p>
+                                                <strong>Best for:</strong><br>
+                                                • Follow-up campaigns<br>
+                                                • Nurture sequences<br>
+                                                • Multi-touch outreach
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 4: Campaign Settings -->
+                    <div class="form-section" data-step="4">
+                        <h4 class="mb-3">Sending Configuration</h4>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="dailyLimit" class="form-label">Daily Send Limit</label>
+                                    <input type="number" class="form-control" id="dailyLimit" name="daily_limit" 
+                                           value="{{ campaign.daily_limit if edit_mode else '50' }}" min="1" max="1000">
+                                    <div class="form-text">Maximum emails to send per day (recommended: 50-100)</div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="templateType" class="form-label">Campaign Type</label>
+                                    <select class="form-select" id="templateType" name="template_type">
+                                        <option value="breached">Breach Response Campaign</option>
+                                        <option value="secure">Proactive Security Campaign</option>
+                                        <option value="unknown" selected>Security Assessment Campaign</option>
+                                    </select>
+                                    <div class="form-text">Choose the campaign type based on contact risk levels</div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="description" class="form-label">Description (Optional)</label>
+                                    <textarea class="form-control" id="description" name="description" rows="2" 
+                                              placeholder="Brief description of campaign purpose">{{ campaign.description if edit_mode else '' }}</textarea>
+                                    <div class="form-text">Brief description of campaign purpose</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <h6>Deliverability Best Practices</h6>
+                                        <ul class="small mb-0">
+                                            <li>Start with lower daily limits</li>
+                                            <li>Monitor bounce rates</li>
+                                            <li>Personalize content with variables</li>
+                                            <li>Avoid spam trigger words</li>
+                                            <li>Include unsubscribe links</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Email Approval Workflow -->
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="mb-0">
+                                            <i class="fas fa-check-circle me-2"></i>Email Approval Workflow
+                                        </h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="mb-3">
+                                            <label class="form-label">Sending Mode</label>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" id="automaticSending" name="approval_mode" value="automatic" checked>
+                                                <label class="form-check-label" for="automaticSending">
+                                                    <strong>Automatic Sending</strong>
+                                                </label>
+                                                <div class="form-text">Emails are sent automatically without approval (recommended for most campaigns)</div>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" id="manualApproval" name="approval_mode" value="manual_approval">
+                                                <label class="form-check-label" for="manualApproval">
+                                                    <strong>Manual Approval Required</strong>
+                                                </label>
+                                                <div class="form-text">Each email must be reviewed and approved before sending</div>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" id="batchApproval" name="approval_mode" value="batch_approval">
+                                                <label class="form-check-label" for="batchApproval">
+                                                    <strong>Batch Approval</strong>
+                                                </label>
+                                                <div class="form-text">Approve groups of emails in batches for faster processing</div>
+                                            </div>
+                                        </div>
+
+                                        <div id="approvalInfo" class="alert alert-info" style="display: none;">
+                                            <h6><i class="fas fa-info-circle me-2"></i>How Approval Works</h6>
+                                            <ul class="small mb-0">
+                                                <li>Emails are queued for approval instead of being sent immediately</li>
+                                                <li>You'll receive notifications when emails need approval</li>
+                                                <li>Approved emails are sent within 5 minutes of approval</li>
+                                                <li>You can approve/reject individual emails or in batches</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Auto-Enrollment Settings -->
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="mb-0">
+                                            <i class="fas fa-magic me-2"></i>Auto-Enrollment Settings
+                                        </h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="form-check form-switch mb-3">
+                                            <input class="form-check-input" type="checkbox" id="autoEnroll" name="auto_enroll">
+                                            <label class="form-check-label" for="autoEnroll">
+                                                <strong>Enable Auto-Enrollment</strong>
+                                            </label>
+                                            <div class="form-text">Automatically add new contacts to this campaign based on their breach status</div>
+                                        </div>
+                                        
+                                        <div id="autoEnrollSettings" style="display: none;">
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <div class="mb-3">
+                                                        <label for="autoEnrollBreachStatus" class="form-label">Target Breach Status</label>
+                                                        <select class="form-select" id="autoEnrollBreachStatus" name="auto_enroll_breach_status">
+                                                            <option value="all">All Contacts</option>
+                                                            <option value="breached">Breached Contacts Only</option>
+                                                            <option value="not_breached">Secure Contacts Only</option>
+                                                            <option value="unknown">Unknown Status Only</option>
+                                                        </select>
+                                                        <div class="form-text">Which contacts should be automatically enrolled</div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="col-md-6">
+                                                    <div class="alert alert-info">
+                                                        <h6><i class="fas fa-info-circle me-2"></i>How Auto-Enrollment Works</h6>
+                                                        <ul class="small mb-0">
+                                                            <li>New contacts are checked every hour</li>
+                                                            <li>Matching contacts are automatically added to this campaign</li>
+                                                            <li>Each contact starts from the beginning of the sequence</li>
+                                                            <li>You can disable this feature anytime after campaign creation</li>
+                                                        </ul>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 5: Launch -->
+                    <div class="form-section" data-step="5">
+                        <h4 class="mb-3">Review & Launch</h4>
+                        
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <h5>Campaign Summary</h5>
+                                        
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <strong>Campaign Name:</strong>
+                                                <div id="summaryName" class="text-muted mb-2">-</div>
+                                                
+                                                <strong id="summaryTemplateLabel">Template:</strong>
+                                                <div id="summaryTemplate" class="text-muted mb-2">-</div>
+                                                
+                                                <strong>Target Audience:</strong>
+                                                <div id="summaryAudience" class="text-muted mb-2">-</div>
+                                            </div>
+                                            
+                                            <div class="col-md-6">
+                                                <strong>Estimated Contacts:</strong>
+                                                <div id="summaryContacts" class="text-muted mb-2">-</div>
+                                                
+                                                <strong>Daily Limit:</strong>
+                                                <div id="summaryLimit" class="text-muted mb-2">-</div>
+                                                
+                                                <strong>Campaign Type:</strong>
+                                                <div id="summaryType" class="text-muted mb-2">-</div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="alert alert-success">
+                                            <strong>✅ Ready to Launch!</strong><br>
+                                            Your campaign is configured and ready to start sending emails.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="card bg-primary text-white">
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-rocket fa-3x mb-3"></i>
+                                        <h5>{{ 'Update Campaign' if edit_mode else 'Launch Campaign' }}</h5>
+                                        <p class="small">Start sending emails immediately</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Navigation Buttons -->
+                    <div class="d-flex justify-content-between mt-4">
+                        <button type="button" id="prevBtn" class="btn btn-secondary" onclick="changeStep(-1)" style="display: none;">
+                            <i class="fas fa-arrow-left me-1"></i>Previous
+                        </button>
+                        
+                        <div class="ms-auto">
+                            <button type="button" id="nextBtn" class="btn btn-primary" onclick="changeStep(1);">
+                                Next<i class="fas fa-arrow-right ms-1"></i>
+                            </button>
+                            
+                            <button type="button" id="submitBtn" class="btn btn-success" style="display: none;" onclick="debugSubmit(event)">
+                                <i class="fas fa-{{ 'save' if edit_mode else 'rocket' }} me-1"></i>{{ 'Update Campaign' if edit_mode else 'Launch Campaign' }}
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentStep = 1;
+const totalSteps = 5;
+let selectedCampaignType = null;
+
+// Campaign Type Selection
+function selectCampaignType(type) {
+    selectedCampaignType = type;
+    
+    // Update visual selection
+    document.querySelectorAll('.campaign-type-card').forEach(card => {
+        card.classList.remove('selected');
+    });
+    
+    if (type === 'single') {
+        document.getElementById('singleTypeCard').classList.add('selected');
+    } else if (type === 'sequence') {
+        document.getElementById('sequenceTypeCard').classList.add('selected');
+    }
+    
+    // Set hidden input
+    document.getElementById('campaignType').value = type;
+    
+    // Update Step 3 content based on selection
+    updateStep3Content();
+}
+
+function updateStep3Content() {
+    const step3Default = document.getElementById('step3Content');
+    const singleContent = document.getElementById('singleEmailContent');
+    const sequenceContent = document.getElementById('sequenceEmailContent');
+    
+    // Hide all content first
+    step3Default.style.display = 'none';
+    singleContent.style.display = 'none';
+    sequenceContent.style.display = 'none';
+    
+    if (selectedCampaignType === 'single') {
+        singleContent.style.display = 'block';
+    } else if (selectedCampaignType === 'sequence') {
+        sequenceContent.style.display = 'block';
+    } else {
+        step3Default.style.display = 'block';
+    }
+}
+
+// Simple working step navigation
+function changeStep(direction) {
+    console.log('changeStep called:', direction);
+    
+    const newStep = currentStep + direction;
+    if (newStep < 1 || newStep > totalSteps) return;
+    
+    // Comprehensive validation for each step when moving forward
+    if (direction > 0) {
+        console.log('Forward navigation - validating step:', currentStep);
+        const isValid = validateCurrentStep();
+        console.log('Validation result:', isValid);
+        if (!isValid) {
+            console.log('Validation failed - stopping navigation');
+            return; // Stop navigation if validation fails
+        }
+        console.log('Validation passed - continuing navigation');
+    }
+    
+    // Hide any error messages when navigating
+    hideError();
+    
+    // Hide current step
+    const currentSection = document.querySelector(`[data-step="${currentStep}"].form-section`);
+    const currentIndicator = document.querySelector(`[data-step="${currentStep}"].step`);
+    
+    if (currentSection) currentSection.classList.remove('active');
+    if (currentIndicator) {
+        currentIndicator.classList.remove('active');
+        if (direction > 0) currentIndicator.classList.add('completed');
+    }
+    
+    // Show new step
+    currentStep = newStep;
+    const newSection = document.querySelector(`[data-step="${currentStep}"].form-section`);
+    const newIndicator = document.querySelector(`[data-step="${currentStep}"].step`);
+    
+    if (newSection) newSection.classList.add('active');
+    if (newIndicator) newIndicator.classList.add('active');
+    
+    // Update buttons
+    document.getElementById('prevBtn').style.display = currentStep > 1 ? 'block' : 'none';
+    if (currentStep === totalSteps) {
+        document.getElementById('nextBtn').style.display = 'none';
+        document.getElementById('submitBtn').style.display = 'block';
+        // Update summary when reaching the final step
+        updateSummary();
+    } else {
+        document.getElementById('nextBtn').style.display = 'block';
+        document.getElementById('submitBtn').style.display = 'none';
+    }
+}
+
+// Test function
+function testFunction() {
+    alert('JavaScript works! Now calling changeStep...');
+    changeStep(1);
+}
+
+// Function to toggle all risk levels
+function toggleAllRiskLevels(selectAllCheckbox) {
+    const riskLevelCheckboxes = document.querySelectorAll('input[name="target_risk_levels"]');
+    riskLevelCheckboxes.forEach(checkbox => {
+        checkbox.checked = selectAllCheckbox.checked;
+    });
+}
+
+// Function to update Select All checkbox state based on individual selections
+function updateSelectAllState() {
+    const allRiskLevels = document.querySelectorAll('input[name="target_risk_levels"]');
+    const checkedRiskLevels = document.querySelectorAll('input[name="target_risk_levels"]:checked');
+    const selectAllCheckbox = document.getElementById('selectAllRiskLevels');
+    
+    if (!selectAllCheckbox) return;
+    
+    // If all are checked, check the Select All checkbox
+    if (checkedRiskLevels.length === allRiskLevels.length) {
+        selectAllCheckbox.checked = true;
+        selectAllCheckbox.indeterminate = false;
+    } 
+    // If some are checked, show indeterminate state
+    else if (checkedRiskLevels.length > 0) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = true;
+    }
+    // If none are checked, uncheck Select All
+    else {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+    }
+}
+
+// Functions to show and hide inline error messages
+function showError(message) {
+    const errorContainer = document.getElementById('errorContainer');
+    const errorMessage = document.getElementById('errorMessage');
+    
+    errorMessage.textContent = message;
+    errorContainer.style.display = 'block';
+    
+    // Scroll to top to ensure error is visible
+    errorContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    
+    // Auto-hide after 8 seconds
+    setTimeout(() => {
+        hideError();
+    }, 8000);
+}
+
+function hideError() {
+    const errorContainer = document.getElementById('errorContainer');
+    errorContainer.style.display = 'none';
+}
+
+// Function to validate the current step before allowing navigation
+function validateCurrentStep() {
+    switch (currentStep) {
+        case 1: // Campaign Details
+            const campaignName = document.getElementById('campaignName');
+            const senderName = document.getElementById('senderName');
+            const senderEmail = document.getElementById('senderEmail');
+            
+            if (!campaignName || !campaignName.value.trim()) {
+                showError('Please enter a Campaign Name to continue.');
+                campaignName.focus();
+                return false;
+            }
+            
+            if (!senderName || !senderName.value.trim()) {
+                showError('Please enter a Sender Name to continue.');
+                senderName.focus();
+                return false;
+            }
+            
+            if (!senderEmail || !senderEmail.value.trim()) {
+                showError('Please enter a Sender Email to continue.');
+                senderEmail.focus();
+                return false;
+            }
+            
+            // Basic email validation
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(senderEmail.value)) {
+                showError('Please enter a valid Sender Email address.');
+                senderEmail.focus();
+                return false;
+            }
+            
+            // Campaign type validation
+            if (!selectedCampaignType) {
+                showError('Please select a Campaign Type (Single Email or Email Sequence).');
+                return false;
+            }
+            
+            break;
+            
+        case 2: // Select Contacts
+            const riskLevels = document.querySelectorAll('input[name="target_risk_levels"]:checked');
+            if (riskLevels.length === 0) {
+                showError('Please select at least one Breach Status to target your contacts.');
+                return false;
+            }
+            
+            // Check contact selection method
+            const contactSelection = document.querySelector('input[name="contact_selection"]:checked');
+            if (!contactSelection) {
+                showError('Please choose how you want to select contacts (All Matching or Manual Selection).');
+                return false;
+            }
+            
+            // If manual selection is chosen, check if contacts are selected
+            if (contactSelection.value === 'manual') {
+                const selectedContacts = document.querySelectorAll('input[name="contact_ids"]:checked');
+                if (selectedContacts.length === 0) {
+                    showError('You chose manual selection but haven\'t selected any contacts. Please select contacts or change to "All Matching Contacts".');
+                    return false;
+                }
+            }
+            
+            break;
+            
+        case 3: // Email Template/Sequence
+            if (selectedCampaignType === 'single') {
+                const templateSelect = document.getElementById('templateSelect');
+                if (!templateSelect || !templateSelect.value) {
+                    showError('Please select an Email Template for your single email campaign.');
+                    if (templateSelect) templateSelect.focus();
+                    return false;
+                }
+
+                // Check if a variant is selected when variants are available
+                const variantSelection = document.getElementById('variantSelection');
+                if (variantSelection && variantSelection.style.display !== 'none') {
+                    const selectedVariant = document.querySelector('input[name="selected_variant_id"]:checked');
+                    if (!selectedVariant) {
+                        showError('Please select a template variant to continue.');
+                        return false;
+                    }
+                }
+            } else if (selectedCampaignType === 'sequence') {
+                const sequenceSelect = document.getElementById('sequenceSelect');
+                if (!sequenceSelect || !sequenceSelect.value) {
+                    showError('Please select an Email Sequence for your sequence campaign.');
+                    if (sequenceSelect) sequenceSelect.focus();
+                    return false;
+                }
+            } else {
+                showError('Please go back to Step 1 and select a Campaign Type first.');
+                return false;
+            }
+            
+            break;
+            
+        case 4: // Campaign Settings
+            const dailyLimit = document.getElementById('dailyLimit');
+            const templateType = document.getElementById('templateType');
+            
+            if (!dailyLimit || !dailyLimit.value || dailyLimit.value <= 0) {
+                showError('Please set a valid Daily Send Limit (must be greater than 0).');
+                if (dailyLimit) dailyLimit.focus();
+                return false;
+            }
+            
+            if (dailyLimit.value > 1000) {
+                showError('⚠️ Daily limit is quite high. We recommend staying under 100 emails per day for better deliverability.');
+                // Allow to continue but show warning - don't return false
+            }
+            
+            if (!templateType || !templateType.value) {
+                showError('Please select a Campaign Type.');
+                if (templateType) templateType.focus();
+                return false;
+            }
+            
+            break;
+    }
+    
+    return true; // All validation passed
+}
+
+// Function to load template variants and preview
+function loadTemplatePreview(templateId) {
+    // First, load template variants
+    loadTemplateVariants(templateId);
+
+    // Then fetch template data for preview
+    fetch(`/api/template/${templateId}`)
+        .then(response => response.json())
+        .then(template => {
+            if (template && !template.error) {
+                const preview = document.getElementById('templatePreview');
+                const content = document.getElementById('templateContent');
+
+                // Display actual template content
+                const templateContent = template.content || 'No content available';
+                const displayContent = templateContent.length > 200 ?
+                    templateContent.substring(0, 200) + '...' :
+                    templateContent;
+
+                // Determine risk badge class based on template type
+                let riskBadgeClass = 'risk-low';
+                if (template.template_type === 'breached') {
+                    riskBadgeClass = 'risk-high';
+                } else if (template.template_type === 'unknown') {
+                    riskBadgeClass = 'risk-medium';
+                }
+
+                content.innerHTML = `
+                    <h6>${template.name} <span class="risk-badge ${riskBadgeClass} ms-2">${template.template_type ? template.template_type.charAt(0).toUpperCase() + template.template_type.slice(1) : ''}</span></h6>
+                    <div class="mb-2"><strong>Subject:</strong> ${template.subject || 'No subject'}</div>
+                    <div class="border p-2 bg-light" style="white-space: pre-wrap;">
+                        ${displayContent}
+                    </div>
+                `;
+
+                preview.style.display = 'block';
+            } else {
+                // Fallback to hardcoded templates if API fails
+                const templates = {
+                    '1': {
+                        name: 'Security Alert - High Risk',
+                        subject: 'URGENT: Your data may have been compromised',
+                        content: 'Dear {{name}}, We\'ve detected that your personal information may have been exposed in a recent data breach. Our security experts can help you protect your accounts immediately...'
+                    },
+                    '2': {
+                        name: 'Security Advisory - Medium Risk', 
+                        subject: 'Important Security Update for {{company}}',
+                        content: 'Hello {{name}}, We wanted to inform you about a recent security incident that may affect your organization. We recommend taking the following precautions...'
+                    },
+                    '3': {
+                        name: 'General Business Outreach',
+                        subject: 'Enhance Your Business Security',
+                        content: 'Hi {{name}}, At {{company}}, security is becoming increasingly important. Our team specializes in helping businesses like yours stay protected...'
+                    }
+                };
+                
+                const fallbackTemplate = templates[templateId];
+                if (fallbackTemplate) {
+                    const preview = document.getElementById('templatePreview');
+                    const content = document.getElementById('templateContent');
+                    
+                    // Determine risk level for demo templates
+                    let riskLevel = 'Low';
+                    let riskBadgeClass = 'risk-low';
+                    if (fallbackTemplate.name.includes('High Risk')) {
+                        riskLevel = 'High';
+                        riskBadgeClass = 'risk-high';
+                    } else if (fallbackTemplate.name.includes('Medium Risk')) {
+                        riskLevel = 'Medium';
+                        riskBadgeClass = 'risk-medium';
+                    }
+                    
+                    content.innerHTML = `
+                        <h6>${fallbackTemplate.name} <span class="risk-badge ${riskBadgeClass} ms-2">${riskLevel} Risk</span></h6>
+                        <div class="mb-2"><strong>Subject:</strong> ${fallbackTemplate.subject}</div>
+                        <div class="border p-2 bg-light" style="white-space: pre-wrap;">
+                            ${fallbackTemplate.content.length > 200 ? fallbackTemplate.content.substring(0, 200) + '...' : fallbackTemplate.content}
+                        </div>
+                    `;
+                    
+                    preview.style.display = 'block';
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching template:', error);
+            // Hide preview on error
+            const preview = document.getElementById('templatePreview');
+            if (preview) preview.style.display = 'none';
+        });
+}
+
+// Function to load template variants
+function loadTemplateVariants(templateId) {
+    console.log('Loading variants for template:', templateId);
+
+    // Fetch variants for the selected template
+    fetch(`/api/template/${templateId}/variants`)
+        .then(response => response.json())
+        .then(variants => {
+            console.log('Template variants:', variants);
+            const variantSelection = document.getElementById('variantSelection');
+            const variantOptions = document.getElementById('variantOptions');
+
+            if (variants && variants.length > 0) {
+                // Show variant selection section
+                variantSelection.style.display = 'block';
+
+                // Create variant options
+                let optionsHtml = '<p class="small text-muted mb-3">Choose which version(s) to use for this campaign:</p>';
+
+                variants.forEach(variant => {
+                    const isDefault = variant.is_default;
+                    optionsHtml += `
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" id="variant_${variant.id}"
+                                   name="selected_variant_id" value="${variant.id}" ${isDefault ? 'checked' : ''}>
+                            <label class="form-check-label" for="variant_${variant.id}">
+                                <strong>${variant.variant_name}</strong>
+                                ${variant.variant_label ? ` - ${variant.variant_label}` : ''}
+                                ${isDefault ? '<span class="badge bg-primary ms-2">Default</span>' : ''}
+                            </label>
+                            <div class="small text-muted ms-4">
+                                Subject: ${variant.subject_line}
+                            </div>
+                        </div>
+                    `;
+                });
+
+                variantOptions.innerHTML = optionsHtml;
+
+                // Add event listeners to variant selection
+                document.querySelectorAll('input[name="selected_variant_id"]').forEach(radio => {
+                    radio.addEventListener('change', function() {
+                        if (this.checked) {
+                            updateVariantPreview(this.value);
+                        }
+                    });
+                });
+
+                // Show preview of default variant if available
+                const defaultVariant = variants.find(v => v.is_default);
+                if (defaultVariant) {
+                    updateVariantPreview(defaultVariant.id);
+                }
+            } else {
+                // No variants found, hide variant selection
+                variantSelection.style.display = 'none';
+                console.log('No variants found for this template');
+            }
+        })
+        .catch(error => {
+            console.log('Error loading variants (using template directly):', error);
+            // Hide variant selection on error
+            const variantSelection = document.getElementById('variantSelection');
+            variantSelection.style.display = 'none';
+        });
+}
+
+// Function to update variant preview
+function updateVariantPreview(variantId) {
+    fetch(`/api/template/variant/${variantId}`)
+        .then(response => response.json())
+        .then(variant => {
+            if (variant && !variant.error) {
+                const preview = document.getElementById('templatePreview');
+                const content = document.getElementById('templateContent');
+
+                // Display variant content
+                const variantContent = variant.email_body || 'No content available';
+                const displayContent = variantContent.length > 200 ?
+                    variantContent.substring(0, 200) + '...' :
+                    variantContent;
+
+                content.innerHTML = `
+                    <h6>${variant.variant_name} ${variant.variant_label ? `- ${variant.variant_label}` : ''}
+                        ${variant.is_default ? '<span class="badge bg-primary ms-2">Default</span>' : ''}
+                    </h6>
+                    <div class="mb-2"><strong>Subject:</strong> ${variant.subject_line}</div>
+                    <div class="border p-2 bg-light" style="white-space: pre-wrap;">
+                        ${displayContent}
+                    </div>
+                `;
+
+                preview.style.display = 'block';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading variant preview:', error);
+        });
+}
+
+// Function to update the campaign summary on the final step
+function updateSummary() {
+    // Campaign Name
+    const campaignName = document.getElementById('campaignName');
+    document.getElementById('summaryName').textContent = 
+        campaignName && campaignName.value ? campaignName.value : '-';
+    
+    // Selected Template or Sequence
+    const campaignType = document.getElementById('campaignType').value;
+    const summaryTemplateLabel = document.getElementById('summaryTemplateLabel');
+    const summaryTemplate = document.getElementById('summaryTemplate');
+    
+    if (campaignType === 'single') {
+        summaryTemplateLabel.textContent = 'Template:';
+        const templateSelect = document.getElementById('templateSelect');
+        summaryTemplate.textContent = 
+            templateSelect && templateSelect.selectedIndex > 0 ? 
+            templateSelect.options[templateSelect.selectedIndex].text : '-';
+    } else if (campaignType === 'sequence') {
+        summaryTemplateLabel.textContent = 'Sequence:';
+        const sequenceSelect = document.getElementById('sequenceSelect');
+        summaryTemplate.textContent = 
+            sequenceSelect && sequenceSelect.selectedIndex > 0 ? 
+            sequenceSelect.options[sequenceSelect.selectedIndex].text : '-';
+    } else {
+        summaryTemplateLabel.textContent = 'Template/Sequence:';
+        summaryTemplate.textContent = '-';
+    }
+    
+    // Target Risk Levels
+    const checkedRiskLevels = document.querySelectorAll('input[name="target_risk_levels"]:checked');
+    const riskLevels = Array.from(checkedRiskLevels).map(cb => {
+        return cb.value.charAt(0).toUpperCase() + cb.value.slice(1);
+    });
+    document.getElementById('summaryAudience').textContent = 
+        riskLevels.length > 0 ? riskLevels.join(', ') : '-';
+    
+    // Daily Limit
+    const dailyLimit = document.getElementById('dailyLimit');
+    document.getElementById('summaryLimit').textContent = 
+        dailyLimit && dailyLimit.value ? dailyLimit.value + ' emails/day' : '50 emails/day';
+    
+    // Campaign Type  
+    const templateType = document.getElementById('templateType');
+    document.getElementById('summaryType').textContent = 
+        templateType && templateType.selectedIndex >= 0 ? 
+        templateType.options[templateType.selectedIndex].text : 'Security Assessment Campaign';
+    
+    // Estimated Contacts (calculate based on selected breach status)
+    let estimatedContacts = 0;
+    const contactStats = {
+        'breached': {{ contact_stats.breached or 0 }},
+        'secure': {{ contact_stats.secure or 0 }}, 
+        'unknown': {{ contact_stats.unknown or 0 }}
+    };
+    
+    // Debug logging
+    console.log('DEBUG: Contact stats from backend:', contactStats);
+    console.log('DEBUG: Checked risk levels:', Array.from(checkedRiskLevels).map(cb => cb.value));
+    
+    checkedRiskLevels.forEach(checkbox => {
+        console.log(`DEBUG: Checking ${checkbox.value}: ${contactStats[checkbox.value]} contacts`);
+        if (contactStats[checkbox.value]) {
+            estimatedContacts += contactStats[checkbox.value];
+        }
+    });
+    
+    console.log('DEBUG: Total estimated contacts:', estimatedContacts);
+    
+    document.getElementById('summaryContacts').textContent = 
+        estimatedContacts > 0 ? estimatedContacts + ' contacts' : '-';
+}
+
+// Basic initialization
+document.addEventListener('DOMContentLoaded', function() {
+    // Setup Select All checkbox
+    const selectAllCheckbox = document.getElementById('selectAllRiskLevels');
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function() {
+            toggleAllRiskLevels(this);
+        });
+    }
+    
+    // Setup individual risk level checkboxes to update Select All state
+    document.querySelectorAll('input[name="target_risk_levels"]').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            updateSelectAllState();
+            // Update summary if we're on the final step
+            if (currentStep === totalSteps) updateSummary();
+        });
+    });
+    
+    // Setup template selection
+    const templateSelect = document.getElementById('templateSelect');
+    if (templateSelect) {
+        templateSelect.addEventListener('change', function() {
+            if (this.value) {
+                loadTemplatePreview(this.value);
+            } else {
+                const templatePreview = document.getElementById('templatePreview');
+                if (templatePreview) {
+                    templatePreview.style.display = 'none';
+                }
+            }
+            // Update summary if we're on the final step
+            if (currentStep === totalSteps) {
+                updateSummary();
+            }
+        });
+    }
+    
+    // Add real-time summary updates for form fields
+    const campaignName = document.getElementById('campaignName');
+    const dailyLimit = document.getElementById('dailyLimit');
+    const templateType = document.getElementById('templateType');
+    
+    if (campaignName) {
+        campaignName.addEventListener('input', function() {
+            if (currentStep === totalSteps) updateSummary();
+        });
+    }
+    
+    if (dailyLimit) {
+        dailyLimit.addEventListener('input', function() {
+            if (currentStep === totalSteps) updateSummary();
+        });
+    }
+    
+    if (templateType) {
+        templateType.addEventListener('change', function() {
+            if (currentStep === totalSteps) updateSummary();
+        });
+    }
+    
+    // Auto-enrollment toggle
+    const autoEnrollCheckbox = document.getElementById('autoEnroll');
+    const autoEnrollSettings = document.getElementById('autoEnrollSettings');
+    
+    if (autoEnrollCheckbox && autoEnrollSettings) {
+        autoEnrollCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+                autoEnrollSettings.style.display = 'block';
+                // Set default breach status based on selected target audience in step 2
+                const breachStatusSelect = document.getElementById('autoEnrollBreachStatus');
+                if (breachStatusSelect) {
+                    const defaultStatus = getAutoEnrollDefault();
+                    breachStatusSelect.value = defaultStatus;
+                }
+            } else {
+                autoEnrollSettings.style.display = 'none';
+            }
+        });
+    }
+    
+    // Function to determine the best auto-enrollment default based on selected breach statuses
+    function getAutoEnrollDefault() {
+        // Get all checked breach status checkboxes from step 2
+        const checkedStatuses = [];
+        const breachedCheckbox = document.querySelector('input[name="target_risk_levels"][value="breached"]');
+        const secureCheckbox = document.querySelector('input[name="target_risk_levels"][value="secure"]');
+        const unknownCheckbox = document.querySelector('input[name="target_risk_levels"][value="unknown"]');
+        
+        if (breachedCheckbox && breachedCheckbox.checked) checkedStatuses.push('breached');
+        if (secureCheckbox && secureCheckbox.checked) checkedStatuses.push('not_breached');
+        if (unknownCheckbox && unknownCheckbox.checked) checkedStatuses.push('unknown');
+        
+        // Logic for selecting the best default:
+        if (checkedStatuses.length === 1) {
+            // If only one status is selected, use that one
+            return checkedStatuses[0];
+        } else if (checkedStatuses.length === 0) {
+            // If no statuses selected yet, fall back to campaign type
+            const campaignType = document.getElementById('templateType');
+            if (campaignType) {
+                switch(campaignType.value) {
+                    case 'breached':
+                        return 'breached';
+                    case 'secure':
+                        return 'not_breached';
+                    case 'unknown':
+                        return 'unknown';
+                    default:
+                        return 'all';
+                }
+            }
+            return 'all';
+        } else {
+            // If multiple statuses selected, use 'all' to include all of them
+            return 'all';
+        }
+    }
+});
+
+// Debug function for form submission
+function debugSubmit(event) {
+    console.log('=== CAMPAIGN CREATION DEBUG START ===');
+    console.log('Submit button clicked');
+    console.log('Current step:', currentStep);
+    console.log('Selected campaign type:', selectedCampaignType);
+    console.log('Total steps:', totalSteps);
+    
+    // Check all form data
+    const form = document.getElementById('campaignForm');
+    if (!form) {
+        console.error('CRITICAL: Form not found!');
+        alert('Error: Campaign form not found!');
+        return false;
+    }
+    
+    const formData = new FormData(form);
+    console.log('Form data entries:');
+    for (let [key, value] of formData.entries()) {
+        console.log(`  ${key}: "${value}"`);
+    }
+    
+    // Check required fields individually
+    const requiredFields = {
+        'name': 'Campaign Name',
+        'sender_name': 'Sender Name', 
+        'sender_email': 'Sender Email',
+        'target_risk_levels': 'Target Audience'
+    };
+    
+    console.log('Checking required fields:');
+    for (let [field, label] of Object.entries(requiredFields)) {
+        const value = formData.get(field);
+        const hasValue = value && value.trim() !== '';
+        console.log(`  ${label} (${field}): ${hasValue ? 'OK' : 'MISSING'} - "${value}"`);
+        if (!hasValue) {
+            alert(`Missing required field: ${label}`);
+            return false;
+        }
+    }
+    
+    // Check template selection
+    const campaignType = formData.get('campaign_type');
+    console.log('Campaign type:', campaignType);
+    if (campaignType === 'single') {
+        const templateId = formData.get('template_id');
+        console.log('Template ID:', templateId);
+        if (!templateId) {
+            alert('Please select a template for single email campaign');
+            return false;
+        }
+    } else if (campaignType === 'sequence') {
+        const sequenceId = formData.get('sequence_id');
+        console.log('Sequence ID:', sequenceId);
+        if (!sequenceId) {
+            alert('Please select a sequence for sequence campaign');
+            return false;
+        }
+    }
+    
+    // Validate each step manually with detailed logging
+    console.log('Validating all steps:');
+    for (let step = 1; step <= totalSteps; step++) {
+        const originalStep = currentStep;
+        currentStep = step;
+        console.log(`  Validating step ${step}...`);
+        
+        const isValid = validateCurrentStep();
+        console.log(`  Step ${step} validation result:`, isValid);
+        
+        currentStep = originalStep;
+        
+        if (!isValid) {
+            console.error(`VALIDATION FAILED AT STEP ${step}`);
+            alert(`Validation failed at step ${step}. Please complete all required fields.`);
+            changeStep(step - originalStep);
+            return false;
+        }
+    }
+    
+    console.log('ALL VALIDATIONS PASSED!');
+    console.log('Form action:', form.action);
+    console.log('Form method:', form.method);
+    
+    // Submit the campaign directly
+    console.log('Submitting campaign...');
+    
+    // Use fetch to submit the form
+    fetch(form.action, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        if (response.ok) {
+            // Campaign created successfully - redirect to campaigns page
+            window.location.href = '/campaigns/';
+        } else {
+            console.error('Server returned error:', response.status);
+            alert('Error creating campaign. Please try again.');
+        }
+    })
+    .catch(error => {
+        console.error('Fetch error:', error);
+        alert('Error submitting campaign: ' + error.message);
+    });
+    
+    console.log('=== CAMPAIGN CREATION DEBUG END ===');
+    return true;
+}
+
+// Handle approval mode changes
+document.addEventListener('DOMContentLoaded', function() {
+    const approvalModeInputs = document.querySelectorAll('input[name="approval_mode"]');
+    const approvalInfo = document.getElementById('approvalInfo');
+
+    approvalModeInputs.forEach(input => {
+        input.addEventListener('change', function() {
+            if (this.value === 'manual_approval' || this.value === 'batch_approval') {
+                approvalInfo.style.display = 'block';
+            } else {
+                approvalInfo.style.display = 'none';
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

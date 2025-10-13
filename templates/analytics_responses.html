@@ -1,0 +1,316 @@
+{% extends "base.html" %}
+
+{% block title %}Response Analytics - SalesBreachPro{% endblock %}
+
+{% block extra_head %}
+<style>
+    .response-card {
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    .response-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    }
+    .badge-positive { background-color: #22c55e; }
+    .badge-negative { background-color: #ef4444; }
+    .badge-neutral { background-color: #6b7280; }
+    .badge-inquiry { background-color: #3b82f6; }
+    .response-item {
+        border-left: 3px solid transparent;
+        transition: all 0.2s ease;
+    }
+    .response-item:hover {
+        background-color: #f8f9fa;
+    }
+    .response-positive { border-left-color: #22c55e; }
+    .response-negative { border-left-color: #ef4444; }
+    .response-neutral { border-left-color: #6b7280; }
+    .response-inquiry { border-left-color: #3b82f6; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h2 mb-1">
+                        <i class="fas fa-reply text-success me-2"></i>
+                        Response Analytics
+                    </h1>
+                    <p class="text-muted mb-0">Email responses and engagement metrics from the past 7 days</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('dashboard.index') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Response Overview Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card response-card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">
+                <div class="card-body text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-2 fw-light">Total Responses</h6>
+                            <h2 class="mb-0">{{ stats.total_responses or 0 }}</h2>
+                            <small class="opacity-75">{{ stats.response_rate }}% rate</small>
+                        </div>
+                        <div class="opacity-50">
+                            <i class="fas fa-comments fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card response-card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);">
+                <div class="card-body text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-2 fw-light">Positive</h6>
+                            <h2 class="mb-0">{{ stats.positive_count or 0 }}</h2>
+                            <small class="opacity-75">{{ stats.positive_rate }}%</small>
+                        </div>
+                        <div class="opacity-50">
+                            <i class="fas fa-thumbs-up fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card response-card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);">
+                <div class="card-body text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-2 fw-light">Inquiries</h6>
+                            <h2 class="mb-0">{{ stats.inquiry_count or 0 }}</h2>
+                            <small class="opacity-75">Need follow-up</small>
+                        </div>
+                        <div class="opacity-50">
+                            <i class="fas fa-question-circle fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card response-card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);">
+                <div class="card-body text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-2 fw-light">Negative</h6>
+                            <h2 class="mb-0">{{ stats.negative_count or 0 }}</h2>
+                            <small class="opacity-75">Declined/Unsubscribed</small>
+                        </div>
+                        <div class="opacity-50">
+                            <i class="fas fa-thumbs-down fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Response Categories Tabs -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <ul class="nav nav-tabs card-header-tabs" id="responseTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="all-tab" data-bs-toggle="tab" data-bs-target="#all" type="button">
+                                <i class="fas fa-list me-2"></i>All Responses
+                                <span class="badge bg-secondary ms-2">{{ stats.total_responses or 0 }}</span>
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="positive-tab" data-bs-toggle="tab" data-bs-target="#positive" type="button">
+                                <i class="fas fa-thumbs-up me-2"></i>Positive
+                                <span class="badge badge-positive ms-2">{{ stats.positive_count or 0 }}</span>
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="inquiry-tab" data-bs-toggle="tab" data-bs-target="#inquiry" type="button">
+                                <i class="fas fa-question-circle me-2"></i>Inquiries
+                                <span class="badge badge-inquiry ms-2">{{ stats.inquiry_count or 0 }}</span>
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="negative-tab" data-bs-toggle="tab" data-bs-target="#negative" type="button">
+                                <i class="fas fa-thumbs-down me-2"></i>Negative
+                                <span class="badge badge-negative ms-2">{{ stats.negative_count or 0 }}</span>
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+                <div class="card-body">
+                    <div class="tab-content" id="responseTabContent">
+                        <!-- All Responses Tab -->
+                        <div class="tab-pane fade show active" id="all" role="tabpanel">
+                            {% if responses %}
+                            <div class="list-group">
+                                {% for response, email, contact, campaign in responses %}
+                                <div class="list-group-item response-item response-{{ response.response_type }}">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div class="flex-grow-1">
+                                            <h6 class="mb-1">
+                                                {{ contact.first_name }} {{ contact.last_name }}
+                                                <span class="badge badge-{{ response.response_type }} ms-2">{{ response.response_type }}</span>
+                                            </h6>
+                                            <p class="mb-1 text-muted">{{ contact.email }}</p>
+                                            {% if response.message %}
+                                            <p class="mb-1">{{ response.message[:200] }}{% if response.message|length > 200 %}...{% endif %}</p>
+                                            {% endif %}
+                                            <small class="text-muted">
+                                                <i class="fas fa-clock me-1"></i>{{ response.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                                {% if campaign %}
+                                                | <i class="fas fa-bullhorn me-1"></i>{{ campaign.name }}
+                                                {% endif %}
+                                            </small>
+                                        </div>
+                                        <div>
+                                            <button class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <div class="text-center py-5">
+                                <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                                <p class="text-muted">No responses received this week</p>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Positive Responses Tab -->
+                        <div class="tab-pane fade" id="positive" role="tabpanel">
+                            {% if response_types.positive %}
+                            <div class="list-group">
+                                {% for item in response_types.positive %}
+                                <div class="list-group-item response-item response-positive">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div class="flex-grow-1">
+                                            <h6 class="mb-1">
+                                                {{ item.contact.first_name }} {{ item.contact.last_name }}
+                                                <span class="badge badge-positive ms-2">Positive</span>
+                                            </h6>
+                                            <p class="mb-1 text-muted">{{ item.contact.email }}</p>
+                                            {% if item.response.message %}
+                                            <p class="mb-1">{{ item.response.message[:200] }}{% if item.response.message|length > 200 %}...{% endif %}</p>
+                                            {% endif %}
+                                            <small class="text-muted">
+                                                <i class="fas fa-clock me-1"></i>{{ item.response.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                            </small>
+                                        </div>
+                                        <div>
+                                            <button class="btn btn-sm btn-success">
+                                                <i class="fas fa-phone"></i> Follow Up
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <div class="text-center py-5">
+                                <i class="fas fa-thumbs-up fa-3x text-muted mb-3"></i>
+                                <p class="text-muted">No positive responses yet</p>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Inquiry Responses Tab -->
+                        <div class="tab-pane fade" id="inquiry" role="tabpanel">
+                            {% if response_types.inquiry %}
+                            <div class="list-group">
+                                {% for item in response_types.inquiry %}
+                                <div class="list-group-item response-item response-inquiry">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div class="flex-grow-1">
+                                            <h6 class="mb-1">
+                                                {{ item.contact.first_name }} {{ item.contact.last_name }}
+                                                <span class="badge badge-inquiry ms-2">Inquiry</span>
+                                            </h6>
+                                            <p class="mb-1 text-muted">{{ item.contact.email }}</p>
+                                            {% if item.response.message %}
+                                            <p class="mb-1">{{ item.response.message[:200] }}{% if item.response.message|length > 200 %}...{% endif %}</p>
+                                            {% endif %}
+                                            <small class="text-muted">
+                                                <i class="fas fa-clock me-1"></i>{{ item.response.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                            </small>
+                                        </div>
+                                        <div>
+                                            <button class="btn btn-sm btn-primary">
+                                                <i class="fas fa-reply"></i> Reply
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <div class="text-center py-5">
+                                <i class="fas fa-question-circle fa-3x text-muted mb-3"></i>
+                                <p class="text-muted">No inquiries received</p>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Negative Responses Tab -->
+                        <div class="tab-pane fade" id="negative" role="tabpanel">
+                            {% if response_types.negative %}
+                            <div class="list-group">
+                                {% for item in response_types.negative %}
+                                <div class="list-group-item response-item response-negative">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div class="flex-grow-1">
+                                            <h6 class="mb-1">
+                                                {{ item.contact.first_name }} {{ item.contact.last_name }}
+                                                <span class="badge badge-negative ms-2">Negative</span>
+                                            </h6>
+                                            <p class="mb-1 text-muted">{{ item.contact.email }}</p>
+                                            {% if item.response.message %}
+                                            <p class="mb-1">{{ item.response.message[:200] }}{% if item.response.message|length > 200 %}...{% endif %}</p>
+                                            {% endif %}
+                                            <small class="text-muted">
+                                                <i class="fas fa-clock me-1"></i>{{ item.response.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                            </small>
+                                        </div>
+                                        <div>
+                                            <button class="btn btn-sm btn-secondary">
+                                                <i class="fas fa-ban"></i> Unsubscribe
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <div class="text-center py-5">
+                                <i class="fas fa-thumbs-down fa-3x text-muted mb-3"></i>
+                                <p class="text-muted">No negative responses</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

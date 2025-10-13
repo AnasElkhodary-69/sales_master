@@ -1,0 +1,455 @@
+{% extends "base.html" %}
+
+{% block title %}New Email Template - SalesBreachPro{% endblock %}
+
+{% block extra_css %}
+<style>
+.template-editor {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.editor-tabs {
+    background: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    padding: 0;
+}
+
+.editor-tabs .nav-link {
+    color: #495057;
+    border: none;
+    border-radius: 0;
+    padding: 12px 20px;
+}
+
+.editor-tabs .nav-link.active {
+    background: white;
+    color: #007bff;
+    border-bottom: 2px solid #007bff;
+}
+
+.editor-content {
+    background: white;
+    padding: 20px;
+}
+
+.template-preview {
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    padding: 20px;
+    background: #fafbfc;
+    min-height: 300px;
+}
+
+.preview-subject {
+    font-weight: 600;
+    font-size: 16px;
+    color: #2c3e50;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.preview-body {
+    line-height: 1.6;
+    color: #495057;
+}
+
+.variable-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 15px;
+}
+
+.variable-tag {
+    background: #e3f2fd;
+    color: #1565c0;
+    padding: 4px 10px;
+    border-radius: 15px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid #bbdefb;
+}
+
+.variable-tag:hover {
+    background: #1565c0;
+    color: white;
+}
+
+.template-type-selector {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.type-option {
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    padding: 15px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: white;
+}
+
+.type-option:hover {
+    border-color: #007bff;
+    background: #f8f9fa;
+}
+
+.type-option.selected {
+    border-color: #007bff;
+    background: #e3f2fd;
+    color: #1565c0;
+}
+
+.type-option input[type="radio"] {
+    display: none;
+}
+
+.type-icon {
+    font-size: 24px;
+    margin-bottom: 10px;
+}
+
+.form-help {
+    background: #e7f3ff;
+    border: 1px solid #b8daff;
+    border-radius: 6px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.char-counter {
+    font-size: 12px;
+    color: #6c757d;
+    text-align: right;
+    margin-top: 5px;
+}
+
+.char-counter.warning {
+    color: #856404;
+}
+
+.char-counter.danger {
+    color: #721c24;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4><i class="fas fa-plus"></i> Create New Email Template</h4>
+                </div>
+                <div class="card-body">
+                    <div class="form-help">
+                        <h6><i class="fas fa-info-circle"></i> Template Variables</h6>
+                        <p class="mb-2">
+                            Use these variables to personalize your emails. They will be automatically replaced 
+                            with contact information when emails are sent.
+                        </p>
+                        <div class="variable-tags">
+                            <span class="variable-tag" onclick="insertVariable('{{name}}')">{{name}}</span>
+                            <span class="variable-tag" onclick="insertVariable('{{first_name}}')">{{first_name}}</span>
+                            <span class="variable-tag" onclick="insertVariable('{{company}}')">{{company}}</span>
+                            <span class="variable-tag" onclick="insertVariable('{{industry}}')">{{industry}}</span>
+                            <span class="variable-tag" onclick="insertVariable('{{title}}')">{{title}}</span>
+                            <span class="variable-tag" onclick="insertVariable('{{email}}')">{{email}}</span>
+                        </div>
+                    </div>
+
+                    <form method="POST" id="templateForm">
+                        <!-- Basic Information -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="name">Template Name *</label>
+                                    <input type="text" class="form-control" id="name" name="name" required
+                                           placeholder="e.g., Healthcare Breach Response">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>Template Type *</label>
+                                    <div class="template-type-selector">
+                                        <div class="type-option" onclick="selectType('breached', this)">
+                                            <input type="radio" name="template_type" value="breached" required>
+                                            <div class="type-icon text-warning">
+                                                <i class="fas fa-exclamation-triangle"></i>
+                                            </div>
+                                            <div><strong>Breach Response</strong></div>
+                                            <small>For breached contacts</small>
+                                        </div>
+                                        <div class="type-option" onclick="selectType('proactive', this)">
+                                            <input type="radio" name="template_type" value="proactive" required>
+                                            <div class="type-icon text-info">
+                                                <i class="fas fa-shield-alt"></i>
+                                            </div>
+                                            <div><strong>Proactive</strong></div>
+                                            <small>For clean contacts</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Subject Line -->
+                        <div class="form-group mb-4">
+                            <label for="subject_line">Email Subject Line *</label>
+                            <input type="text" class="form-control" id="subject_line" name="subject_line" required
+                                   placeholder="e.g., URGENT: {{company}} data security concerns"
+                                   oninput="updatePreview(); updateCharCount('subject', this.value, 78)">
+                            <div id="subject-counter" class="char-counter"></div>
+                        </div>
+
+                        <!-- Template Editor -->
+                        <div class="template-editor mb-4">
+                            <ul class="nav nav-tabs editor-tabs">
+                                <li class="nav-item">
+                                    <a class="nav-link active" data-toggle="tab" href="#html-editor">
+                                        <i class="fas fa-code"></i> HTML Editor
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" data-toggle="tab" href="#plain-editor">
+                                        <i class="fas fa-file-alt"></i> Plain Text
+                                    </a>
+                                </li>
+                            </ul>
+
+                            <div class="tab-content">
+                                <div class="tab-pane fade show active" id="html-editor">
+                                    <div class="editor-content">
+                                        <label>HTML Email Content *</label>
+                                        <textarea class="form-control" name="email_body_html" rows="12"
+                                                  placeholder="Enter HTML email content with variables like {{name}}, {{company}}, etc."
+                                                  oninput="updatePreview(); updateCharCount('html', this.value, 5000)"></textarea>
+                                        <div id="html-counter" class="char-counter"></div>
+                                    </div>
+                                </div>
+                                <div class="tab-pane fade" id="plain-editor">
+                                    <div class="editor-content">
+                                        <label>Plain Text Content</label>
+                                        <textarea class="form-control" name="email_body" rows="12"
+                                                  placeholder="Enter plain text version (optional but recommended)"
+                                                  oninput="updateCharCount('plain', this.value, 3000)"></textarea>
+                                        <div id="plain-counter" class="char-counter"></div>
+                                        <small class="text-muted">
+                                            Plain text version is used as fallback for email clients that don't support HTML.
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="form-group">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Create Template
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="previewTemplate()">
+                                <i class="fas fa-eye"></i> Preview
+                            </button>
+                            <a href="{{ url_for('sequences.email_templates') }}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <!-- Live Preview -->
+            <div class="card">
+                <div class="card-header">
+                    <h6><i class="fas fa-eye"></i> Live Preview</h6>
+                </div>
+                <div class="card-body">
+                    <div class="template-preview">
+                        <div class="preview-subject" id="preview-subject">
+                            Enter subject line...
+                        </div>
+                        <div class="preview-body" id="preview-body">
+                            Start typing your email content to see live preview with sample data...
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Template Examples -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6><i class="fas fa-lightbulb"></i> Quick Examples</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <h6>Breach Response Subject:</h6>
+                        <code style="font-size: 11px; word-break: break-all;">
+                            URGENT: {{company}} data may have been compromised
+                        </code>
+                    </div>
+                    <div class="mb-3">
+                        <h6>Proactive Subject:</h6>
+                        <code style="font-size: 11px; word-break: break-all;">
+                            Security Assessment for {{company}} - {{first_name}}
+                        </code>
+                    </div>
+                    <div>
+                        <h6>Common Opening:</h6>
+                        <code style="font-size: 11px; line-height: 1.4;">
+                            Hi {{first_name}},<br><br>
+                            I hope this email finds you well. I'm reaching out regarding {{company}}'s cybersecurity posture...
+                        </code>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentActiveField = null;
+
+// Sample data for preview
+const sampleData = {
+    name: 'John',
+    first_name: 'John',
+    last_name: 'Smith',
+    company: 'Regional Hospital',
+    industry: 'Healthcare',
+    title: 'IT Director',
+    email: 'john.smith@regionalhospital.com'
+};
+
+function selectType(type, element) {
+    // Remove selected class from all options
+    document.querySelectorAll('.type-option').forEach(opt => {
+        opt.classList.remove('selected');
+    });
+    
+    // Add selected class to clicked option
+    element.classList.add('selected');
+    
+    // Check the radio button
+    element.querySelector('input[type="radio"]').checked = true;
+}
+
+function insertVariable(variable) {
+    // Insert variable at cursor position in currently active field
+    const activeElement = document.activeElement;
+    
+    if (activeElement.tagName === 'TEXTAREA' || activeElement.tagName === 'INPUT') {
+        const start = activeElement.selectionStart;
+        const end = activeElement.selectionEnd;
+        const text = activeElement.value;
+        
+        activeElement.value = text.substring(0, start) + variable + text.substring(end);
+        activeElement.focus();
+        activeElement.setSelectionRange(start + variable.length, start + variable.length);
+        
+        // Update preview if it was a template field
+        if (activeElement.name === 'subject_line' || activeElement.name === 'email_body_html') {
+            updatePreview();
+        }
+    }
+}
+
+function updatePreview() {
+    const subject = document.getElementById('subject_line').value;
+    const content = document.querySelector('textarea[name="email_body_html"]').value;
+    
+    // Replace variables with sample data
+    let previewSubject = subject;
+    let previewContent = content;
+    
+    Object.keys(sampleData).forEach(key => {
+        const variable = `{{${key}}}`;
+        previewSubject = previewSubject.replace(new RegExp(variable, 'g'), sampleData[key]);
+        previewContent = previewContent.replace(new RegExp(variable, 'g'), sampleData[key]);
+    });
+    
+    document.getElementById('preview-subject').textContent = previewSubject || 'Enter subject line...';
+    
+    if (previewContent) {
+        // Convert basic HTML to display
+        previewContent = previewContent
+            .replace(/\n/g, '<br>')
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em>$1</em>');
+        
+        document.getElementById('preview-body').innerHTML = previewContent;
+    } else {
+        document.getElementById('preview-body').textContent = 'Start typing your email content to see live preview with sample data...';
+    }
+}
+
+function updateCharCount(field, value, limit) {
+    const counter = document.getElementById(`${field}-counter`);
+    const length = value.length;
+    
+    counter.textContent = `${length}/${limit} characters`;
+    
+    if (length > limit * 0.9) {
+        counter.className = 'char-counter danger';
+    } else if (length > limit * 0.75) {
+        counter.className = 'char-counter warning';
+    } else {
+        counter.className = 'char-counter';
+    }
+}
+
+function previewTemplate() {
+    // Open preview in new tab/modal - for now just show alert
+    alert('Preview functionality will open a new window with the rendered template.');
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    // Track active field for variable insertion
+    document.querySelectorAll('input, textarea').forEach(field => {
+        field.addEventListener('focus', function() {
+            currentActiveField = this;
+        });
+    });
+    
+    // Initialize character counters
+    updateCharCount('subject', '', 78);
+    updateCharCount('html', '', 5000);
+    updateCharCount('plain', '', 3000);
+    
+    // Update preview on any change
+    updatePreview();
+});
+
+// Form validation
+document.getElementById('templateForm').addEventListener('submit', function(e) {
+    const name = document.getElementById('name').value.trim();
+    const subject = document.getElementById('subject_line').value.trim();
+    const content = document.querySelector('textarea[name="email_body_html"]').value.trim();
+    const typeSelected = document.querySelector('input[name="template_type"]:checked');
+    
+    if (!name || !subject || !content || !typeSelected) {
+        e.preventDefault();
+        alert('Please fill in all required fields: Template Name, Type, Subject Line, and HTML Content.');
+        return;
+    }
+    
+    if (subject.length > 78) {
+        e.preventDefault();
+        alert('Subject line is too long. Please keep it under 78 characters for better email client compatibility.');
+        return;
+    }
+});
+</script>
+{% endblock %}

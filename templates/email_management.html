@@ -1,0 +1,445 @@
+{% extends "base.html" %}
+
+{% block title %}{{ config.title }} - SalesBreachPro{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="h3 mb-1">
+                        <i class="fas {{ config.icon }} text-{{ config.color }} me-2"></i>
+                        {{ config.title }}
+                    </h1>
+                    <p class="text-muted mb-0">{{ config.description }}</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('dashboard.index') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-1"></i>Back to Dashboard
+                    </a>
+                    <button class="btn btn-outline-secondary dropdown-toggle ms-2" type="button" data-bs-toggle="dropdown">
+                        <i class="fas fa-download me-1"></i>Export
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="#" onclick="exportEmails('csv')">
+                            <i class="fas fa-file-csv me-1"></i>Export as CSV
+                        </a></li>
+                        <li><a class="dropdown-item" href="#" onclick="exportEmails('xlsx')">
+                            <i class="fas fa-file-excel me-1"></i>Export as Excel
+                        </a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Summary -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card border-0 bg-{{ config.color }} text-white">
+                <div class="card-body text-center">
+                    <h3>{{ pagination.total_count }}</h3>
+                    <p class="mb-0">Total {{ config.title }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 bg-secondary text-white">
+                <div class="card-body text-center">
+                    <h3>{{ (pagination.total_count / 7) | round | int }}</h3>
+                    <p class="mb-0">Daily Average</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 bg-info text-white">
+                <div class="card-body text-center">
+                    <h3>{{ pagination.current_page }}/{{ pagination.total_pages }}</h3>
+                    <p class="mb-0">Page</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Email List -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">{{ config.title }} Details</h5>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="selectAll">
+                            <label class="form-check-label" for="selectAll">
+                                Select All
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    {% if emails %}
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th width="40">
+                                            <input type="checkbox" id="masterCheckbox">
+                                        </th>
+                                        <th>Contact</th>
+                                        <th>Campaign</th>
+                                        <th>Subject</th>
+                                        <th>
+                                            {% if status == 'delivered' %}Delivered At{% endif %}
+                                            {% if status == 'opened' %}Opened At{% endif %}
+                                            {% if status == 'bounced' %}Bounced At{% endif %}
+                                            {% if status == 'replied' %}Replied At{% endif %}
+                                        </th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in emails %}
+                                        {% set email = item.email %}
+                                        {% set contact = item.contact %}
+                                        {% set campaign = item.campaign %}
+                                        <tr>
+                                            <td>
+                                                <input type="checkbox" class="email-checkbox" value="{{ email.id }}">
+                                            </td>
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    <div class="avatar-sm bg-{{ config.color }} text-white rounded-circle d-flex align-items-center justify-content-center me-2">
+                                                        {{ (contact.first_name or contact.email)[0]|upper }}
+                                                    </div>
+                                                    <div>
+                                                        <strong>
+                                                            {% if contact.first_name or contact.last_name %}
+                                                                {{ contact.first_name or '' }} {{ contact.last_name or '' }}
+                                                            {% else %}
+                                                                {{ contact.email.split('@')[0]|title }}
+                                                            {% endif %}
+                                                        </strong><br>
+                                                        <small class="text-muted">{{ contact.email }}</small>
+                                                        {% if contact.company %}
+                                                            <br><small class="text-muted">{{ contact.company }}</small>
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                {% if campaign %}
+                                                    <a href="/campaigns/{{ campaign.id }}" class="text-decoration-none">
+                                                        <span class="badge bg-primary">{{ campaign.name }}</span>
+                                                    </a>
+                                                    <br><small class="text-muted">{{ campaign.template_type|title }} Risk</small>
+                                                {% else %}
+                                                    <span class="text-muted">No Campaign</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <strong>{{ email.subject }}</strong>
+                                                {% if email.email_type and email.email_type != 'initial' %}
+                                                    <br><span class="badge bg-secondary">{{ email.email_type|replace('_', ' ')|title }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if status == 'delivered' and email.sent_at %}
+                                                    <small>{{ email.sent_at.strftime('%m/%d/%Y %I:%M %p') }}</small>
+                                                {% elif status == 'opened' and email.opened_at %}
+                                                    <small>{{ email.opened_at.strftime('%m/%d/%Y %I:%M %p') }}</small>
+                                                    {% if email.sent_at %}
+                                                        <br><small class="text-muted">
+                                                            Opened {{ ((email.opened_at - email.sent_at).total_seconds() / 3600) | round | int }}h after sent
+                                                        </small>
+                                                    {% endif %}
+                                                {% elif status == 'bounced' and email.sent_at %}
+                                                    <small>{{ email.sent_at.strftime('%m/%d/%Y %I:%M %p') }}</small>
+                                                    <br><span class="badge bg-danger">Bounce</span>
+                                                {% elif status == 'replied' and email.replied_at %}
+                                                    <small>{{ email.replied_at.strftime('%m/%d/%Y %I:%M %p') }}</small>
+                                                    {% if email.sent_at %}
+                                                        <br><small class="text-muted">
+                                                            Replied {{ ((email.replied_at - email.sent_at).total_seconds() / 3600) | round | int }}h after sent
+                                                        </small>
+                                                    {% endif %}
+                                                    <br><span class="badge bg-success">Reply</span>
+                                                {% else %}
+                                                    <span class="text-muted">Unknown</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="btn-group btn-group-sm">
+                                                    <button type="button" class="btn btn-outline-primary" 
+                                                            onclick="viewEmail({{ email.id }})" 
+                                                            title="View Email">
+                                                        <i class="fas fa-eye"></i>
+                                                    </button>
+                                                    {% if status == 'opened' %}
+                                                        <button type="button" class="btn btn-outline-success" 
+                                                                onclick="followUp({{ contact.id }}, {{ campaign.id if campaign else 'null' }})" 
+                                                                title="Follow Up">
+                                                            <i class="fas fa-reply"></i>
+                                                        </button>
+                                                    {% endif %}
+                                                    {% if status == 'bounced' %}
+                                                        <button type="button" class="btn btn-outline-warning" 
+                                                                onclick="updateContact({{ contact.id }})" 
+                                                                title="Update Contact">
+                                                            <i class="fas fa-edit"></i>
+                                                        </button>
+                                                    {% endif %}
+                                                    <button type="button" class="btn btn-outline-info" 
+                                                            onclick="viewContact({{ contact.id }})" 
+                                                            title="View Contact">
+                                                        <i class="fas fa-user"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Pagination -->
+                        {% if pagination.total_pages > 1 %}
+                            <div class="card-footer">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        Showing {{ ((pagination.current_page - 1) * 25 + 1) }} 
+                                        to {{ (pagination.current_page * 25) if (pagination.current_page * 25) < pagination.total_count else pagination.total_count }} 
+                                        of {{ pagination.total_count }} emails
+                                    </div>
+                                    <nav>
+                                        <ul class="pagination mb-0">
+                                            {% if pagination.has_prev %}
+                                                <li class="page-item">
+                                                    <a class="page-link" href="{{ url_for('contacts.email_management', status=status, page=pagination.prev_page) }}">
+                                                        <i class="fas fa-chevron-left"></i>
+                                                    </a>
+                                                </li>
+                                            {% endif %}
+                                            
+                                            {% for page_num in range(1, pagination.total_pages + 1) %}
+                                                {% if page_num == pagination.current_page %}
+                                                    <li class="page-item active">
+                                                        <span class="page-link">{{ page_num }}</span>
+                                                    </li>
+                                                {% elif page_num <= 3 or page_num > pagination.total_pages - 3 or (page_num >= pagination.current_page - 1 and page_num <= pagination.current_page + 1) %}
+                                                    <li class="page-item">
+                                                        <a class="page-link" href="{{ url_for('contacts.email_management', status=status, page=page_num) }}">
+                                                            {{ page_num }}
+                                                        </a>
+                                                    </li>
+                                                {% elif page_num == 4 and pagination.current_page > 5 %}
+                                                    <li class="page-item disabled">
+                                                        <span class="page-link">...</span>
+                                                    </li>
+                                                {% elif page_num == pagination.total_pages - 3 and pagination.current_page < pagination.total_pages - 4 %}
+                                                    <li class="page-item disabled">
+                                                        <span class="page-link">...</span>
+                                                    </li>
+                                                {% endif %}
+                                            {% endfor %}
+                                            
+                                            {% if pagination.has_next %}
+                                                <li class="page-item">
+                                                    <a class="page-link" href="{{ url_for('contacts.email_management', status=status, page=pagination.next_page) }}">
+                                                        <i class="fas fa-chevron-right"></i>
+                                                    </a>
+                                                </li>
+                                            {% endif %}
+                                        </ul>
+                                    </nav>
+                                </div>
+                            </div>
+                        {% endif %}
+
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas {{ config.icon }} fs-1 text-muted mb-3"></i>
+                            <h5>No {{ config.title.lower() }} found</h5>
+                            <p class="text-muted">There are currently no emails with this status.</p>
+                            <a href="{{ url_for('dashboard.index') }}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-1"></i>Back to Dashboard
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Email Preview Modal -->
+<div class="modal fade" id="emailPreviewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Email Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="emailPreviewContent">
+                <div class="text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Contact Action Modal -->
+<div class="modal fade" id="contactActionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="contactActionTitle">Contact Action</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="contactActionContent">
+                <!-- Dynamic content will be loaded here -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Email management functions
+function viewEmail(emailId) {
+    const modal = new bootstrap.Modal(document.getElementById('emailPreviewModal'));
+    modal.show();
+    
+    fetch(`/api/emails/${emailId}`)
+        .then(response => response.json())
+        .then(data => {
+            const content = `
+                <div class="mb-3">
+                    <strong>Subject:</strong> ${data.subject}
+                </div>
+                <div class="mb-3">
+                    <strong>To:</strong> ${data.contact_email}
+                </div>
+                <div class="mb-3">
+                    <strong>Campaign:</strong> ${data.campaign_name || 'No Campaign'}
+                </div>
+                <div class="mb-3">
+                    <strong>Sent:</strong> ${data.sent_at || 'Not sent'}
+                </div>
+                <hr>
+                <div class="mb-3">
+                    <strong>Email Content:</strong>
+                    <div class="border p-3 bg-light">
+                        ${data.body || data.content || 'No content available'}
+                    </div>
+                </div>
+            `;
+            document.getElementById('emailPreviewContent').innerHTML = content;
+        })
+        .catch(error => {
+            document.getElementById('emailPreviewContent').innerHTML = `
+                <div class="alert alert-danger">
+                    <h6>Error Loading Email</h6>
+                    <p>Unable to load email content. Please try again.</p>
+                </div>
+            `;
+        });
+}
+
+function followUp(contactId, campaignId) {
+    const modal = new bootstrap.Modal(document.getElementById('contactActionModal'));
+    document.getElementById('contactActionTitle').textContent = 'Follow Up';
+    
+    const content = `
+        <div class="alert alert-info">
+            <h6><i class="fas fa-lightbulb me-2"></i>Follow Up Actions</h6>
+            <p>This contact has opened your email and is showing engagement!</p>
+        </div>
+        <div class="d-grid gap-2">
+            <button class="btn btn-primary" onclick="createFollowUpEmail(${contactId}, ${campaignId})">
+                <i class="fas fa-envelope me-1"></i>Send Follow-Up Email
+            </button>
+            <button class="btn btn-success" onclick="scheduleCall(${contactId})">
+                <i class="fas fa-phone me-1"></i>Schedule Call
+            </button>
+            <button class="btn btn-info" onclick="addToHotLeads(${contactId})">
+                <i class="fas fa-star me-1"></i>Add to Hot Leads
+            </button>
+        </div>
+    `;
+    
+    document.getElementById('contactActionContent').innerHTML = content;
+    modal.show();
+}
+
+function updateContact(contactId) {
+    const modal = new bootstrap.Modal(document.getElementById('contactActionModal'));
+    document.getElementById('contactActionTitle').textContent = 'Update Contact';
+    
+    const content = `
+        <div class="alert alert-warning">
+            <h6><i class="fas fa-exclamation-triangle me-2"></i>Email Bounced</h6>
+            <p>This email bounced. Consider updating the contact information.</p>
+        </div>
+        <div class="d-grid gap-2">
+            <button class="btn btn-warning" onclick="editContactInfo(${contactId})">
+                <i class="fas fa-edit me-1"></i>Update Email Address
+            </button>
+            <button class="btn btn-secondary" onclick="markAsInvalid(${contactId})">
+                <i class="fas fa-ban me-1"></i>Mark as Invalid
+            </button>
+            <button class="btn btn-danger" onclick="removeFromCampaigns(${contactId})">
+                <i class="fas fa-times me-1"></i>Remove from Active Campaigns
+            </button>
+        </div>
+    `;
+    
+    document.getElementById('contactActionContent').innerHTML = content;
+    modal.show();
+}
+
+function viewContact(contactId) {
+    window.location.href = `/contacts?search=id:${contactId}`;
+}
+
+function exportEmails(format) {
+    const status = '{{ status }}';
+    window.location.href = `/api/emails/${status}/export?format=${format}`;
+}
+
+// Placeholder functions for actions
+function createFollowUpEmail(contactId, campaignId) {
+    alert('Follow-up email creation feature coming soon!');
+}
+
+function scheduleCall(contactId) {
+    alert('Call scheduling feature coming soon!');
+}
+
+function addToHotLeads(contactId) {
+    alert('Hot leads management feature coming soon!');
+}
+
+function editContactInfo(contactId) {
+    alert('Contact editing feature coming soon!');
+}
+
+function markAsInvalid(contactId) {
+    alert('Contact status update feature coming soon!');
+}
+
+function removeFromCampaigns(contactId) {
+    alert('Campaign management feature coming soon!');
+}
+
+// Checkbox management
+document.getElementById('masterCheckbox').addEventListener('change', function() {
+    const checkboxes = document.querySelectorAll('.email-checkbox');
+    checkboxes.forEach(cb => cb.checked = this.checked);
+});
+</script>
+{% endblock %}

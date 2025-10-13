@@ -1,0 +1,14 @@
+{
+  "name": "savetyonline",
+  "version": "1.0.0",
+  "description": "A comprehensive Flask-based sales and security outreach platform that leverages cybersecurity breach data to identify and engage potential customers.",
+  "main": "index.js",
+  "scripts": {},
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "@types/node": "^24.4.0"
+  }
+}

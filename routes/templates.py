@@ -1,0 +1,568 @@
+from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for
+from models.database import db, EmailTemplate, FollowUpSequence, Settings
+from datetime import datetime
+import json
+import os
+import re
+
+# Create templates blueprint
+templates_bp = Blueprint('templates', __name__, url_prefix='/templates')
+
+def get_flawtrack_api():
+    """Initialize FlawTrack API client"""
+    try:
+        from services.flawtrack_api import FlawTrackAPI
+        api_token = os.getenv('FLAWTRACK_API_TOKEN')
+        api_endpoint = os.getenv('FLAWTRACK_API_ENDPOINT')
+
+        if api_token and api_endpoint:
+            return FlawTrackAPI(api_token, api_endpoint)
+        return None
+    except ImportError:
+        return None
+
+def extract_domain_from_email(email):
+    """Extract domain from email address"""
+    if '@' in email:
+        return email.split('@')[1]
+    return email
+
+def format_breach_data_for_template(breach_data):
+    """Format breach data for email templates"""
+    if not breach_data:
+        # Return blank/empty values instead of 0 or "No breaches found"
+        return {
+            'breach_count': '',
+            'breach_sources_list': '',
+            'total_breached_accounts': '',
+            'breach_sources': []
+        }
+
+    # Extract unique sources
+    sources = set()
+    total_accounts = len(breach_data)
+
+    for record in breach_data:
+        service = record.get('service_name', 'Unknown Service')
+        sources.add(service)
+
+    # Format as HTML list
+    sources_html = '\n'.join([f'<li>{source}</li>' for source in sorted(sources)])
+
+    return {
+        'breach_count': len(sources),
+        'breach_sources_list': sources_html,
+        'total_breached_accounts': total_accounts,
+        'breach_sources': list(sources)
+    }
+
+@templates_bp.route('/')
+def templates():
+    """Template management page"""
+    templates = EmailTemplate.query.filter_by(active=True).all()
+    sequences = FollowUpSequence.query.filter_by(active=True).all()
+    return render_template('templates_management.html',
+                         templates=templates,
+                         sequences=sequences)
+
+@templates_bp.route('/create', methods=['GET', 'POST'])
+def create_template():
+    """Create new email template"""
+    if request.method == 'POST':
+        try:
+            sequence_order = request.form.get('sequence_order', 1)
+            sequence_step = int(sequence_order) - 1
+            print(f"DEBUG CREATE TEMPLATE: sequence_order={sequence_order}, sequence_step={sequence_step}")
+            
+            template = EmailTemplate(
+                name=request.form['name'],
+                template_type=request.form['template_type'],
+                risk_level=request.form['breach_status'],  # Map breach_status to risk_level for backward compatibility
+                sequence_step=sequence_step,  # Convert 1-based UI to 0-based sequence
+                breach_template_type=request.form.get('breach_template_type', 'proactive'),
+                subject_line=request.form['subject_line'],
+                email_body=request.form['email_body'],
+                is_active=True,
+                created_at=datetime.utcnow(),
+                delay_amount=int(request.form.get('delay_amount', 0)),
+                delay_unit=request.form.get('delay_unit', 'days'),
+                available_variables=json.loads(request.form.get('available_variables', '[]'))
+            )
+            
+            db.session.add(template)
+            db.session.commit()
+            
+            flash('Template created successfully!', 'success')
+            return redirect(url_for('templates.templates'))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error creating template: {str(e)}', 'error')
+            print(f"Error creating template: {e}")
+    
+    return render_template('template_editor.html', template=None)
+
+@templates_bp.route('/<int:template_id>/edit', methods=['GET', 'POST'])
+def edit_template(template_id):
+    """Edit existing email template"""
+    template = EmailTemplate.query.get_or_404(template_id)
+    
+    if request.method == 'POST':
+        try:
+            sequence_order = request.form.get('sequence_order', 1)
+            sequence_step = int(sequence_order) - 1
+            
+            template.name = request.form['name']
+            template.template_type = request.form['template_type']
+            template.risk_level = request.form['breach_status']
+            template.sequence_step = sequence_step
+            template.breach_template_type = request.form.get('breach_template_type', 'proactive')
+            template.subject_line = request.form['subject_line']
+            template.email_body = request.form['email_body']
+            template.delay_amount = int(request.form.get('delay_amount', 0))
+            template.delay_unit = request.form.get('delay_unit', 'days')
+            template.available_variables = json.loads(request.form.get('available_variables', '[]'))
+            template.updated_at = datetime.utcnow()
+            
+            db.session.commit()
+            flash('Template updated successfully!', 'success')
+            return redirect(url_for('templates.templates'))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error updating template: {str(e)}', 'error')
+    
+    return render_template('template_editor.html', template=template)
+
+@templates_bp.route('/<int:template_id>/preview')
+def preview_template(template_id):
+    """Preview email template"""
+    template = EmailTemplate.query.get_or_404(template_id)
+
+    # Sample data for preview - use blank values when no data available
+    sample_data = {
+        'first_name': '',
+        'last_name': '',
+        'company': '',
+        'domain': '',
+        'title': '',
+        'email': '',
+        'sender_name': 'Emily Carter',
+        'breach_count': '',
+        'breach_sources_list': '',
+        'total_breached_accounts': ''
+    }
+
+    return render_template('template_preview.html',
+                         template=template,
+                         sample_data=sample_data)
+
+@templates_bp.route('/test-preview', methods=['POST'])
+def test_preview():
+    """Advanced template testing with real or sample data"""
+    try:
+        template_id = request.json.get('template_id')
+        test_email = request.json.get('test_email', '')
+        use_real_data = request.json.get('use_real_data', False)
+
+        template = EmailTemplate.query.get_or_404(template_id)
+
+        # Test data defaults
+        test_data = {
+            'first_name': 'John',
+            'last_name': 'Smith',
+            'company': 'Test Company Inc',
+            'email': test_email or 'test@example.com',
+            'sender_name': 'Emily Carter',
+            'breach_count': 0,
+            'breach_sources_list': '<li>No breaches found</li>',
+            'total_breached_accounts': 0
+        }
+
+        # If using real data and template is breach-related
+        if use_real_data and test_email and ('breach' in template.name.lower() or template.template_type == 'breach'):
+            domain = extract_domain_from_email(test_email)
+
+            # Get real breach data
+            flawtrack = get_flawtrack_api()
+            if flawtrack:
+                breach_data = flawtrack.get_breach_data(domain)
+                breach_info = format_breach_data_for_template(breach_data)
+                test_data.update(breach_info)
+
+                # Extract company name from domain
+                company_name = domain.replace('.com', '').replace('.ca', '').replace('.org', '').title()
+                test_data['company'] = company_name
+
+        # Replace template variables
+        subject = template.subject_line
+        body = template.email_body_html or template.email_body
+
+        for key, value in test_data.items():
+            subject = subject.replace(f'{{{key}}}', str(value))
+            body = body.replace(f'{{{key}}}', str(value))
+
+        return jsonify({
+            'success': True,
+            'subject': subject,
+            'body': body,
+            'data_used': test_data,
+            'template_name': template.name
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@templates_bp.route('/testing')
+def testing_dashboard():
+    """Template testing dashboard"""
+    templates = EmailTemplate.query.filter_by(active=True).all()
+    from models.database import Campaign
+    campaigns = Campaign.query.all()
+
+    return render_template('templates_management.html',
+                         templates=templates,
+                         campaigns=campaigns,
+                         testing_mode=True)
+
+@templates_bp.route('/<int:template_id>/editor')
+def email_editor(template_id):
+    """Interactive email editor with live preview"""
+    template = EmailTemplate.query.get_or_404(template_id)
+
+    # Available variables for templates
+    available_variables = [
+        'first_name', 'last_name', 'company', 'email', 'domain',
+        'sender_name', 'breach_count', 'breach_sources_list',
+        'total_breached_accounts', 'breach_sources'
+    ]
+
+    return render_template('email_editor.html',
+                         template=template,
+                         available_variables=available_variables)
+
+@templates_bp.route('/api/live-preview', methods=['POST'])
+def live_preview():
+    """Live preview API for email editor"""
+    try:
+        subject = request.json.get('subject', '')
+        body = request.json.get('body', '')
+        test_email = request.json.get('test_email', '')
+        use_real_data = request.json.get('use_real_data', False)
+        template_type = request.json.get('template_type', '')
+
+        # Test data defaults - use blank values for all variables when not available
+        test_data = {
+            'first_name': '',
+            'last_name': '',
+            'company': '',
+            'email': test_email or '',
+            'domain': '',
+            'sender_name': 'Emily Carter',  # Keep sender info
+            'breach_count': '',
+            'breach_sources_list': '',
+            'total_breached_accounts': '',
+            'breach_sources': []
+        }
+
+        # If using real data and template is breach-related
+        if use_real_data and test_email and ('breach' in template_type.lower() or 'breach' in subject.lower()):
+            domain = extract_domain_from_email(test_email)
+
+            # Get real breach data
+            flawtrack = get_flawtrack_api()
+            if flawtrack:
+                breach_data = flawtrack.get_breach_data(domain)
+                breach_info = format_breach_data_for_template(breach_data)
+                test_data.update(breach_info)
+
+                # Extract company name from domain
+                company_name = domain.replace('.com', '').replace('.ca', '').replace('.org', '').title()
+                test_data['company'] = company_name
+
+        # Replace template variables
+        preview_subject = subject
+        preview_body = body
+
+        for key, value in test_data.items():
+            preview_subject = preview_subject.replace(f'{{{key}}}', str(value))
+            preview_body = preview_body.replace(f'{{{key}}}', str(value))
+
+        return jsonify({
+            'success': True,
+            'subject': preview_subject,
+            'body': preview_body,
+            'data_used': test_data
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@templates_bp.route('/api/send-test', methods=['POST'])
+def send_test_email():
+    """Send test email to specified address"""
+    try:
+        subject = request.json.get('subject', '')
+        body = request.json.get('body', '')
+        sender_name = request.json.get('sender_name', 'Emily Carter')
+        sender_email = request.json.get('sender_email', 'emily.carter@savety.ai')
+        recipient_email = request.json.get('recipient_email', '')
+        test_email = request.json.get('test_email', '')
+        use_real_data = request.json.get('use_real_data', False)
+        template_type = request.json.get('template_type', '')
+
+        if not recipient_email:
+            return jsonify({
+                'success': False,
+                'error': 'Recipient email is required'
+            }), 400
+
+        # Test data defaults - use blank values for all variables when not available
+        test_data = {
+            'first_name': '',
+            'last_name': '',
+            'company': '',
+            'email': test_email or '',
+            'domain': '',
+            'sender_name': sender_name,  # Keep sender info
+            'breach_count': '',
+            'breach_sources_list': '',
+            'total_breached_accounts': '',
+            'breach_sources': []
+        }
+
+        # If using real data and template is breach-related
+        if use_real_data and test_email and ('breach' in template_type.lower() or 'breach' in subject.lower()):
+            domain = extract_domain_from_email(test_email)
+
+            # Get real breach data
+            flawtrack = get_flawtrack_api()
+            if flawtrack:
+                breach_data = flawtrack.get_breach_data(domain)
+                breach_info = format_breach_data_for_template(breach_data)
+                test_data.update(breach_info)
+
+                # Extract company name from domain
+                company_name = domain.replace('.com', '').replace('.ca', '').replace('.org', '').title()
+                test_data['company'] = company_name
+
+        # Replace template variables
+        final_subject = subject
+        final_body = body
+
+        for key, value in test_data.items():
+            final_subject = final_subject.replace(f'{{{key}}}', str(value))
+            final_body = final_body.replace(f'{{{key}}}', str(value))
+
+        # Send email using Brevo
+        try:
+            from services.email_service import create_email_service
+            import os
+
+            # Add test prefix to subject
+            final_subject = f"[TEST] {final_subject}"
+
+            # Create email service
+            class Config:
+                BREVO_API_KEY = os.getenv('BREVO_API_KEY')
+                BREVO_SENDER_EMAIL = sender_email
+                BREVO_SENDER_NAME = sender_name
+
+            email_service = create_email_service(Config())
+            success, result = email_service.send_single_email(
+                to_email=recipient_email,
+                subject=final_subject,
+                html_content=final_body,
+                from_email=sender_email,
+                from_name=sender_name
+            )
+
+            if success:
+                return jsonify({
+                    'success': True,
+                    'message': f'Test email sent successfully to {recipient_email}',
+                    'subject': final_subject,
+                    'data_used': test_data
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': 'Failed to send test email'
+                }), 500
+
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'error': f'Email sending failed: {str(e)}'
+            }), 500
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@templates_bp.route('/api/variables')
+def get_available_variables():
+    """Get available template variables"""
+    variables = {
+        'contact': ['first_name', 'last_name', 'company', 'email', 'domain'],
+        'sender': ['sender_name'],
+        'breach': ['breach_count', 'breach_sources_list', 'total_breached_accounts', 'breach_sources']
+    }
+
+    return jsonify({
+        'success': True,
+        'variables': variables
+    })
+
+@templates_bp.route('/api/<int:template_id>/save', methods=['POST'])
+def save_template_editor(template_id):
+    """Save template from email editor"""
+    try:
+        template = EmailTemplate.query.get_or_404(template_id)
+
+        # Get data from request
+        data = request.get_json()
+        subject = data.get('subject', '').strip()
+        body = data.get('body', '').strip()
+
+        if not subject or not body:
+            return jsonify({
+                'success': False,
+                'error': 'Subject and body are required'
+            }), 400
+
+        # Update template
+        template.subject_line = subject
+        template.email_body = body
+        template.email_body_html = body  # Keep HTML and text in sync
+        template.updated_at = datetime.utcnow()
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Template saved successfully!'
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': f'Failed to save template: {str(e)}'
+        }), 500
+
+@templates_bp.route('/<int:template_id>/delete', methods=['POST'])
+def delete_template(template_id):
+    """Delete email template"""
+    try:
+        template = EmailTemplate.query.get_or_404(template_id)
+        template_name = template.name
+
+        # Check if template is being used in any emails
+        from models.database import Email
+        emails_using_template = Email.query.filter_by(template_id=template_id).count()
+
+        if emails_using_template > 0:
+            return jsonify({
+                'success': False,
+                'error': f'Cannot delete template "{template_name}" - it is being used by {emails_using_template} email(s)'
+            })
+
+        # Soft delete by setting active to False
+        template.active = False
+        template.updated_at = datetime.utcnow()
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': f'Template "{template_name}" deleted successfully'
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting template {template_id}: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+@templates_bp.route('/api/<int:template_id>')
+def get_template_api(template_id):
+    """Get template data as JSON"""
+    template = EmailTemplate.query.get_or_404(template_id)
+    return jsonify(template.to_dict())
+
+@templates_bp.route('/api/list')
+def list_templates_api():
+    """List all templates as JSON"""
+    templates = EmailTemplate.query.filter_by(active=True).all()
+    return jsonify([template.to_dict() for template in templates])
+
+@templates_bp.route('/api/<int:template_id>/delete', methods=['POST'])
+def delete_template_api(template_id):
+    """Delete email template via API (returns JSON)"""
+    try:
+        template = EmailTemplate.query.get_or_404(template_id)
+        template_name = template.name
+
+        # Check if template is being used in any emails
+        from models.database import Email
+        emails_using_template = Email.query.filter_by(template_id=template_id).count()
+
+        if emails_using_template > 0:
+            return jsonify({
+                'success': False,
+                'error': f'Cannot delete template "{template_name}" - it is being used by {emails_using_template} email(s)'
+            })
+
+        # Soft delete by setting active to False
+        template.active = False
+        template.updated_at = datetime.utcnow()
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': f'Template "{template_name}" deleted successfully'
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting template {template_id}: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+@templates_bp.route('/sequences/<int:sequence_id>/delete', methods=['POST'])
+def delete_followup_sequence(sequence_id):
+    """Delete followup sequence"""
+    try:
+        sequence = FollowUpSequence.query.get_or_404(sequence_id)
+        sequence_name = sequence.name
+
+        # Check if sequence is being used in any campaigns
+        from models.database import Campaign
+        campaigns_using_sequence = Campaign.query.filter_by(template_type=sequence.risk_level).count()
+
+        if campaigns_using_sequence > 0:
+            return jsonify({
+                'success': False,
+                'error': f'Cannot delete sequence "{sequence_name}" - it is being used by {campaigns_using_sequence} campaign(s)'
+            })
+
+        # Soft delete by setting active to False
+        sequence.active = False
+        sequence.updated_at = datetime.utcnow()
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': f'Follow-up sequence "{sequence_name}" deleted successfully'
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting followup sequence {sequence_id}: {e}")
+        return jsonify({'success': False, 'error': str(e)})

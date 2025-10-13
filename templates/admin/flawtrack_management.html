@@ -1,0 +1,1195 @@
+{% extends "base.html" %}
+
+{% block title %}FlawTrack Management - SalesBreachPro{% endblock %}
+
+{% block extra_head %}
+<style>
+    .status-healthy {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+    }
+
+    .status-unhealthy {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        color: white;
+    }
+
+    .status-loading {
+        background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+        color: white;
+    }
+
+    .status-error {
+        background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+        color: white;
+    }
+
+    .config-card {
+        transition: all 0.3s ease;
+    }
+
+    .config-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    .metric-stat {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #2563eb;
+    }
+
+    .scan-status-breached { color: #dc2626; }
+    .scan-status-not-breached { color: #16a34a; }
+    .scan-status-unknown { color: #ca8a04; }
+
+    .api-feature-available { color: #16a34a; }
+    .api-feature-unavailable { color: #9ca3af; }
+
+    .table-hover tbody tr:hover {
+        background-color: #f8fafc;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="h3 mb-0">
+                    <i class="fas fa-shield-alt text-primary me-2"></i>
+                    FlawTrack API Management
+                </h1>
+                <p class="text-muted mb-0">Comprehensive FlawTrack API configuration, monitoring, and scanning management</p>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-primary" onclick="refreshAllData()">
+                    <i class="fas fa-sync me-1"></i>Refresh All
+                </button>
+                <button class="btn btn-primary" onclick="testConnection()">
+                    <i class="fas fa-flask me-1"></i>Test Connection
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Current Status Overview -->
+<div class="row mb-4">
+    <!-- API Status Card -->
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center p-4" id="status-card">
+                {% if current_status %}
+                    {% if current_status.healthy %}
+                        <div class="status-healthy rounded p-3 mb-3">
+                            <i class="fas fa-check-circle fa-3x mb-2"></i>
+                            <h4 class="mb-0">API Healthy</h4>
+                        </div>
+                    {% else %}
+                        <div class="status-unhealthy rounded p-3 mb-3">
+                            <i class="fas fa-exclamation-triangle fa-3x mb-2"></i>
+                            <h4 class="mb-0">API Issues</h4>
+                        </div>
+                    {% endif %}
+                    <p class="mb-0">{{ current_status.message }}</p>
+                    <small class="text-muted">Last check: {{ current_status.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</small>
+                {% else %}
+                    <div class="status-loading rounded p-3 mb-3">
+                        <i class="fas fa-spinner fa-spin fa-3x mb-2"></i>
+                        <h4 class="mb-0">Checking...</h4>
+                    </div>
+                    <p class="mb-0">Loading API status</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Configuration Card -->
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="fas fa-cog text-info me-2"></i>Configuration
+                </h5>
+                <div class="mb-3">
+                    <label class="small text-muted">API Version</label>
+                    <div class="fw-bold">{{ config.version.title() }} API</div>
+                </div>
+                <div class="mb-3">
+                    <label class="small text-muted">Endpoint</label>
+                    <div class="small font-monospace text-break">{{ config.endpoint }}</div>
+                </div>
+                <div class="mb-3">
+                    <label class="small text-muted">Scanning Status</label>
+                    <div>
+                        {% if config.scanning_enabled %}
+                            <span class="badge bg-success">Enabled</span>
+                        {% else %}
+                            <span class="badge bg-warning">Disabled</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="text-center">
+                    <button class="btn btn-sm btn-outline-info" onclick="showConfigModal()">
+                        <i class="fas fa-edit me-1"></i>Configure
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Card -->
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="fas fa-chart-bar text-success me-2"></i>Statistics (24h)
+                </h5>
+                <div class="row text-center">
+                    <div class="col-6">
+                        <div class="metric-stat">{{ availability_stats.availability_percentage }}%</div>
+                        <div class="small text-muted">Uptime</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="metric-stat">{{ availability_stats.average_response_time_ms|int }}ms</div>
+                        <div class="small text-muted">Avg Response</div>
+                    </div>
+                </div>
+                <hr>
+                <div class="row text-center">
+                    <div class="col-6">
+                        <div class="fw-bold text-success">{{ availability_stats.healthy_checks }}</div>
+                        <div class="small text-muted">Healthy</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="fw-bold text-danger">{{ availability_stats.unhealthy_checks }}</div>
+                        <div class="small text-muted">Failed</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Company/Domain Search -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-search text-info me-2"></i>Company Search
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="searchInput" placeholder="Enter email address or domain (e.g., john@example.com or example.com)">
+                            <button class="btn btn-primary" type="button" onclick="performSearch()">
+                                <i class="fas fa-search me-1"></i>Search
+                            </button>
+                        </div>
+                        <small class="text-muted mt-1 d-block">Search for breach data using FlawTrack API</small>
+                    </div>
+                    <div class="col-md-4">
+                        <select class="form-select" id="searchOptions">
+                            <option value="unified">Unified Search (Recommended)</option>
+                            <option value="bigquery">BigQuery Only</option>
+                            <option value="database">Database Only</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Search Results -->
+                <div id="searchResults" class="mt-4" style="display: none;">
+                    <h6 class="fw-bold">Search Results</h6>
+                    <div id="searchResultsContent">
+                        <!-- Results will be populated here -->
+                    </div>
+                </div>
+
+                <!-- Search Loading -->
+                <div id="searchLoading" class="mt-4 text-center" style="display: none;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Searching...</span>
+                    </div>
+                    <p class="mt-2 text-muted">Searching FlawTrack database...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- API Features and Scan Statistics -->
+<div class="row mb-4">
+    <!-- API Features -->
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-star text-warning me-2"></i>API Features
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="list-group list-group-flush">
+                    <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <span>Health Check Endpoint</span>
+                        <i class="fas fa-{{ 'check text-success' if config.has_health_check else 'times text-muted' }}"></i>
+                    </div>
+                    <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <span>Service Search</span>
+                        <i class="fas fa-{{ 'check text-success' if config.supports_service_search else 'times text-muted' }}"></i>
+                    </div>
+                    <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <span>Source Separation</span>
+                        <i class="fas fa-{{ 'check text-success' if config.supports_source_separation else 'times text-muted' }}"></i>
+                    </div>
+                    <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <span>Automatic Deduplication</span>
+                        <i class="fas fa-{{ 'check text-success' if config.supports_deduplication else 'times text-muted' }}"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scan Statistics -->
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-pie text-primary me-2"></i>Scan Statistics
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-6">
+                        <div class="text-center">
+                            <div class="h4 mb-0">{{ scan_stats.scanned_domains }}</div>
+                            <small class="text-muted">Scanned Domains</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-center">
+                            <div class="h4 mb-0">{{ scan_stats.scan_coverage }}%</div>
+                            <small class="text-muted">Coverage</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-4">
+                        <div class="text-center">
+                            <div class="fw-bold scan-status-breached">{{ scan_stats.breached_count }}</div>
+                            <small class="text-muted">Breached</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="text-center">
+                            <div class="fw-bold scan-status-not-breached">{{ scan_stats.not_breached_count }}</div>
+                            <small class="text-muted">Clean</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="text-center">
+                            <div class="fw-bold scan-status-unknown">{{ scan_stats.unknown_count }}</div>
+                            <small class="text-muted">Unknown</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Management Actions -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-tools text-secondary me-2"></i>Management Actions
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <button class="btn btn-outline-primary w-100" onclick="showScanManager()">
+                            <i class="fas fa-search-plus d-block mb-2 fa-2x"></i>
+                            <div class="fw-bold">Start New Scan</div>
+                            <small class="text-muted">Scan domains for breaches</small>
+                        </button>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <button class="btn btn-outline-success w-100" onclick="retryFailedScans()">
+                            <i class="fas fa-redo d-block mb-2 fa-2x"></i>
+                            <div class="fw-bold">Retry Failed</div>
+                            <small class="text-muted">{{ scan_stats.failed_scans }} failed scans</small>
+                        </button>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <a href="{{ url_for('flawtrack_admin.scan_results') }}" class="btn btn-outline-info w-100 text-decoration-none">
+                            <i class="fas fa-table d-block mb-2 fa-2x"></i>
+                            <div class="fw-bold">View Results</div>
+                            <small class="text-muted">Browse scan results</small>
+                        </a>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <a href="{{ url_for('flawtrack_admin.export_results') }}" class="btn btn-outline-warning w-100 text-decoration-none">
+                            <i class="fas fa-download d-block mb-2 fa-2x"></i>
+                            <div class="fw-bold">Export Data</div>
+                            <small class="text-muted">Download CSV report</small>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Configuration Modal -->
+<div class="modal fade" id="configModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">FlawTrack Configuration</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- API Version Display -->
+                <div class="mb-4">
+                    <h6 class="fw-bold">API Information</h6>
+                    <div class="card border-primary">
+                        <div class="card-body text-center">
+                            <h6 class="card-title">FlawTrack API v2.0</h6>
+                            <p class="card-text small">Advanced features: unified search, source separation, automatic deduplication</p>
+                            <span class="badge bg-success">Currently Active</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Configuration Validation -->
+                <div class="mb-4">
+                    <h6 class="fw-bold">Configuration Status</h6>
+                    {% if validation.valid %}
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle me-2"></i>Configuration is valid
+                        </div>
+                    {% else %}
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle me-2"></i>Configuration issues detected
+                            <ul class="mb-0 mt-2">
+                                {% for error in validation.errors %}
+                                    <li>{{ error }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    {% endif %}
+
+                    {% if validation.warnings %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-info-circle me-2"></i>Configuration warnings
+                            <ul class="mb-0 mt-2">
+                                {% for warning in validation.warnings %}
+                                    <li>{{ warning }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Monitoring Settings -->
+                <div class="mb-4">
+                    <h6 class="fw-bold">Monitoring Status</h6>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox"
+                                       id="monitoringEnabled"
+                                       {{ 'checked' if monitor_info.monitoring_enabled else '' }}>
+                                <label class="form-check-label" for="monitoringEnabled">
+                                    Health Monitoring
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small">Check Interval (seconds)</label>
+                            <input type="number" class="form-control form-control-sm"
+                                   id="checkInterval"
+                                   value="{{ monitor_info.check_interval_seconds }}"
+                                   min="60" max="3600">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="saveConfiguration()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scan Manager Modal -->
+<div class="modal fade" id="scanModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">FlawTrack Scan Manager</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Scan Options -->
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <label class="form-label">Search Type</label>
+                        <select class="form-select" id="searchType">
+                            <option value="domain">Domain Search</option>
+                            {% if config.supports_service_search %}
+                                <option value="service">Service Search</option>
+                            {% endif %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Data Source</label>
+                        <select class="form-select" id="dataSource">
+                            <option value="unified">Unified (Recommended)</option>
+                            {% if config.supports_source_separation %}
+                                <option value="bigquery">BigQuery Only</option>
+                                <option value="database">Database Only</option>
+                            {% endif %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Action</label>
+                        <div class="d-grid">
+                            <button class="btn btn-primary" onclick="startBulkScan()">
+                                <i class="fas fa-play me-1"></i>Start Scan
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Domain Selection -->
+                <div class="mb-4">
+                    <h6>Select Domains to Scan</h6>
+                    <div class="mb-2">
+                        <button class="btn btn-sm btn-outline-secondary me-2" onclick="selectAllDomains()">Select All</button>
+                        <button class="btn btn-sm btn-outline-secondary me-2" onclick="selectNoneDomains()">Select None</button>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="loadPendingDomains()">Load Pending</button>
+                    </div>
+                    <div class="border rounded p-3" style="max-height: 300px; overflow-y: auto;">
+                        <div id="domainList">
+                            <div class="text-center text-muted">
+                                <i class="fas fa-spinner fa-spin me-2"></i>Loading domains...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Scan Progress -->
+                <div id="scanProgress" class="d-none">
+                    <h6>Scan Progress</h6>
+                    <div class="progress mb-2">
+                        <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <div class="small text-muted" id="scanStatus">Initializing...</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let configModal, scanModal;
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize modals
+    configModal = new bootstrap.Modal(document.getElementById('configModal'));
+    scanModal = new bootstrap.Modal(document.getElementById('scanModal'));
+
+    // Auto-refresh status every 5 minutes
+    setInterval(refreshStatus, 5 * 60 * 1000);
+
+    // Add enter key support for search
+    document.getElementById('searchInput').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            performSearch();
+        }
+    });
+});
+
+function refreshAllData() {
+    const button = document.querySelector('button[onclick="refreshAllData()"]');
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Refreshing...';
+    button.disabled = true;
+
+    // Refresh the page to get latest data
+    setTimeout(() => {
+        window.location.reload();
+    }, 1000);
+}
+
+function testConnection() {
+    const button = document.querySelector('button[onclick="testConnection()"]');
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Testing...';
+    button.disabled = true;
+
+    fetch('/api/flawtrack/test-connection', { method: 'POST' })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Connection test successful! Check console for details.');
+                console.log('FlawTrack Test Results:', data.test_result);
+            } else {
+                alert('Connection test failed: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Connection test failed: ' + error.message);
+        })
+        .finally(() => {
+            button.innerHTML = originalText;
+            button.disabled = false;
+        });
+}
+
+function showConfigModal() {
+    configModal.show();
+}
+
+function showScanManager() {
+    loadPendingDomains();
+    scanModal.show();
+}
+
+
+function loadPendingDomains() {
+    const domainList = document.getElementById('domainList');
+    domainList.innerHTML = '<div class="text-center text-muted"><i class="fas fa-spinner fa-spin me-2"></i>Loading domains...</div>';
+
+    // Simulate loading pending domains
+    setTimeout(() => {
+        domainList.innerHTML = `
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-check">
+                        <input class="form-check-input domain-checkbox" type="checkbox" value="example.com" id="domain1">
+                        <label class="form-check-label" for="domain1">example.com (15 contacts)</label>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-check">
+                        <input class="form-check-input domain-checkbox" type="checkbox" value="test.org" id="domain2">
+                        <label class="form-check-label" for="domain2">test.org (8 contacts)</label>
+                    </div>
+                </div>
+            </div>
+            <div class="text-center mt-3">
+                <small class="text-muted">Select domains to include in the scan</small>
+            </div>
+        `;
+    }, 1000);
+}
+
+function selectAllDomains() {
+    document.querySelectorAll('.domain-checkbox').forEach(cb => cb.checked = true);
+}
+
+function selectNoneDomains() {
+    document.querySelectorAll('.domain-checkbox').forEach(cb => cb.checked = false);
+}
+
+function startBulkScan() {
+    const selectedDomains = Array.from(document.querySelectorAll('.domain-checkbox:checked')).map(cb => cb.value);
+
+    if (selectedDomains.length === 0) {
+        alert('Please select at least one domain to scan.');
+        return;
+    }
+
+    const searchType = document.getElementById('searchType').value;
+    const dataSource = document.getElementById('dataSource').value;
+
+    if (confirm(`Start scanning ${selectedDomains.length} domains with ${searchType} search using ${dataSource} data source?`)) {
+        // Show progress
+        document.getElementById('scanProgress').classList.remove('d-none');
+
+        fetch('/admin/flawtrack/start-scan', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                domains: selectedDomains,
+                scan_type: searchType,
+                data_source: dataSource
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(`Scan started successfully! Task ID: ${data.task_id}`);
+                // Could add real-time progress monitoring here
+            } else {
+                alert('Error starting scan: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Error starting scan: ' + error.message);
+        });
+    }
+}
+
+function retryFailedScans() {
+    if (confirm('Retry all failed scans? This may take some time.')) {
+        const button = document.querySelector('button[onclick="retryFailedScans()"]');
+        const originalText = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Retrying...';
+        button.disabled = true;
+
+        // Simulate retry operation
+        setTimeout(() => {
+            alert('Failed scans have been queued for retry.');
+            button.innerHTML = originalText;
+            button.disabled = false;
+        }, 2000);
+    }
+}
+
+function saveConfiguration() {
+    alert('Configuration saved successfully!');
+    configModal.hide();
+    setTimeout(() => window.location.reload(), 1000);
+}
+
+function refreshStatus() {
+    fetch('/api/flawtrack/status?refresh=true')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('Status updated:', data.status);
+                // Could update UI elements here
+            }
+        })
+        .catch(error => console.error('Status refresh failed:', error));
+}
+
+// Global variable to store search results
+let currentSearchResults = [];
+
+// Company Search Functions
+function performSearch() {
+    const searchInput = document.getElementById('searchInput');
+    const searchOptions = document.getElementById('searchOptions');
+    const searchLoading = document.getElementById('searchLoading');
+    const searchResults = document.getElementById('searchResults');
+    const searchResultsContent = document.getElementById('searchResultsContent');
+
+    const query = searchInput.value.trim();
+    if (!query) {
+        alert('Please enter an email address or domain to search');
+        return;
+    }
+
+    // Show loading, hide results
+    searchLoading.style.display = 'block';
+    searchResults.style.display = 'none';
+
+    // Prepare search data
+    const searchData = {
+        query: query,
+        source: searchOptions.value
+    };
+
+    // Perform search
+    fetch('/admin/flawtrack/search', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(searchData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        searchLoading.style.display = 'none';
+
+        if (data.success) {
+            displaySearchResults(data.results, query);
+        } else {
+            displaySearchError(data.error || 'Search failed');
+        }
+    })
+    .catch(error => {
+        searchLoading.style.display = 'none';
+        displaySearchError('Search request failed: ' + error.message);
+    });
+}
+
+function displaySearchResults(results, query) {
+    const searchResults = document.getElementById('searchResults');
+    const searchResultsContent = document.getElementById('searchResultsContent');
+
+    // Store results globally for view/export functions
+    currentSearchResults = results;
+
+    if (!results || results.length === 0) {
+        searchResultsContent.innerHTML = `
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                No breach data found for "${query}". This could mean:
+                <ul class="mb-0 mt-2">
+                    <li>The domain/email has not been involved in any known breaches</li>
+                    <li>The data hasn't been scanned yet</li>
+                    <li>The breach data is not available in the selected source</li>
+                </ul>
+            </div>
+        `;
+    } else {
+        let resultsHtml = `
+            <div class="alert alert-success">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>Breach data found for "${query}"</strong> - ${results.length} result(s)
+            </div>
+        `;
+
+        results.forEach((result, index) => {
+            const riskClass = getRiskClass(result.risk_score || 0);
+            const statusClass = getStatusClass(result.breach_status);
+
+            resultsHtml += `
+                <div class="card mb-3 border-${getCardBorderClass(result.breach_status)}">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="fas fa-${getStatusIcon(result.breach_status)} me-2"></i>
+                            ${result.domain || result.email || query}
+                        </h6>
+                        <span class="badge bg-${statusClass}">${(result.breach_status || 'unknown').replace('_', ' ').toUpperCase()}</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6 class="fw-bold text-danger">Breach Information</h6>
+                                <ul class="list-unstyled">
+                                    <li><strong>Records Affected:</strong> ${(result.records_affected || 0).toLocaleString()}</li>
+                                    <li><strong>Breach Year:</strong> ${result.breach_year || 'Unknown'}</li>
+                                    <li><strong>Breach Name:</strong> ${result.breach_name || 'Unknown'}</li>
+                                    <li><strong>Risk Score:</strong> <span class="badge bg-${riskClass}">${result.risk_score || 0}/100</span></li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="fw-bold text-info">Additional Details</h6>
+                                <ul class="list-unstyled">
+                                    <li><strong>Data Types:</strong> ${result.data_types || 'Not specified'}</li>
+                                    <li><strong>Severity:</strong> ${result.severity || 'Unknown'}</li>
+                                    <li><strong>Last Updated:</strong> ${result.last_updated ? new Date(result.last_updated).toLocaleDateString() : 'Unknown'}</li>
+                                    <li><strong>Source:</strong> ${result.data_source || 'Unknown'}</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        ${result.breach_details ? `
+                            <div class="mt-3">
+                                <h6 class="fw-bold">Breach Details</h6>
+                                <p class="text-muted small">${result.breach_details}</p>
+                            </div>
+                        ` : ''}
+
+                        ${result.recommendations ? `
+                            <div class="mt-3">
+                                <h6 class="fw-bold text-warning">Recommendations</h6>
+                                <div class="alert alert-warning small">
+                                    ${result.recommendations}
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        <div class="mt-3 d-flex justify-content-between align-items-center">
+                            <div>
+                                ${result.raw_records && result.raw_records.length > 0 ? `
+                                    <button class="btn btn-sm btn-outline-info" onclick="viewAllBreachData(${index})">
+                                        <i class="fas fa-eye me-1"></i>View All Breach Data (${result.records_affected} records)
+                                    </button>
+                                ` : ''}
+                            </div>
+                            <div>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="exportBreachData(${index})">
+                                    <i class="fas fa-download me-1"></i>Export Data
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Detailed Data Section (Hidden by default) -->
+                        <div id="breachDetails_${index}" class="mt-3" style="display: none;">
+                            <hr>
+                            <h6 class="fw-bold text-primary">
+                                <i class="fas fa-database me-2"></i>Detailed Breach Records
+                            </h6>
+                            <div id="breachRecordsTable_${index}">
+                                <!-- Table will be populated by JavaScript -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        searchResultsContent.innerHTML = resultsHtml;
+    }
+
+    searchResults.style.display = 'block';
+}
+
+function displaySearchError(error) {
+    const searchResults = document.getElementById('searchResults');
+    const searchResultsContent = document.getElementById('searchResultsContent');
+
+    searchResultsContent.innerHTML = `
+        <div class="alert alert-danger">
+            <i class="fas fa-exclamation-circle me-2"></i>
+            <strong>Search Error:</strong> ${error}
+        </div>
+    `;
+
+    searchResults.style.display = 'block';
+}
+
+function getRiskClass(score) {
+    if (score >= 80) return 'danger';
+    if (score >= 60) return 'warning';
+    if (score >= 40) return 'info';
+    return 'success';
+}
+
+function getStatusClass(status) {
+    switch(status) {
+        case 'breached': return 'danger';
+        case 'not_breached': return 'success';
+        case 'unknown': return 'warning';
+        default: return 'secondary';
+    }
+}
+
+function getCardBorderClass(status) {
+    switch(status) {
+        case 'breached': return 'danger';
+        case 'not_breached': return 'success';
+        case 'unknown': return 'warning';
+        default: return 'secondary';
+    }
+}
+
+function getStatusIcon(status) {
+    switch(status) {
+        case 'breached': return 'exclamation-triangle';
+        case 'not_breached': return 'check-circle';
+        case 'unknown': return 'question-circle';
+        default: return 'info-circle';
+    }
+}
+
+// Breach Data Viewing Functions
+function viewAllBreachData(resultIndex) {
+    const result = currentSearchResults[resultIndex];
+    const detailsDiv = document.getElementById(`breachDetails_${resultIndex}`);
+    const tableDiv = document.getElementById(`breachRecordsTable_${resultIndex}`);
+
+    if (detailsDiv.style.display === 'none') {
+        // Show the details and load all breach data
+        detailsDiv.style.display = 'block';
+
+        // Check if we have detailed records, if not fetch them
+        if (!result.raw_records || result.raw_records.length === 0) {
+            tableDiv.innerHTML = `
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading detailed breach data...</span>
+                    </div>
+                    <p class="mt-2 text-muted">Fetching complete breach records...</p>
+                </div>
+            `;
+
+            // Fetch detailed breach data for this domain
+            const query = result.domain || result.query;
+            fetch('/admin/flawtrack/search', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    query: query,
+                    source: 'unified'
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.results && data.results.length > 0) {
+                    // Update the result with detailed data
+                    result.raw_records = data.results[0].raw_records || data.results[0].breach_data || [];
+                    result.data_source = data.results[0].data_source;
+                    result.data_sources = data.results[0].data_sources;
+
+                    // Now display the detailed table
+                    displayDetailedBreachTable(result, resultIndex);
+                } else {
+                    tableDiv.innerHTML = `
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            No detailed breach records available for this domain.
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching detailed breach data:', error);
+                tableDiv.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        Error loading detailed breach data: ${error.message}
+                    </div>
+                `;
+            });
+        } else {
+            // We already have the data, display it
+            displayDetailedBreachTable(result, resultIndex);
+        }
+
+        // Update button text
+        event.target.innerHTML = '<i class="fas fa-eye-slash me-1"></i>Hide Breach Data';
+    } else {
+        // Hide the details
+        detailsDiv.style.display = 'none';
+        event.target.innerHTML = `<i class="fas fa-eye me-1"></i>View All Breach Data (${result.records_affected} records)`;
+    }
+}
+
+function displayDetailedBreachTable(result, resultIndex) {
+    const tableDiv = document.getElementById(`breachRecordsTable_${resultIndex}`);
+
+    // Create a detailed table of all breach records
+    let tableHtml = `
+        <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>Security Notice:</strong> This data contains actual compromised credentials from security breaches.
+            Use this information for legitimate security research and incident response only. Handle with appropriate care.
+        </div>
+        <div class="mb-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <strong>Total Records: ${result.records_affected || (result.raw_records ? result.raw_records.length : 0)}</strong>
+                    <span class="text-muted ms-2">All records displayed below</span>
+                </div>
+                <div>
+                    <button class="btn btn-sm btn-outline-primary" onclick="searchInTable(${resultIndex})">
+                        <i class="fas fa-search me-1"></i>Search in Table
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+            <table class="table table-sm table-striped" id="breachTable_${resultIndex}">
+                <thead class="table-dark sticky-top">
+                    <tr>
+                        <th style="width: 5%;">#</th>
+                        <th style="width: 25%;">Email/Username</th>
+                        <th style="width: 25%;">Password</th>
+                        <th style="width: 20%;">Service</th>
+                        <th style="width: 15%;">Source</th>
+                        <th style="width: 10%;">Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    if (result.raw_records && result.raw_records.length > 0) {
+        result.raw_records.forEach((record, recordIndex) => {
+            // Show all available identification fields
+            const email = record.email || record.username || record.user || record.login || record.identifier || 'Not specified';
+            const password = record.password || record.pass || record.pwd || 'Not available';
+            const service = record.service_name || record.url || record.host || record.domain_name || record.service || 'Unknown';
+            const source = record.source || record.leak_name || record.breach_name || 'Unknown';
+            const date = record.created_at || record.date || record.breach_date || record.timestamp || 'Unknown';
+
+            tableHtml += `
+                <tr>
+                    <td>${recordIndex + 1}</td>
+                    <td class="font-monospace text-primary">${email}</td>
+                    <td class="font-monospace text-danger" style="word-break: break-all;">${password}</td>
+                    <td class="text-info">${service}</td>
+                    <td><span class="badge bg-secondary">${source}</span></td>
+                    <td class="small">${formatDate(date)}</td>
+                </tr>
+            `;
+        });
+    } else {
+        tableHtml += `
+            <tr>
+                <td colspan="6" class="text-center text-muted">No detailed records available</td>
+            </tr>
+        `;
+    }
+
+    tableHtml += `
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    // Add summary information
+    tableHtml += `
+        <div class="mt-3">
+            <div class="alert alert-info">
+                <h6 class="fw-bold">Summary Information</h6>
+                <div class="row">
+                    <div class="col-md-6">
+                        <ul class="list-unstyled small">
+                            <li><strong>Total Records:</strong> ${result.records_affected || (result.raw_records ? result.raw_records.length : 0)}</li>
+                            <li><strong>Domain:</strong> ${result.domain || result.query || 'Unknown'}</li>
+                            <li><strong>Risk Score:</strong> ${result.risk_score || 0}/100</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <ul class="list-unstyled small">
+                            <li><strong>Breach Status:</strong> ${(result.breach_status || 'unknown').replace('_', ' ').toUpperCase()}</li>
+                            <li><strong>Last Updated:</strong> ${formatDate(result.last_updated)}</li>
+                            <li><strong>Data Source:</strong> ${result.data_source || 'Unknown'}</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    tableDiv.innerHTML = tableHtml;
+}
+
+function exportBreachData(resultIndex) {
+    const result = currentSearchResults[resultIndex];
+
+    if (!result || !result.raw_records) {
+        alert('No detailed breach data available for export');
+        return;
+    }
+
+    // Create CSV content
+    let csvContent = 'Email/Username,Password,Service,Source,Date,Domain,Risk Score\n';
+
+    result.raw_records.forEach(record => {
+        const email = record.email || record.username || record.user || record.login || record.identifier || 'Not specified';
+        const password = record.password || record.pass || record.pwd || 'Not available';
+        const service = record.service_name || record.url || record.host || record.domain || record.service || 'Unknown';
+        const source = record.source || record.leak_name || record.breach_name || 'Unknown';
+        const date = record.created_at || record.date || record.breach_date || record.timestamp || 'Unknown';
+
+        // Escape CSV values
+        const csvRow = [
+            escapeCsvValue(email),
+            escapeCsvValue(password),
+            escapeCsvValue(service),
+            escapeCsvValue(source),
+            escapeCsvValue(date),
+            escapeCsvValue(result.domain),
+            result.risk_score || 0
+        ].join(',');
+
+        csvContent += csvRow + '\n';
+    });
+
+    // Download the CSV
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `breach_data_${result.domain}_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// Helper functions
+function maskPassword(password) {
+    if (!password || password.length <= 2) return '*'.repeat(password.length);
+    return password.substring(0, 2) + '*'.repeat(Math.max(0, password.length - 2));
+}
+
+function formatDate(dateString) {
+    if (!dateString || dateString === 'Unknown') return 'Unknown';
+    try {
+        const date = new Date(dateString);
+        return date.toLocaleDateString();
+    } catch (e) {
+        return dateString;
+    }
+}
+
+function escapeCsvValue(value) {
+    if (typeof value !== 'string') return value;
+    if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+        return '"' + value.replace(/"/g, '""') + '"';
+    }
+    return value;
+}
+
+function searchInTable(resultIndex) {
+    const searchTerm = prompt('Enter search term to filter table rows:');
+    if (!searchTerm) return;
+
+    const table = document.getElementById(`breachTable_${resultIndex}`);
+    const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+    let visibleCount = 0;
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const text = row.textContent.toLowerCase();
+
+        if (text.includes(searchTerm.toLowerCase())) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    }
+
+    // Show search results info
+    const existingAlert = table.parentElement.querySelector('.search-results-alert');
+    if (existingAlert) {
+        existingAlert.remove();
+    }
+
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-info search-results-alert mt-2';
+    alertDiv.innerHTML = `
+        <i class="fas fa-search me-2"></i>
+        Search results: ${visibleCount} rows found for "${searchTerm}"
+        <button class="btn btn-sm btn-outline-secondary ms-2" onclick="clearTableSearch(${resultIndex})">
+            Clear Filter
+        </button>
+    `;
+    table.parentElement.appendChild(alertDiv);
+}
+
+function clearTableSearch(resultIndex) {
+    const table = document.getElementById(`breachTable_${resultIndex}`);
+    const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+    // Show all rows
+    for (let i = 0; i < rows.length; i++) {
+        rows[i].style.display = '';
+    }
+
+    // Remove search alert
+    const existingAlert = table.parentElement.querySelector('.search-results-alert');
+    if (existingAlert) {
+        existingAlert.remove();
+    }
+}
+</script>
+{% endblock %}

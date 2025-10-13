@@ -1,0 +1,408 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Campaign - {{ campaign.name }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    .form-section {
+        background: white;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .section-title {
+        color: var(--primary-color);
+        font-weight: 600;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #e5e7eb;
+    }
+    
+    .risk-level-card {
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 0.5rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .risk-level-card:hover {
+        border-color: var(--primary-color);
+    }
+    
+    .risk-level-card.selected {
+        border-color: var(--primary-color);
+        background-color: var(--primary-color);
+        color: white;
+    }
+    
+    .contact-stat {
+        background: #f8fafc;
+        padding: 1rem;
+        border-radius: 6px;
+        text-align: center;
+        border: 1px solid #e5e7eb;
+    }
+    
+    .btn-save {
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        border: none;
+        color: white;
+        padding: 0.75rem 2rem;
+        border-radius: 6px;
+        font-weight: 600;
+    }
+    
+    .btn-save:hover {
+        opacity: 0.9;
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">Edit Campaign</h1>
+            <p class="text-muted mb-0">Modify campaign settings and targeting</p>
+        </div>
+        <a href="{{ url_for('campaigns.view_campaign', campaign_id=campaign.id) }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i>Back to Campaign
+        </a>
+    </div>
+
+    <form method="POST" id="editCampaignForm">
+        <div class="row">
+            <!-- Left Column -->
+            <div class="col-lg-8">
+                <!-- Basic Information -->
+                <div class="form-section">
+                    <h5 class="section-title">
+                        <i class="fas fa-info-circle me-2"></i>Basic Information
+                    </h5>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="name" class="form-label">Campaign Name</label>
+                                <input type="text" class="form-control" id="name" name="name" 
+                                       value="{{ campaign.name }}" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="daily_limit" class="form-label">Daily Email Limit</label>
+                                <input type="number" class="form-control" id="daily_limit" name="daily_limit" 
+                                       value="{{ campaign.daily_limit or 50 }}" min="1" max="1000">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <textarea class="form-control" id="description" name="description" rows="3">{{ campaign.description or '' }}</textarea>
+                    </div>
+                </div>
+
+                <!-- Sender Information -->
+                <div class="form-section">
+                    <h5 class="section-title">
+                        <i class="fas fa-envelope me-2"></i>Sender Information
+                    </h5>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="sender_name" class="form-label">Sender Name</label>
+                                <input type="text" class="form-control" id="sender_name" name="sender_name" 
+                                       value="{{ campaign.sender_name or '' }}" placeholder="Sales Team">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="sender_email" class="form-label">Sender Email</label>
+                                <input type="email" class="form-control" id="sender_email" name="sender_email" 
+                                       value="{{ campaign.sender_email or '' }}" placeholder="noreply@company.com">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Target Audience -->
+                <div class="form-section">
+                    <h5 class="section-title">
+                        <i class="fas fa-bullseye me-2"></i>Target Audience
+                    </h5>
+                    
+                    <p class="text-muted mb-3">Select which contacts to target based on their breach status:</p>
+                    
+                    <div class="row">
+                        <div class="col-md-4">
+                            <label class="risk-level-card {% if 'breached' in campaign.target_risk_levels %}selected{% endif %}" 
+                                   onclick="toggleRiskLevel('breached', this)">
+                                <input type="checkbox" name="target_risk_levels" value="breached" 
+                                       {% if 'breached' in campaign.target_risk_levels %}checked{% endif %} style="display: none;">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <div class="fw-bold">Breached Contacts</div>
+                                        <small class="opacity-75">High priority targets</small>
+                                    </div>
+                                    <div class="text-end">
+                                        <div class="h5 mb-0">{{ contact_stats.breached }}</div>
+                                        <small>contacts</small>
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <label class="risk-level-card {% if 'not_breached' in campaign.target_risk_levels %}selected{% endif %}" 
+                                   onclick="toggleRiskLevel('not_breached', this)">
+                                <input type="checkbox" name="target_risk_levels" value="not_breached" 
+                                       {% if 'not_breached' in campaign.target_risk_levels %}checked{% endif %} style="display: none;">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <div class="fw-bold">Secure Contacts</div>
+                                        <small class="opacity-75">Proactive outreach</small>
+                                    </div>
+                                    <div class="text-end">
+                                        <div class="h5 mb-0">{{ contact_stats.secure }}</div>
+                                        <small>contacts</small>
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <label class="risk-level-card {% if 'unknown' in campaign.target_risk_levels %}selected{% endif %}" 
+                                   onclick="toggleRiskLevel('unknown', this)">
+                                <input type="checkbox" name="target_risk_levels" value="unknown" 
+                                       {% if 'unknown' in campaign.target_risk_levels %}checked{% endif %} style="display: none;">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <div class="fw-bold">Unknown Status</div>
+                                        <small class="opacity-75">Needs assessment</small>
+                                    </div>
+                                    <div class="text-end">
+                                        <div class="h5 mb-0">{{ contact_stats.unknown }}</div>
+                                        <small>contacts</small>
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Auto-enrollment Settings -->
+                <div class="form-section">
+                    <h5 class="section-title">
+                        <i class="fas fa-sync-alt me-2"></i>Auto-enrollment Settings
+                    </h5>
+                    
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="auto_enroll" name="auto_enroll" 
+                               {% if campaign.auto_enroll %}checked{% endif %} onchange="toggleAutoEnrollSettings()">
+                        <label class="form-check-label" for="auto_enroll">
+                            <strong>Enable Auto-enrollment</strong>
+                        </label>
+                        <div class="form-text">Automatically enroll new contacts that match campaign criteria</div>
+                    </div>
+                    
+                    <div id="auto_enroll_settings" style="{% if not campaign.auto_enroll %}display: none;{% endif %}">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label for="auto_enroll_breach_status" class="form-label">Auto-enroll contacts with status:</label>
+                                <select class="form-control" id="auto_enroll_breach_status" name="auto_enroll_breach_status">
+                                    <option value="">Select status...</option>
+                                    <option value="breached" {% if campaign.auto_enroll_breach_status == 'breached' %}selected{% endif %}>Breached</option>
+                                    <option value="not_breached" {% if campaign.auto_enroll_breach_status == 'not_breached' %}selected{% endif %}>Secure</option>
+                                    <option value="unknown" {% if campaign.auto_enroll_breach_status == 'unknown' %}selected{% endif %}>Unknown</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Email Approval Workflow -->
+                <div class="form-section">
+                    <h5 class="section-title">
+                        <i class="fas fa-check-circle me-2"></i>Email Approval Workflow
+                    </h5>
+
+                    <p class="text-muted mb-3">Choose how emails should be handled before sending:</p>
+
+                    <div class="mb-3">
+                        <label class="form-label">Sending Mode</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" id="automaticSending" name="approval_mode" value="automatic"
+                                   {% if not campaign.requires_approval or campaign.approval_mode == 'automatic' %}checked{% endif %}>
+                            <label class="form-check-label" for="automaticSending">
+                                <strong>Automatic Sending</strong>
+                            </label>
+                            <div class="form-text">Emails are sent automatically without approval (recommended for most campaigns)</div>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" id="manualApproval" name="approval_mode" value="manual_approval"
+                                   {% if campaign.requires_approval and campaign.approval_mode == 'manual_approval' %}checked{% endif %}>
+                            <label class="form-check-label" for="manualApproval">
+                                <strong>Manual Approval Required</strong>
+                            </label>
+                            <div class="form-text">Each email must be reviewed and approved before sending</div>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" id="batchApproval" name="approval_mode" value="batch_approval"
+                                   {% if campaign.requires_approval and campaign.approval_mode == 'batch_approval' %}checked{% endif %}>
+                            <label class="form-check-label" for="batchApproval">
+                                <strong>Batch Approval</strong>
+                            </label>
+                            <div class="form-text">Approve groups of emails in batches for faster processing</div>
+                        </div>
+                    </div>
+
+                    {% if campaign.requires_approval %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Current Status:</strong> This campaign requires approval.
+                        <a href="{{ url_for('campaigns.pending_approvals') }}" class="alert-link">View pending approvals</a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Right Column - Statistics -->
+            <div class="col-lg-4">
+                <div class="form-section">
+                    <h5 class="section-title">
+                        <i class="fas fa-chart-pie me-2"></i>Contact Statistics
+                    </h5>
+                    
+                    <div class="contact-stat mb-3">
+                        <div class="h4 mb-0 text-primary">{{ contact_stats.total_contacts }}</div>
+                        <div class="text-muted">Total Contacts</div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="contact-stat">
+                                <div class="h5 mb-0 text-danger">{{ contact_stats.breached }}</div>
+                                <div class="text-muted small">Breached</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="contact-stat">
+                                <div class="h5 mb-0 text-success">{{ contact_stats.secure }}</div>
+                                <div class="text-muted small">Secure</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="contact-stat mt-2">
+                        <div class="h5 mb-0 text-warning">{{ contact_stats.unknown }}</div>
+                        <div class="text-muted small">Unknown Status</div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h5 class="section-title">
+                        <i class="fas fa-info me-2"></i>Campaign Info
+                    </h5>
+                    
+                    <div class="mb-2">
+                        <strong>Status:</strong>
+                        <span class="badge bg-{{ 'success' if campaign.status == 'active' else 'warning' if campaign.status == 'paused' else 'secondary' }} ms-2">
+                            {{ campaign.status.title() }}
+                        </span>
+                    </div>
+                    
+                    <div class="mb-2">
+                        <strong>Created:</strong>
+                        <span class="text-muted">{{ campaign.created_at.strftime('%B %d, %Y') if campaign.created_at else 'Unknown' }}</span>
+                    </div>
+                    
+                    <div class="mb-2">
+                        <strong>Template Type:</strong>
+                        <span class="text-muted">{{ campaign.template_type.replace('_', ' ').title() if campaign.template_type else 'Standard' }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="d-flex justify-content-between align-items-center py-3 border-top">
+            <a href="{{ url_for('campaigns.view_campaign', campaign_id=campaign.id) }}" class="btn btn-outline-secondary">
+                <i class="fas fa-times me-1"></i>Cancel
+            </a>
+            
+            <div>
+                <button type="submit" class="btn btn-save">
+                    <i class="fas fa-save me-1"></i>Save Changes
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleRiskLevel(value, element) {
+    const checkbox = element.querySelector('input[type="checkbox"]');
+    const isChecked = !checkbox.checked;
+    
+    checkbox.checked = isChecked;
+    
+    if (isChecked) {
+        element.classList.add('selected');
+    } else {
+        element.classList.remove('selected');
+    }
+}
+
+function toggleAutoEnrollSettings() {
+    const autoEnrollCheckbox = document.getElementById('auto_enroll');
+    const settingsDiv = document.getElementById('auto_enroll_settings');
+    const statusSelect = document.getElementById('auto_enroll_breach_status');
+    
+    if (autoEnrollCheckbox.checked) {
+        settingsDiv.style.display = 'block';
+        
+        // Smart default: match the first selected target risk level
+        const selectedRiskLevels = Array.from(document.querySelectorAll('input[name="target_risk_levels"]:checked'))
+            .map(input => input.value);
+        
+        if (selectedRiskLevels.length > 0 && !statusSelect.value) {
+            statusSelect.value = selectedRiskLevels[0];
+        }
+    } else {
+        settingsDiv.style.display = 'none';
+        statusSelect.value = '';
+    }
+}
+
+// Initialize auto-enrollment settings on page load
+document.addEventListener('DOMContentLoaded', function() {
+    toggleAutoEnrollSettings();
+});
+
+// Form submission handling
+document.getElementById('editCampaignForm').addEventListener('submit', function(e) {
+    const selectedRiskLevels = document.querySelectorAll('input[name="target_risk_levels"]:checked');
+    
+    if (selectedRiskLevels.length === 0) {
+        e.preventDefault();
+        alert('Please select at least one target audience.');
+        return;
+    }
+    
+    // Show saving indicator
+    const saveButton = document.querySelector('.btn-save');
+    const originalText = saveButton.innerHTML;
+    saveButton.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Saving...';
+    saveButton.disabled = true;
+});
+</script>
+{% endblock %}

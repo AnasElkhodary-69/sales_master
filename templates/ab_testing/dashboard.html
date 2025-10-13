@@ -1,0 +1,313 @@
+{% extends "base.html" %}
+
+{% block title %}A/B Testing Dashboard - SalesBreachPro{% endblock %}
+
+{% block extra_head %}
+<style>
+    .test-card {
+        transition: all 0.3s ease;
+        border-left: 4px solid #007bff;
+    }
+
+    .test-card.running {
+        border-left-color: #28a745;
+    }
+
+    .test-card.completed {
+        border-left-color: #17a2b8;
+    }
+
+    .test-card.draft {
+        border-left-color: #6c757d;
+    }
+
+    .test-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .significance-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+
+    .winner-badge {
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7); }
+        70% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2><i class="fas fa-flask me-2"></i>A/B Testing Dashboard</h2>
+                    <p class="text-muted mb-0">Compare email variants and optimize your campaigns</p>
+                </div>
+                <div>
+                    <a href="/ab-testing/create" class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i>Create A/B Test
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h5 class="card-title mb-1">{{ total_tests }}</h5>
+                            <p class="card-text mb-0">Total Tests</p>
+                        </div>
+                        <div class="ms-3">
+                            <i class="fas fa-flask fa-2x opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h5 class="card-title mb-1">{{ running_tests }}</h5>
+                            <p class="card-text mb-0">Running Tests</p>
+                        </div>
+                        <div class="ms-3">
+                            <i class="fas fa-play fa-2x opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h5 class="card-title mb-1">{{ completed_tests }}</h5>
+                            <p class="card-text mb-0">Completed Tests</p>
+                        </div>
+                        <div class="ms-3">
+                            <i class="fas fa-check-circle fa-2x opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h5 class="card-title mb-1">
+                                {% set winners = ab_tests|selectattr('winning_variant')|list|length %}
+                                {{ winners }}
+                            </h5>
+                            <p class="card-text mb-0">Clear Winners</p>
+                        </div>
+                        <div class="ms-3">
+                            <i class="fas fa-trophy fa-2x opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- A/B Tests -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-list me-2"></i>Your A/B Tests</h5>
+                </div>
+                <div class="card-body">
+                    {% if ab_tests %}
+                    <div class="row">
+                        {% for test in ab_tests %}
+                        <div class="col-lg-6 col-xl-4 mb-4">
+                            <div class="card test-card {{ test.status }} h-100">
+                                <div class="card-header d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <h6 class="mb-1">{{ test.name }}</h6>
+                                        <div class="d-flex gap-2">
+                                            <span class="badge bg-{{ 'success' if test.status == 'running' else 'info' if test.status == 'completed' else 'secondary' }}">
+                                                {{ test.status.title() }}
+                                            </span>
+                                            {% if test.winning_variant %}
+                                            <span class="badge bg-warning winner-badge">
+                                                Winner: {{ test.winning_variant }}
+                                            </span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown">
+                                            <i class="fas fa-ellipsis-v"></i>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li><a class="dropdown-item" href="/ab-testing/{{ test.id }}">
+                                                <i class="fas fa-eye me-2"></i>View Results
+                                            </a></li>
+                                            {% if test.status == 'draft' %}
+                                            <li><button class="dropdown-item" onclick="startTest({{ test.id }})">
+                                                <i class="fas fa-play me-2 text-success"></i>Start Test
+                                            </button></li>
+                                            {% elif test.status == 'running' %}
+                                            <li><button class="dropdown-item" onclick="stopTest({{ test.id }})">
+                                                <i class="fas fa-stop me-2 text-warning"></i>Stop Test
+                                            </button></li>
+                                            {% endif %}
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <p class="mb-2"><strong>Test Type:</strong> {{ test.test_type.replace('_', ' ').title() }}</p>
+                                    <p class="mb-2"><strong>Primary Metric:</strong> {{ test.primary_metric.replace('_', ' ').title() }}</p>
+
+                                    {% if test.description %}
+                                    <p class="mb-3 text-muted small">{{ test.description[:100] }}{% if test.description|length > 100 %}...{% endif %}</p>
+                                    {% endif %}
+
+                                    <div class="row text-center">
+                                        <div class="col-4">
+                                            <div class="fw-bold">{{ test.sample_size }}</div>
+                                            <small>Sample Size</small>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="fw-bold">{{ test.traffic_split }}%</div>
+                                            <small>Split A/B</small>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="fw-bold">
+                                                {% if test.statistical_significance %}
+                                                    {{ "%.1f"|format(test.statistical_significance) }}%
+                                                {% else %}
+                                                    --
+                                                {% endif %}
+                                            </div>
+                                            <small>Significance</small>
+                                        </div>
+                                    </div>
+
+                                    {% if test.statistical_significance and test.statistical_significance >= 95.0 %}
+                                    <div class="mt-2">
+                                        <span class="badge bg-success significance-badge">
+                                            <i class="fas fa-check-circle me-1"></i>Statistically Significant
+                                        </span>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="card-footer text-muted">
+                                    <div class="d-flex justify-content-between">
+                                        <small>Created: {{ test.created_at.strftime('%b %d') if test.created_at }}</small>
+                                        {% if test.start_date %}
+                                        <small>Started: {{ test.start_date.strftime('%b %d') }}</small>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-flask text-muted fa-3x mb-3"></i>
+                        <h5 class="text-muted">No A/B Tests Yet</h5>
+                        <p class="text-muted">Create your first A/B test to start optimizing your email campaigns</p>
+                        <a href="/ab-testing/create" class="btn btn-primary">
+                            <i class="fas fa-plus me-1"></i>Create Your First A/B Test
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function startTest(testId) {
+    if (!confirm('Are you sure you want to start this A/B test? This will begin sending emails to the assigned contacts.')) {
+        return;
+    }
+
+    showLoadingToast('Starting A/B test...');
+
+    fetch(`/ab-testing/${testId}/start`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoadingToast();
+
+        if (data.success) {
+            showToast(`✅ A/B test started successfully! ${data.contacts_assigned} contacts assigned.`, 'success', 5000);
+            setTimeout(() => location.reload(), 2000);
+        } else {
+            showToast(`❌ Failed to start test: ${data.error}`, 'error', 5000);
+        }
+    })
+    .catch(error => {
+        hideLoadingToast();
+        console.error('Start test error:', error);
+        showToast('❌ Failed to start test. Please try again.', 'error', 5000);
+    });
+}
+
+function stopTest(testId) {
+    if (!confirm('Are you sure you want to stop this A/B test? This will finalize the results.')) {
+        return;
+    }
+
+    showLoadingToast('Stopping A/B test...');
+
+    fetch(`/ab-testing/${testId}/stop`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoadingToast();
+
+        if (data.success) {
+            let message = `✅ A/B test completed successfully!`;
+            if (data.winning_variant) {
+                message += ` Winner: Variant ${data.winning_variant} (${data.statistical_significance}% confidence)`;
+            }
+            showToast(message, 'success', 6000);
+            setTimeout(() => location.reload(), 2000);
+        } else {
+            showToast(`❌ Failed to stop test: ${data.error}`, 'error', 5000);
+        }
+    })
+    .catch(error => {
+        hideLoadingToast();
+        console.error('Stop test error:', error);
+        showToast('❌ Failed to stop test. Please try again.', 'error', 5000);
+    });
+}
+</script>
+{% endblock %}

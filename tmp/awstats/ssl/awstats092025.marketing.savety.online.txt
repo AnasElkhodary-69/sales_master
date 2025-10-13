@@ -1,0 +1,543 @@
+AWSTATS DATA FILE 7.9 (build 20230108)
+# If you remove this file, all statistics for date 202509 will be lost/reset.
+# Last config file used to build this data file was /home/savetyonline/tmp/awstats/ssl/awstats.marketing.savety.online.conf.
+
+# Position (offset in bytes) in this file for beginning of each section for
+# direct I/O access. If you made changes somewhere in this file, you should
+# also remove completely the MAP section (AWStats will rewrite it at next
+# update).
+BEGIN_MAP 28
+POS_GENERAL 2062                
+POS_TIME 2746                
+POS_VISITOR 8574                
+POS_DAY 11303               
+POS_DOMAIN 3541                
+POS_LOGIN 3852                
+POS_ROBOT 4007                
+POS_WORMS 4170                
+POS_EMAILSENDER 4301                
+POS_EMAILRECEIVER 4444                
+POS_SESSION 11445               
+POS_FILESIZE 16062               
+POS_SIDER 11651               
+POS_FILETYPES 4579                
+POS_DOWNLOADS 4761                
+POS_OS 4809                
+POS_BROWSER 4960                
+POS_SCREENSIZE 5223                
+POS_UNKNOWNREFERER 5297                
+POS_UNKNOWNREFERERBROWSER 5687                
+POS_ORIGIN 5986                
+POS_SEREFERRALS 6126                
+POS_PAGEREFS 6292                
+POS_SEARCHWORDS 6440                
+POS_KEYWORDS 6592                
+POS_MISC 2409                
+POS_ERRORS 6651                
+POS_CLUSTER 3708                
+POS_SIDER_404 6809                
+END_MAP
+
+# LastLine    = Date of last record processed - Last record line number in last log - Last record offset in last log - Last record signature value
+# FirstTime   = Date of first visit for history file
+# LastTime    = Date of last visit for history file
+# LastUpdate  = Date of last update - Nb of parsed records - Nb of parsed old records - Nb of parsed new records - Nb of parsed corrupted - Nb of parsed dropped
+# TotalVisits = Number of visits
+# TotalUnique = Number of unique visitors
+# MonthHostsKnown   = Number of hosts known
+# MonthHostsUnKnown = Number of hosts unknown
+BEGIN_GENERAL 8
+LastLine 20250916212433 650 166713 15328993842536
+FirstTime 20250914090016
+LastTime 20250916212431
+LastUpdate 20250917080706 650 0 650 0 0
+TotalVisits 116                 
+TotalUnique 71                  
+MonthHostsKnown 0                   
+MonthHostsUnknown 71                  
+END_GENERAL
+
+# Misc ID - Pages - Hits - Bandwidth
+BEGIN_MISC 10
+TotalMisc 0 0 0
+WindowsMediaPlayerSupport 0 0 0
+FlashSupport 0 0 0
+AddToFavourites 0 37 0
+DirectorSupport 0 0 0
+QuickTimeSupport 0 0 0
+JavaEnabled 0 0 0
+RealPlayerSupport 0 0 0
+JavascriptDisabled 0 0 0
+PDFSupport 0 0 0
+END_MISC
+
+# Hour - Pages - Hits - Bandwidth - Not viewed Pages - Not viewed Hits - Not viewed Bandwidth
+BEGIN_TIME 24
+0 87 148 3107236 24 25 15817
+1 28 36 438908 0 0 0
+2 73 142 2542126 8 12 531
+3 32 44 471786 35 36 0
+4 2 2 5378 1 1 199
+5 44 84 1569664 37 59 27159
+6 208 370 8644771 57 174 61381
+7 162 312 4911764 6 7 610
+8 122 194 3103710 6 20 1828
+9 140 192 3276069 11 59 5435
+10 57 59 565834 3 19 1671
+11 75 81 1378502 7 34 3793
+12 139 139 2130798 15 70 61787
+13 250 310 5918034 24 144 14728
+14 115 115 1917326 35 133 9953
+15 42 42 124834 1 8 691
+16 67 67 2461488 10 100 9202
+17 252 252 10727243 22 353 31168
+18 158 158 5045904 11 140 12605
+19 114 115 2105138 5 59 4893
+20 50 62 2426170 54 114 5603
+21 345 772 18980519 44 48 6141
+22 305 526 11232273 34 38 4733
+23 36 66 1294395 1 2 0
+END_TIME
+
+# Domain - Pages - Hits - Bandwidth
+# The 25 first Pages must be first (order not required for others)
+BEGIN_DOMAIN 6
+br 1482 2169 55461720
+my 1287 1983 38808838
+au 111 111 8785
+us 12 14 83766
+dk 9 9 11383
+ru 2 2 5378
+END_DOMAIN
+
+# Cluster ID - Pages - Hits - Bandwidth
+BEGIN_CLUSTER 0
+END_CLUSTER
+
+# Login - Pages - Hits - Bandwidth - Last visit
+# The 10 first Pages must be first (order not required for others)
+BEGIN_LOGIN 0
+END_LOGIN
+
+# Robot ID - Hits - Bandwidth - Last visit - Hits on robots.txt
+# The 25 first Hits must be first (order not required for others)
+BEGIN_ROBOT 1
+curl 10 64709 20250916002526 0
+END_ROBOT
+
+# Worm ID - Hits - Bandwidth - Last visit
+# The 5 first Hits must be first (order not required for others)
+BEGIN_WORMS 0
+END_WORMS
+
+# EMail - Hits - Bandwidth - Last visit
+# The 20 first Hits must be first (order not required for others)
+BEGIN_EMAILSENDER 0
+END_EMAILSENDER
+
+# EMail - Hits - Bandwidth - Last visit
+# The 20 first hits must be first (order not required for others)
+BEGIN_EMAILRECEIVER 0
+END_EMAILRECEIVER
+
+# Files type - Hits - Bandwidth - Bandwidth without compression - Bandwidth after compression
+BEGIN_FILETYPES 6
+html 625 40647579 0 0
+com 4 447967 0 0
+ca 8 3210 0 0
+css 697 8273947 0 0
+js 688 4021360 0 0
+Unknown 2266 40985807 0 0
+END_FILETYPES
+
+# Downloads - Hits - Bandwidth
+BEGIN_DOWNLOADS 0
+END_DOWNLOADS
+
+# OS ID - Hits
+BEGIN_OS ID - Hits - Pages 6
+win10 4153 2769
+linux 8 7
+Unknown 124 124
+androidmarshmallow 1 1
+android 1 1
+win7 1 1
+END_OS
+
+# Browser ID - Hits - Pages
+BEGIN_BROWSER 10
+chrome38.0.2125.122 1 1
+chrome140.0.0.0 3762 2382
+mozilla 2 2
+chrome130.0.0.0 1 1
+chrome138.0.7204.23 2 1
+chrome42.0.2311.107 1 1
+chrome139.0.0.0 390 387
+chrome117.0.5938.132 2 1
+Unknown 122 122
+firefox120.0 5 5
+END_BROWSER
+
+# Screen size - Hits
+BEGIN_SCREENSIZE 0
+END_SCREENSIZE
+
+# Unknown referer OS - Last visit date
+BEGIN_UNKNOWNREFERER 6
+Mozilla/5.0_(compatible;_CensysInspect/1.1;__https://about.censys.io/) 20250915093954
+axios/1.8.4 20250915100740
+Brevo-webhook/2.0_(_https://developers.brevo.com/docs/how-to-use-webhooks) 20250916093330
+okhttp/4.9.2 20250916212423
+WhatsApp/2.23.20.0 20250915112220
+python-requests/2.31.0 20250915082504
+END_UNKNOWNREFERER
+
+# Unknown referer Browser - Last visit date
+BEGIN_UNKNOWNREFERERBROWSER 5
+axios/1.8.4 20250915100740
+okhttp/4.9.2 20250916212423
+Brevo-webhook/2.0_(_https://developers.brevo.com/docs/how-to-use-webhooks) 20250916093330
+python-requests/2.31.0 20250915082504
+WhatsApp/2.23.20.0 20250915112220
+END_UNKNOWNREFERERBROWSER
+
+# Origin - Pages - Hits 
+BEGIN_ORIGIN 6
+From0 447 447
+From1 0 0
+From2 1 1
+From3 0 0
+From4 2455 3840
+From5 0 0
+END_ORIGIN
+
+# Search engine referers ID - Pages - Hits
+BEGIN_SEREFERRALS 1
+bing_com_catchall 1 1
+END_SEREFERRALS
+
+# External page referers - Pages - Hits
+# The 25 first Pages must be first (order not required for others)
+BEGIN_PAGEREFS 0
+END_PAGEREFS
+
+# Search keyphrases - Number of search
+# The 10 first number of search must be first (order not required for others)
+BEGIN_SEARCHWORDS 0
+END_SEARCHWORDS
+
+# Search keywords - Number of search
+# The 25 first number of search must be first (order not required for others)
+BEGIN_KEYWORDS 0
+END_KEYWORDS
+
+# Errors - Hits - Bandwidth
+BEGIN_ERRORS 7
+405 4 459
+500 59 85906
+503 128 0
+301 1 0
+404 1204 96494
+302 124 22496
+308 36 9864
+END_ERRORS
+
+# URL with 404 errors - Hits - Last URL referrer
+BEGIN_SIDER_404 54
+/secrets.json 1 -
+/sequences/new 1 -
+/emails/opened 6 https://marketing.savety.online/dashboard
+/config.yaml 1 -
+/.env 4 -
+/.git/config 1 -
+/admin/.env 1 -
+/database.json 1 -
+/campaigns/contacts/ 1 -
+/wp-config.php 1 -
+/emails/bounced 9 https://marketing.savety.online/dashboard
+/backend/.env 1 -
+/.env.development 1 -
+/config.ini 1 -
+/.env.local 1 -
+/.env.backup 1 -
+/sequences/create 3 https://marketing.savety.online/templates/
+/emails/delivered 9 https://marketing.savety.online/dashboard
+/.aws/credentials 1 -
+/favicon.png 1 -
+/db.json 1 -
+/config.json 1 -
+/leads 8 https://marketing.savety.online/dashboard
+/config.properties 1 -
+/admin/sequences/5/edit 2 https://marketing.savety.online/templates
+/application.properties 1 -
+/public/.env 1 -
+/test/.env 1 -
+/.aws/config 1 -
+/app/.env 1 -
+/static/js/main.js 551 https://marketing.savety.online/contacts/
+/api/contacts/19 1 https://marketing.savety.online/contacts/
+/purge-cache 1 -
+/server/.env 1 -
+/api/contacts/2 3 https://marketing.savety.online/contacts/
+/contacts/2 1 https://marketing.savety.online/sequence-analytics
+/config.yml 1 -
+/web.config 1 -
+/.env.production 1 -
+//ab-testing/) 2 -
+/templates/1/editor 2 -
+/sequences/4/delete 1 -
+/static/css/style.css 560 https://marketing.savety.online/contacts/
+/private/.env 1 -
+/api-keys.json 1 -
+/package.json 1 -
+/settings.json 1 -
+/api/.env 1 -
+/configuration.php 1 -
+/staging/.env 1 -
+/config/.env 1 -
+/app.config 1 -
+/ 4 -
+/composer.json 1 -
+END_SIDER_404
+
+# Host - Pages - Hits - Bandwidth - Last visit date - [Start date of last visit] - [Last page of last visit]
+# [Start date of last visit] and [Last page of last visit] are saved only if session is not finished
+# The 25 first Hits must be first (order not required for others)
+BEGIN_VISITOR 71
+187.109.38.201 1482 2169 55461720 20250916132033
+161.142.152.241 1287 1983 38808838 20250916132249
+1.179.121.105 9 9 698 20250916082413
+86.48.19.194 9 9 11383 20250915100740
+1.179.121.196 6 6 380 20250916091532
+1.179.121.65 4 4 288 20250916085842
+1.179.121.20 4 4 262 20250915175108
+1.179.121.125 4 4 338 20250916031135
+1.179.121.215 4 4 335 20250916075246
+1.179.121.164 3 3 265 20250916071410
+1.179.121.188 3 3 168 20250916071413
+1.179.121.88 3 3 220 20250916071226
+1.179.121.78 3 3 177 20250916081854
+1.179.121.190 3 3 219 20250916004248
+1.179.121.26 3 3 290 20250916071857
+1.179.121.231 3 3 278 20250916075242
+1.179.121.131 3 3 277 20250916093330
+1.179.121.243 3 3 212 20250916071400
+1.179.121.218 2 2 170 20250916091536
+1.179.121.151 2 2 153 20250916071227
+1.179.121.237 2 2 169 20250915224117
+54.144.210.110 2 3 21733 20250916212431 20250916212423 /login
+1.179.121.172 2 2 163 20250915214009
+1.179.121.90 2 2 118 20250916073309
+1.179.121.104 2 2 217 20250916004218
+1.179.121.92 1 1 111 20250916093323
+1.179.121.89 1 1 108 20250915185606
+1.179.121.161 1 1 123 20250915222600
+1.179.121.2 1 1 110 20250915224610
+1.179.121.28 1 1 59 20250916073312
+1.179.121.191 1 1 120 20250916070416
+157.143.53.238 1 1 5041 20250914112506
+66.132.153.126 1 1 5041 20250914090016
+1.179.121.8 1 1 59 20250916071332
+199.45.155.94 1 1 5041 20250915093954
+1.179.121.246 1 1 108 20250915190559
+1.179.121.235 1 1 110 20250915190746
+1.179.121.137 1 1 59 20250916071243
+1.179.121.146 1 1 110 20250915225127
+1.179.121.171 1 1 107 20250915173757
+1.179.121.252 1 1 110 20250915074452
+1.179.121.24 1 1 50 20250916004235
+1.179.121.228 1 1 59 20250915073726
+1.179.121.60 1 1 111 20250916082402
+1.179.121.44 1 1 111 20250916075840
+1.179.121.108 1 1 50 20250916004742
+149.57.180.73 1 1 5041 20250914185501
+1.179.121.187 1 1 59 20250916081856
+1.179.121.124 2 2 179 20250916070120
+149.57.180.10 1 1 5041 20250914182457
+23.27.145.222 1 1 5041 20250914165128
+1.179.121.149 1 1 59 20250916071704
+1.179.121.200 1 1 120 20250916070114
+1.179.121.100 1 1 59 20250915073926
+1.179.121.55 1 1 59 20250916030400
+62.113.113.43 1 1 4931 20250916040106
+91.184.244.208 1 1 447 20250915040537
+1.179.121.41 2 2 179 20250916071242
+1.179.121.175 2 2 152 20250916071405
+1.179.121.148 1 1 59 20250916075818
+1.179.121.10 2 2 162 20250916071239
+1.179.121.203 1 1 50 20250915195553
+1.179.121.94 1 1 59 20250916030350
+1.179.121.195 2 2 118 20250916082414
+1.179.121.81 2 2 170 20250916075851
+23.27.145.95 1 1 4931 20250916173240
+149.57.180.30 1 1 4931 20250916182849
+205.169.39.50 1 2 16884 20250914190341
+1.179.121.43 2 2 170 20250916081844
+1.179.121.68 1 1 59 20250916031135
+146.190.233.56 1 1 5041 20250915153024
+END_VISITOR
+
+# Date - Pages - Hits - Bandwidth - Visits
+BEGIN_DAY 3
+20250914 68 73 2238677 8
+20250915 1849 2536 66484558 46
+20250916 986 1679 25656635 62
+END_DAY
+
+# Session range - Number of visits
+BEGIN_SESSION 7
+5mn-15mn 6
+1h+ 6
+30s-2mn 1
+2mn-5mn 1
+30mn-1h 4
+15mn-30mn 8
+0s-30s 89
+END_SESSION
+
+# URL - Pages - Bandwidth - Entry - Exit
+# The 25 first Pages must be first (order not required for others)
+BEGIN_SIDER 131
+/contacts/ 378 29055496 1 2
+/api/flawtrack/status 312 145310 0 1
+/api/flawtrack/availability-stats 255 70278 0 2
+/campaigns/api/2/analytics 241 174078 0 0
+/dashboard 190 10344308 4 1
+/api/stats 160 141033 1 1
+/campaigns/ 137 5905302 0 0
+/webhooks/brevo 118 9441 89 89
+/campaigns/2 109 9530150 0 0
+/campaigns/api/1/analytics 99 85418 0 0
+/templates/ 78 4678446 0 0
+/api/contact-stats 75 6878 0 0
+/campaigns/approvals 65 1800095 0 0
+/templates 60 4317337 0 0
+/campaigns/1 52 3970869 0 0
+/contacts/upload 34 1980752 0 0
+/campaigns/api/campaigns 33 9729 0 0
+/login 31 155436 18 15
+/contacts/upload/csv 29 11942 0 0
+/api/templates 23 30292 0 0
+/api/contacts/1 20 4449 0 0
+/admin/flawtrack/ 18 870638 0 0
+/templates/api/live-preview 16 22410 0 0
+/templates/1/edit 15 553888 0 0
+/contacts/emails/delivered 14 483107 0 0
+/admin/sequences 4 104362 0 0
+/templates/sequences/4/delete 2 202 0 0
+/templates/1/editor 6 234026 0 0
+/api/contacts/23 1 17 0 0
+/campaigns/2/toggle 1 124 0 0
+/admin/templates 1 21193 0 0
+/ab-testing/create 3 104393 0 0
+/templates/create 13 417824 0 0
+/campaigns/new 8 632471 0 0
+/contacts/breach-analysis 6 384409 0 0
+/campaigns/1/edit 3 94436 0 0
+/api/contacts/21 1 17 0 0
+/campaigns/api/email-preview/4 3 1702 0 0
+/contacts/emails/bounced 1 25614 0 0
+/contacts/emails/opened 2 51216 0 0
+/campaigns/3/delete 2 181 0 0
+/sequences/delete/4 1 91 0 0
+/campaigns/api/approve-email/1 6 596 0 0
+/templates/3/edit 2 67967 0 0
+/api/domain-scan-status/moaz.ca 2 450 0 0
+/analytics/emails-week 7 271840 0 0
+/api/flawtrack/test-connection 3 2550 0 0
+/api/breach-lookup/macnet.ca 2 2098 0 0
+/campaigns/1/delete 1 86 0 0
+/templates/edit/1 3 115759 0 0
+/campaigns/2/contacts/available 2 102 0 0
+/campaigns/1/contacts/available 3 537 0 0
+/campaigns/3/edit 3 94686 0 0
+/api/contacts/16 1 17 0 0
+/api/sequences/2/stats 2 246 0 0
+/api/breach-lookup/schluter.com 2 120 0 0
+/admin/sequences/new 11 289539 0 0
+/campaigns/api/approve-email/2 3 234 0 0
+/campaigns/8/toggle 1 133 0 0
+/sequences/edit/7 1 39510 0 0
+/admin/sequences/4/delete 2 337 0 0
+/campaigns/6 1 68972 0 0
+/templates/sequences/5/delete 2 178 0 0
+/sequences/delete/2 1 91 0 0
+/templates/5/edit 1 35482 0 0
+/api/contacts/25 1 17 0 0
+/campaigns/7/toggle 1 131 0 0
+/contacts/leads 4 154952 0 0
+/api/breach-analysis/contacts/breached 10 8852 0 0
+/campaigns/4/toggle 1 124 0 0
+/campaigns/5/delete 1 86 0 0
+/templates/1/preview 9 313904 0 0
+/campaigns/api/edit-email/3 2 130 0 0
+/api/realtime-stats 14 6150 0 0
+/campaigns/7 1 119523 0 0
+/api/contacts/4 2 39 0 0
+/campaigns/api/email-preview/3 4 2822 0 0
+/api/breach-analysis/domains 5 1248 0 0
+/campaigns/6/toggle 1 124 0 0
+/campaigns/3 5 381278 0 0
+/templates/2/editor 1 37362 0 0
+/campaigns/1/toggle 1 120 0 0
+/api/domain-scan-status/macnet.ca 2 454 0 0
+/templates/2/edit 4 143911 0 0
+/api/contacts/bulk-delete 8 1792 0 0
+/api/contacts/19 1 17 0 0
+/campaigns/2/edit 8 261737 0 0
+/api/contacts/2 10 175 0 0
+/campaigns/api/3/analytics 13 12662 0 0
+/contacts/emails/replied 1 25621 0 0
+/admin/sequences/2/delete 1 82 0 0
+/ 6 28407 3 2
+/api/contacts/3 3 56 0 0
+/campaigns/api/approve-email/3 2 156 0 0
+/analytics/responses 4 99022 0 0
+/api/contacts/26 1 17 0 0
+/campaigns/3/toggle 1 120 0 0
+/campaigns/api/reject-email/2 1 70 0 0
+/campaigns/2/delete 1 90 0 0
+/api/contacts/20 1 17 0 0
+/templates/sequences/1/delete 3 291 0 0
+/api/breach-lookup/moaz.ca 2 208 0 0
+/api/breach-analysis/contacts/not_breached 1 432 0 0
+/templates/sequences/3/delete 1 97 0 0
+/sequences/edit/6 2 78500 0 0
+/templates/sequences/2/delete 1 101 0 0
+/campaigns/api/edit-email/4 2 130 0 0
+/sequences/create 6 231824 0 0
+/breach-checker 4 114646 0 1
+/api/sequences/1/stats 2 246 0 0
+/templates/8/edit 3 103143 0 0
+/campaigns/6/delete 1 90 0 0
+/templates/7/edit 2 68534 0 0
+/campaigns/4/delete 1 90 0 0
+/admin/flawtrack/scan-results 3 522 0 0
+/campaigns/5/toggle 1 120 0 0
+/admin/sequences/1/delete 8 1269 0 0
+/templates/api/send-test 1 485 0 0
+/campaigns/api/approve-email/4 1 78 0 0
+/sequence-analytics 12 1273457 0 0
+/api/domain-scan-status/gmail.com 1 198 0 0
+/ab-testing/ 8 109290 0 0
+/api/contacts/22 1 17 0 0
+/templates/4/edit 4 136900 0 0
+/api/contacts/24 1 17 0 0
+/admin/flawtrack/search 10 424491 0 1
+/campaigns/7/delete 1 97 0 0
+/campaigns/api/2/timeline 3 290 0 0
+/templates/6/edit 2 69094 0 0
+/api/breach-lookup/gmail.com 1 447649 0 0
+/campaigns/8/delete 1 99 0 0
+END_SIDER
+
+# Payload Range - Payload Frequency
+BEGIN_FILESIZE 7
+5K+ 2697
+0-44 315
+1K-2K 42
+44-100 1360
+100-500 750
+2K-5K 39
+500-1K 740
+END_FILESIZE

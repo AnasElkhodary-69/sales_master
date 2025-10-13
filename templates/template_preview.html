@@ -1,0 +1,379 @@
+{% extends "base.html" %}
+
+{% block title %}Template Preview - {{ template.name }} - SalesBreachPro{% endblock %}
+
+{% block extra_head %}
+<style>
+    .email-preview {
+        background-color: white;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        max-width: 600px;
+        margin: 0 auto;
+    }
+    
+    .email-header {
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+        padding: 1rem;
+        border-radius: 0.375rem 0.375rem 0 0;
+    }
+    
+    .email-body {
+        padding: 2rem;
+        line-height: 1.6;
+    }
+    
+    .sample-data-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    .template-info {
+        background-color: #f8f9fa;
+        border-radius: 0.375rem;
+        padding: 1rem;
+    }
+    
+    .variable-highlight {
+        background-color: #fff3cd;
+        padding: 0.1rem 0.3rem;
+        border-radius: 0.25rem;
+        border: 1px solid #ffeaa7;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2><i class="fas fa-eye me-2"></i>Template Preview</h2>
+                    <p class="text-muted mb-0">Preview how this template will look to recipients</p>
+                </div>
+                <div>
+                    <div class="btn-group">
+                        <a href="{{ url_for('edit_template', template_id=template.id) }}" class="btn btn-primary">
+                            <i class="fas fa-edit me-1"></i>Edit Template
+                        </a>
+                        <a href="{{ url_for('campaigns.index') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-1"></i>Back to Templates
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Email Preview -->
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-envelope me-2"></i>Email Preview
+                        <span class="badge bg-{{ 'danger' if template.risk_level == 'high' else 'warning' if template.risk_level == 'medium' else 'success' if template.risk_level == 'low' else 'secondary' }} ms-2">
+                            {{ template.risk_level.title() }} Risk
+                        </span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="email-preview">
+                        <!-- Email Header -->
+                        <div class="email-header">
+                            <div class="row">
+                                <div class="col-sm-2 text-muted">
+                                    <strong>From:</strong>
+                                </div>
+                                <div class="col-sm-10">
+                                    sales@salesbreachpro.com
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-sm-2 text-muted">
+                                    <strong>To:</strong>
+                                </div>
+                                <div class="col-sm-10">
+                                    {{ sample_data.first_name }}.{{ sample_data.last_name|lower }}@{{ sample_data.domain }}
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-sm-2 text-muted">
+                                    <strong>Subject:</strong>
+                                </div>
+                                <div class="col-sm-10">
+                                    <strong>{{ preview_subject }}</strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Email Body -->
+                        <div class="email-body">
+                            {{ preview_body|safe }}
+                        </div>
+
+                        <!-- Email Footer -->
+                        <div class="email-header border-top">
+                            <small class="text-muted">
+                                <p class="mb-1">{{ email_signature|safe }}</p>
+                                <hr>
+                                <p class="mb-0">
+                                    <strong>Unsubscribe:</strong> If you no longer wish to receive these emails, 
+                                    <a href="#">click here to unsubscribe</a>.
+                                </p>
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Raw Template View -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="fas fa-code me-2"></i>Raw Template</h5>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleVariableHighlight()">
+                            <i class="fas fa-highlighter me-1"></i>Highlight Variables
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <strong>Subject Line:</strong>
+                        <div class="bg-light p-2 rounded mt-1" id="raw-subject">
+                            {{ template.subject_line }}
+                        </div>
+                    </div>
+                    <div>
+                        <strong>Email Body:</strong>
+                        <div class="bg-light p-3 rounded mt-1" id="raw-body">
+                            {% if template.email_body_html %}
+                                <div style="white-space: pre-wrap;">{{ template.email_body_html|e }}</div>
+                            {% else %}
+                                <div style="white-space: pre-wrap;">{{ template.email_body }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Template Information -->
+        <div class="col-lg-4">
+            <!-- Template Details -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Template Details</h5>
+                </div>
+                <div class="card-body">
+                    <div class="template-info">
+                        <div class="row mb-2">
+                            <div class="col-5 text-muted">Name:</div>
+                            <div class="col-7"><strong>{{ template.name }}</strong></div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-5 text-muted">Type:</div>
+                            <div class="col-7">{{ template.template_type.replace('_', ' ').title() }}</div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-5 text-muted">Risk Level:</div>
+                            <div class="col-7">
+                                <span class="badge bg-{{ 'danger' if template.risk_level == 'high' else 'warning' if template.risk_level == 'medium' else 'success' if template.risk_level == 'low' else 'secondary' }}">
+                                    {{ template.risk_level.title() }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-5 text-muted">Sequence:</div>
+                            <div class="col-7">#{{ template.sequence_order }}</div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-5 text-muted">Delay:</div>
+                            <div class="col-7">{{ template.delay_hours }} hour(s)</div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-5 text-muted">Status:</div>
+                            <div class="col-7">
+                                <i class="fas fa-circle text-{{ 'success' if template.active else 'secondary' }} me-1"></i>
+                                {{ 'Active' if template.active else 'Inactive' }}
+                            </div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-5 text-muted">Usage:</div>
+                            <div class="col-7">{{ template.usage_count }} times</div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-5 text-muted">Success Rate:</div>
+                            <div class="col-7">{{ template.success_rate }}%</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sample Data -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-database me-2"></i>Sample Data</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">Data used to generate this preview:</p>
+                    <div class="small">
+                        {% for key, value in sample_data.items() %}
+                        <div class="row mb-1">
+                            <div class="col-6">
+                                <span class="sample-data-badge bg-light text-dark border">{{'{'}}{{ key }}{{'}'}}:</span>
+                            </div>
+                            <div class="col-6">{{ value }}</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-tools me-2"></i>Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('edit_template', template_id=template.id) }}" class="btn btn-primary">
+                            <i class="fas fa-edit me-1"></i>Edit Template
+                        </a>
+                        <button type="button" class="btn btn-outline-info" onclick="printPreview()">
+                            <i class="fas fa-print me-1"></i>Print Preview
+                        </button>
+                        <button type="button" class="btn btn-outline-success" onclick="copyToClipboard()">
+                            <i class="fas fa-copy me-1"></i>Copy HTML
+                        </button>
+                        <a href="{{ url_for('templates.email_editor', template_id=template.id) }}" class="btn btn-outline-warning">
+                            <i class="fas fa-cogs me-1"></i>Email Editor
+                        </a>
+                        <button type="button" class="btn btn-outline-info" onclick="sendTestEmail()">
+                            <i class="fas fa-paper-plane me-1"></i>Send Test Email
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Metadata -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-clock me-2"></i>Timestamps</h5>
+                </div>
+                <div class="card-body">
+                    <div class="small text-muted">
+                        <div class="mb-1">
+                            <strong>Created:</strong><br>
+                            {{ template.created_at.strftime('%B %d, %Y at %I:%M %p') if template.created_at }}
+                        </div>
+                        {% if template.updated_at %}
+                        <div class="mb-1">
+                            <strong>Last Updated:</strong><br>
+                            {{ template.updated_at.strftime('%B %d, %Y at %I:%M %p') }}
+                        </div>
+                        {% endif %}
+                        {% if template.created_by %}
+                        <div>
+                            <strong>Created By:</strong><br>
+                            {{ template.created_by }}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let variableHighlighted = false;
+
+function toggleVariableHighlight() {
+    const subjectElement = document.getElementById('raw-subject');
+    const bodyElement = document.getElementById('raw-body');
+    
+    if (!variableHighlighted) {
+        // Highlight variables
+        let subjectText = subjectElement.textContent;
+        let bodyText = bodyElement.textContent;
+        
+        // Replace variables with highlighted versions
+        const variableRegex = /\{([^}]+)\}/g;
+        
+        subjectText = subjectText.replace(variableRegex, '<span class="variable-highlight">{$1}</span>');
+        bodyText = bodyText.replace(variableRegex, '<span class="variable-highlight">{$1}</span>');
+        
+        subjectElement.innerHTML = subjectText;
+        bodyElement.innerHTML = bodyText;
+        
+        variableHighlighted = true;
+        
+        // Update button
+        event.target.innerHTML = '<i class="fas fa-eye-slash me-1"></i>Hide Highlighting';
+    } else {
+        // Remove highlighting
+        subjectElement.textContent = "{{ template.subject_line|e }}";
+        {% if template.email_body_html %}
+        bodyElement.innerHTML = '<div style="white-space: pre-wrap;">{{ template.email_body_html|e }}</div>';
+        {% else %}
+        bodyElement.innerHTML = '<div style="white-space: pre-wrap;">{{ template.email_body|e }}</div>';
+        {% endif %}
+        
+        variableHighlighted = false;
+        
+        // Update button
+        event.target.innerHTML = '<i class="fas fa-highlighter me-1"></i>Highlight Variables';
+    }
+}
+
+function printPreview() {
+    const printWindow = window.open('', '_blank');
+    const emailPreview = document.querySelector('.email-preview').outerHTML;
+    
+    printWindow.document.write(`
+        <html>
+        <head>
+            <title>Email Preview - {{ template.name }}</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                .email-preview { max-width: 600px; margin: 0 auto; }
+                .email-header { background-color: #f8f9fa; border: 1px solid #dee2e6; padding: 1rem; }
+                .email-body { padding: 2rem; line-height: 1.6; border: 1px solid #dee2e6; }
+            </style>
+        </head>
+        <body>
+            ${emailPreview}
+        </body>
+        </html>
+    `);
+    
+    printWindow.document.close();
+    printWindow.print();
+}
+
+function copyToClipboard() {
+    const emailPreview = document.querySelector('.email-preview').outerHTML;
+    navigator.clipboard.writeText(emailPreview).then(function() {
+        alert('Email HTML copied to clipboard!');
+    }).catch(function(err) {
+        console.error('Failed to copy: ', err);
+        alert('Failed to copy to clipboard');
+    });
+}
+
+function sendTestEmail() {
+    const email = prompt('Enter email address to send test email to:');
+    if (email) {
+        // This would typically make an AJAX call to send the test email
+        alert('Test email functionality not yet implemented. Email would be sent to: ' + email);
+    }
+}
+</script>
+{% endblock %}

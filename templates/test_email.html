@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+
+{% block title %}Test Email - SalesBreachPro{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div>
+                        <h4 class="mb-0"><i class="fas fa-paper-plane me-2"></i>Test Email</h4>
+                        <p class="text-muted mb-0">Send a test email to verify your email configuration</p>
+                    </div>
+                    <a href="{{ url_for('dashboard.index') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-1"></i>Back to Dashboard
+                    </a>
+                </div>
+                
+                <div class="card-body">
+                    <!-- Success/Error Messages -->
+                    <div id="messageContainer" style="display: none;">
+                        <div id="successMessage" class="alert alert-success" style="display: none;">
+                            <i class="fas fa-check-circle me-2"></i>
+                            <span id="successText"></span>
+                        </div>
+                        <div id="errorMessage" class="alert alert-danger" style="display: none;">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <span id="errorText"></span>
+                        </div>
+                    </div>
+
+                    <form id="testEmailForm">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h5 class="mb-3">Email Configuration</h5>
+                                
+                                <div class="mb-3">
+                                    <label for="recipientEmail" class="form-label">Recipient Email *</label>
+                                    <input type="email" class="form-control" id="recipientEmail" name="recipient_email" 
+                                           placeholder="test@example.com" required>
+                                    <div class="form-text">Enter the email address where you want to send the test email</div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="senderName" class="form-label">Sender Name</label>
+                                    <input type="text" class="form-control" id="senderName" name="sender_name" 
+                                           value="SalesBreachPro Team" placeholder="Your Name">
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="senderEmail" class="form-label">Sender Email</label>
+                                    <input type="email" class="form-control" id="senderEmail" name="sender_email" 
+                                           value="test@salesbreachpro.com" placeholder="sender@yourcompany.com">
+                                    <div class="form-text">The email address that will appear as the sender</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <h5 class="mb-3">Template Selection</h5>
+                                
+                                <div class="mb-3">
+                                    <label for="templateSelect" class="form-label">Email Template</label>
+                                    <select class="form-select" id="templateSelect" name="template_id">
+                                        <option value="">Default Test Template</option>
+                                        {% for template in templates %}
+                                        <option value="{{ template.id }}" 
+                                                data-subject="{{ template.subject_line or template.name }}"
+                                                data-type="{{ template.template_type or 'unknown' }}">
+                                            {{ template.name }} 
+                                            {% if template.template_type %}({{ template.template_type.title() }}){% endif %}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="form-text">Choose a template to test, or use the default test template</div>
+                                </div>
+                                
+                                <!-- Template Preview -->
+                                <div id="templatePreview" class="mb-3" style="display: none;">
+                                    <label class="form-label">Template Preview</label>
+                                    <div class="card bg-light">
+                                        <div class="card-body">
+                                            <h6 class="mb-2">Subject: <span id="previewSubject"></span></h6>
+                                            <p class="mb-0 text-muted small">Template variables ({{name}}, {{company}}, {{email}}) will be replaced with sample data</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <hr>
+                        
+                        <div class="row">
+                            <div class="col-12">
+                                <h5 class="mb-3">Email Test Information</h5>
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <strong>What this test does:</strong>
+                                    <ul class="mb-0 mt-2">
+                                        <li>Validates your email configuration</li>
+                                        <li>Tests template rendering with sample data</li>
+                                        <li>Verifies delivery to the specified recipient</li>
+                                        <li>Shows how emails will appear to your contacts</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <button type="button" class="btn btn-outline-secondary" onclick="window.history.back()">
+                                <i class="fas fa-arrow-left me-1"></i>Cancel
+                            </button>
+                            
+                            <button type="submit" class="btn btn-warning" id="sendTestBtn">
+                                <i class="fas fa-paper-plane me-1"></i>Send Test Email
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Template preview functionality
+document.getElementById('templateSelect').addEventListener('change', function() {
+    const selectedOption = this.options[this.selectedIndex];
+    const previewDiv = document.getElementById('templatePreview');
+    const previewSubject = document.getElementById('previewSubject');
+    
+    if (this.value && selectedOption.dataset.subject) {
+        previewSubject.textContent = selectedOption.dataset.subject;
+        previewDiv.style.display = 'block';
+    } else {
+        previewDiv.style.display = 'none';
+    }
+});
+
+// Form submission
+document.getElementById('testEmailForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const sendBtn = document.getElementById('sendTestBtn');
+    const originalText = sendBtn.innerHTML;
+    
+    // Show loading state
+    sendBtn.disabled = true;
+    sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Sending...';
+    
+    // Hide previous messages
+    hideMessages();
+    
+    fetch('{{ url_for("dashboard.test_email") }}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showSuccess(data.message);
+            // Show additional details if available
+            if (data.details) {
+                const detailsHtml = `
+                    <div class="mt-2 small">
+                        <strong>Details:</strong><br>
+                        From: ${data.details.sender}<br>
+                        To: ${data.details.recipient}<br>
+                        Subject: ${data.details.subject}
+                    </div>
+                `;
+                document.getElementById('successText').innerHTML += detailsHtml;
+            }
+        } else {
+            showError(data.error || 'An error occurred while sending the test email.');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showError('Network error occurred. Please try again.');
+    })
+    .finally(() => {
+        // Restore button state
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = originalText;
+    });
+});
+
+function showSuccess(message) {
+    document.getElementById('successText').textContent = message;
+    document.getElementById('successMessage').style.display = 'block';
+    document.getElementById('messageContainer').style.display = 'block';
+    
+    // Scroll to message
+    document.getElementById('messageContainer').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function showError(message) {
+    document.getElementById('errorText').textContent = message;
+    document.getElementById('errorMessage').style.display = 'block';
+    document.getElementById('messageContainer').style.display = 'block';
+    
+    // Scroll to message
+    document.getElementById('messageContainer').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function hideMessages() {
+    document.getElementById('successMessage').style.display = 'none';
+    document.getElementById('errorMessage').style.display = 'none';
+    document.getElementById('messageContainer').style.display = 'none';
+}
+</script>
+{% endblock %}

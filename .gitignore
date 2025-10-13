@@ -1,0 +1,126 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Flask
+instance/
+.webassets-cache
+
+# Environment variables
+.env
+env
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+data/app.db
+
+# Logs
+*.log
+flask.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Process files
+*.pid
+flask.pid
+
+# Temporary files
+*.tmp
+*.temp
+
+# Uploads
+uploads/
+temp_uploads/
+
+# Cache
+.cache/
+
+# Node modules (if any)
+node_modules/
+
+# Session files
+cookies.txt
+
+# Development files
+add_dummy_data.py
+
+nul
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+# Production-specific files
+*.lock
+EMERGENCY_STOP_ALL_EMAILS.lock
+*.csv
+brevo_queued_emails_*.csv
+
+# Backup and diagnostic files
+*_backup_*.tar.gz
+diagnostic_*.py
+test_*.py
+check_database_*.py
+add_*_columns.py
+fix_*.py
+migrate_*.py
+update_database.py
+
+# Apache/Server logs and config
+access-logs
+tmp/
+public_html/
+.wp-toolkit-identifier
+.imunify_patch_id
+.myimunify_id
+
+# Local development files
+CLAUDE.md
+app.log
+app_restart.log
+flask.log
+salesbreachpro.db

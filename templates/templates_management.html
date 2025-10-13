@@ -1,0 +1,617 @@
+{% extends "base.html" %}
+
+{% block title %}Template Management - SalesBreachPro{% endblock %}
+
+{% block extra_head %}
+<style>
+    .template-card {
+        transition: all 0.3s ease;
+        border-left: 4px solid #007bff;
+    }
+    
+    .template-card.breached {
+        border-left-color: #dc3545;
+    }
+    
+    .template-card.not_breached {
+        border-left-color: #28a745;
+    }
+    
+    .template-card.unknown {
+        border-left-color: #17a2b8;
+    }
+    
+    .template-card.all {
+        border-left-color: #6c757d;
+    }
+    
+    .template-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .risk-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    .template-stats {
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+    
+    /* Fix dropdown menu overlap issue for both templates and sequences */
+    .template-item {
+        position: relative;
+    }
+    
+    .template-card, 
+    .card:has(.dropdown) {
+        position: relative;
+        overflow: visible !important;
+    }
+    
+    .template-card .dropdown,
+    .card-header .dropdown {
+        position: static;
+    }
+    
+    .template-card .dropdown-menu,
+    .card-header .dropdown-menu {
+        position: absolute;
+        z-index: 1050;
+        right: 10px;
+        top: 30px;
+    }
+    
+    /* Ensure dropdown shows above other cards */
+    .template-card:has(.dropdown-menu.show),
+    .card:has(.dropdown-menu.show) {
+        z-index: 1051;
+        position: relative;
+    }
+    
+    /* Alternative for browsers without :has() support */
+    .dropdown.show {
+        z-index: 1051;
+    }
+    
+    /* Ensure the parent column also has higher z-index when dropdown is open */
+    .col-lg-6:has(.dropdown-menu.show),
+    .col-xl-4:has(.dropdown-menu.show) {
+        z-index: 1051;
+        position: relative;
+    }
+    
+    /* More specific targeting for active dropdown cards */
+    .template-card.dropdown-active,
+    .card.dropdown-active {
+        z-index: 1052 !important;
+        position: relative !important;
+    }
+    
+    /* Ensure dropdown menu is always above everything */
+    .dropdown-menu.show {
+        z-index: 1053 !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2><i class="fas fa-envelope-open-text me-2"></i>Template Management</h2>
+                    <p class="text-muted mb-0">Create and manage email templates and follow-up sequences</p>
+                </div>
+                <div>
+                    <div class="btn-group" role="group">
+                        <a href="{{ url_for('templates.create_template') }}" class="btn btn-primary">
+                            <i class="fas fa-plus me-1"></i>New Template
+                        </a>
+                        <a href="/sequences/create" class="btn btn-outline-primary">
+                            <i class="fas fa-sitemap me-1"></i>New Sequence
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h5 class="card-title mb-1">{{ templates|length }}</h5>
+                            <p class="card-text mb-0">Email Templates</p>
+                        </div>
+                        <div class="ms-3">
+                            <i class="fas fa-envelope fa-2x opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h5 class="card-title mb-1">{{ sequences|length }}</h5>
+                            <p class="card-text mb-0">Follow-up Sequences</p>
+                        </div>
+                        <div class="ms-3">
+                            <i class="fas fa-sitemap fa-2x opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h5 class="card-title mb-1">{{ templates|selectattr('active')|list|length }}</h5>
+                            <p class="card-text mb-0">Active Templates</p>
+                        </div>
+                        <div class="ms-3">
+                            <i class="fas fa-check-circle fa-2x opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h5 class="card-title mb-1">
+                                {% set total_usage = templates|sum(attribute='usage_count') %}
+                                {{ total_usage }}
+                            </h5>
+                            <p class="card-text mb-0">Total Usage</p>
+                        </div>
+                        <div class="ms-3">
+                            <i class="fas fa-paper-plane fa-2x opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Templates Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-envelope me-2"></i>Email Templates</h5>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <input type="radio" class="btn-check" name="template-filter" id="all-templates" checked>
+                        <label class="btn btn-outline-secondary" for="all-templates">All</label>
+                        
+                        <input type="radio" class="btn-check" name="template-filter" id="high-risk">
+                        <label class="btn btn-outline-danger" for="high-risk">High Risk</label>
+                        
+                        <input type="radio" class="btn-check" name="template-filter" id="medium-risk">
+                        <label class="btn btn-outline-warning" for="medium-risk">Medium Risk</label>
+                        
+                        <input type="radio" class="btn-check" name="template-filter" id="low-risk">
+                        <label class="btn btn-outline-success" for="low-risk">Low Risk</label>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if templates %}
+                    <div class="row" id="templates-container">
+                        {% for template in templates %}
+                        <div class="col-lg-6 col-xl-4 mb-4 template-item" data-breach-status="{{ template.risk_level }}">
+                            <div class="card template-card {{ template.risk_level }} h-100">
+                                <div class="card-header d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <h6 class="mb-1">{{ template.name }}</h6>
+                                        <div class="d-flex gap-2">
+                                            <span class="badge bg-{{ 'danger' if template.risk_level == 'breached' else 'success' if template.risk_level == 'not_breached' else 'info' if template.risk_level == 'unknown' else 'secondary' }} risk-badge">
+                                                {% if template.risk_level == 'breached' %}🔴 Breached Companies
+                                                {% elif template.risk_level == 'not_breached' %}🟢 Not Breached Companies  
+                                                {% elif template.risk_level == 'unknown' %}⚪ Unknown Status
+                                                {% elif template.risk_level == 'all' %}📧 All Companies
+                                                {% else %}{{ template.risk_level.replace('_', ' ').title() }}
+                                                {% endif %}
+                                            </span>
+                                            <span class="badge bg-info risk-badge">
+                                                {{ template.template_type.replace('_', ' ').title() }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown">
+                                            <i class="fas fa-ellipsis-v"></i>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li><a class="dropdown-item" href="{{ url_for('templates.edit_template', template_id=template.id) }}">
+                                                <i class="fas fa-edit me-2"></i>Edit
+                                            </a></li>
+                                            <li><a class="dropdown-item" href="{{ url_for('templates.email_editor', template_id=template.id) }}">
+                                                <i class="fas fa-cogs me-2"></i>Email Editor
+                                            </a></li>
+                                            <li><a class="dropdown-item" href="{{ url_for('templates.preview_template', template_id=template.id) }}" target="_blank">
+                                                <i class="fas fa-eye me-2"></i>Preview
+                                            </a></li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li><a class="dropdown-item" href="/ab-testing/create?template_id={{ template.id }}">
+                                                <i class="fas fa-flask me-2 text-info"></i>Create A/B Test
+                                            </a></li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li>
+                                                <button class="dropdown-item text-danger" onclick="deleteTemplate({{ template.id }}, '{{ template.name }}')">
+                                                    <i class="fas fa-trash me-2"></i>Delete
+                                                </button>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <p class="mb-2"><strong>Subject:</strong> {{ template.subject_line[:50] }}{% if template.subject_line|length > 50 %}...{% endif %}</p>
+                                    <p class="mb-3 text-muted">
+                                        {% if template.email_body_html %}
+                                            {% set preview_text = template.email_body_html|striptags %}
+                                        {% else %}
+                                            {% set preview_text = template.email_body|striptags %}
+                                        {% endif %}
+                                        {{ preview_text[:100] }}{% if preview_text|length > 100 %}...{% endif %}
+                                    </p>
+                                    
+                                    <div class="template-stats">
+                                        <div class="row text-center">
+                                            <div class="col-4">
+                                                <div class="fw-bold">{{ template.usage_count }}</div>
+                                                <small>Used</small>
+                                            </div>
+                                            <div class="col-4">
+                                                <div class="fw-bold">{{ template.success_rate }}%</div>
+                                                <small>Success</small>
+                                            </div>
+                                            <div class="col-4">
+                                                <div class="fw-bold">
+                                                    <i class="fas fa-circle text-{{ 'success' if template.active else 'secondary' }}"></i>
+                                                </div>
+                                                <small>{{ 'Active' if template.active else 'Inactive' }}</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-footer text-muted">
+                                    <small>Created: {{ template.created_at.strftime('%b %d, %Y') if template.created_at }}</small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-envelope-open text-muted fa-3x mb-3"></i>
+                        <h5 class="text-muted">No Email Templates</h5>
+                        <p class="text-muted">Create your first email template to get started</p>
+                        <a href="{{ url_for('templates.create_template') }}" class="btn btn-primary">
+                            <i class="fas fa-plus me-1"></i>Create Template
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Follow-up Sequences Section -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-sitemap me-2"></i>Follow-up Sequences</h5>
+                </div>
+                <div class="card-body">
+                    {% if sequences %}
+                    <div class="row">
+                        {% for sequence in sequences %}
+                        <div class="col-lg-6 col-xl-4 mb-4">
+                            <div class="card h-100">
+                                <div class="card-header d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <h6 class="mb-1">{{ sequence.name }}</h6>
+                                        <span class="badge bg-{{ 'danger' if sequence.risk_level == 'breached' else 'success' if sequence.risk_level == 'not_breached' else 'info' if sequence.risk_level == 'unknown' else 'secondary' }} risk-badge">
+                                            {% if sequence.risk_level == 'breached' %}🔴 Breached Companies
+                                            {% elif sequence.risk_level == 'not_breached' %}🟢 Not Breached Companies  
+                                            {% elif sequence.risk_level == 'unknown' %}⚪ Unknown Status
+                                            {% elif sequence.risk_level == 'all' %}📧 All Companies
+                                            {% else %}{{ sequence.risk_level.replace('_', ' ').title() }}
+                                            {% endif %}
+                                        </span>
+                                    </div>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown">
+                                            <i class="fas fa-ellipsis-v"></i>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li><a class="dropdown-item" href="/sequences/edit/{{ sequence.id }}">
+                                                <i class="fas fa-edit me-2"></i>Edit
+                                            </a></li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li>
+                                                <button class="dropdown-item text-danger" onclick="deleteSequence({{ sequence.id }}, '{{ sequence.name }}')">
+                                                    <i class="fas fa-trash me-2"></i>Delete
+                                                </button>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <p class="mb-3 text-muted">{{ sequence.description or 'No description provided' }}</p>
+                                    
+                                    <div class="template-stats">
+                                        <div class="row text-center">
+                                            <div class="col-4">
+                                                <div class="fw-bold">{{ sequence.max_follow_ups }}</div>
+                                                <small>Max Steps</small>
+                                            </div>
+                                            <div class="col-4">
+                                                <div class="fw-bold">{{ sequence.usage_count }}</div>
+                                                <small>Used</small>
+                                            </div>
+                                            <div class="col-4">
+                                                <div class="fw-bold">{{ sequence.completion_rate }}%</div>
+                                                <small>Complete</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mt-3">
+                                        <small class="text-muted">
+                                            <i class="fas fa-{{ 'check' if sequence.stop_on_reply else 'times' }} me-1"></i>Stop on Reply
+                                            <br>
+                                            <i class="fas fa-{{ 'check' if sequence.stop_on_bounce else 'times' }} me-1"></i>Stop on Bounce
+                                        </small>
+                                    </div>
+                                </div>
+                                <div class="card-footer text-muted">
+                                    <small>Created: {{ sequence.created_at.strftime('%b %d, %Y') if sequence.created_at }}</small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-sitemap text-muted fa-3x mb-3"></i>
+                        <h5 class="text-muted">No Follow-up Sequences</h5>
+                        <p class="text-muted">Create your first follow-up sequence to automate your outreach</p>
+                        <a href="/sequences/create" class="btn btn-primary">
+                            <i class="fas fa-plus me-1"></i>Create Sequence
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Template Modal -->
+<div class="modal fade" id="createTemplateModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Quick Create Template</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('templates.create_template') }}" method="POST">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="template_name" class="form-label">Template Name</label>
+                        <input type="text" class="form-control" id="template_name" name="name" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="template_type" class="form-label">Type</label>
+                                <select class="form-select" id="template_type" name="template_type" required>
+                                    <option value="initial">Initial Email</option>
+                                    <option value="follow_up">Follow-up Email</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="breach_status" class="form-label">Target Audience</label>
+                                <select class="form-select" id="breach_status" name="breach_status" required>
+                                    <option value="breached">🔴 Breached Companies</option>
+                                    <option value="not_breached">🟢 Not Breached Companies</option>
+                                    <option value="unknown">⚪ Unknown Status</option>
+                                    <option value="all">📧 All Companies</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="subject_line" class="form-label">Subject Line</label>
+                        <input type="text" class="form-control" id="subject_line" name="subject_line" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create & Edit</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Create Sequence Modal -->
+<div class="modal fade" id="createSequenceModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Quick Create Sequence</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="/sequences/create" method="POST">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="sequence_name" class="form-label">Sequence Name</label>
+                        <input type="text" class="form-control" id="sequence_name" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="sequence_breach_status" class="form-label">Target Audience</label>
+                        <select class="form-select" id="sequence_breach_status" name="breach_status" required>
+                            <option value="breached">🔴 Breached Companies</option>
+                            <option value="not_breached">🟢 Not Breached Companies</option>
+                            <option value="unknown">⚪ Unknown Status</option>
+                            <option value="all">📧 All Companies</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="max_follow_ups" class="form-label">Max Follow-ups</label>
+                        <input type="number" class="form-control" id="max_follow_ups" name="max_follow_ups" value="5" min="1" max="10">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create & Edit</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Template filtering
+    const filterButtons = document.querySelectorAll('input[name="template-filter"]');
+    const templateItems = document.querySelectorAll('.template-item');
+    
+    filterButtons.forEach(button => {
+        button.addEventListener('change', function() {
+            const filter = this.id;
+            
+            templateItems.forEach(item => {
+                const risk = item.dataset.risk;
+                
+                if (filter === 'all-templates' || filter === risk + '-risk') {
+                    item.style.display = 'block';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        });
+    });
+    
+    // Handle dropdown z-index management to fix overlap issues
+    const dropdownToggles = document.querySelectorAll('.dropdown-toggle');
+    
+    dropdownToggles.forEach(toggle => {
+        toggle.addEventListener('click', function(e) {
+            // Remove dropdown-active class from all cards
+            document.querySelectorAll('.template-card, .card').forEach(card => {
+                card.classList.remove('dropdown-active');
+            });
+            
+            // Add dropdown-active class to current card
+            const currentCard = this.closest('.template-card, .card');
+            if (currentCard) {
+                currentCard.classList.add('dropdown-active');
+            }
+        });
+    });
+    
+    // Listen for dropdown hide events to clean up z-index
+    document.addEventListener('hidden.bs.dropdown', function(e) {
+        const card = e.target.closest('.template-card, .card');
+        if (card) {
+            card.classList.remove('dropdown-active');
+        }
+    });
+    
+    // Handle dropdown shown events
+    document.addEventListener('shown.bs.dropdown', function(e) {
+        const card = e.target.closest('.template-card, .card');
+        if (card) {
+            card.classList.add('dropdown-active');
+        }
+    });
+});
+
+// Modern AJAX deletion functions
+function deleteTemplate(templateId, templateName) {
+    if (!confirm(`Are you sure you want to delete template "${templateName}"? This action cannot be undone.`)) {
+        return;
+    }
+
+    // Show loading state
+    showToast('Deleting template...', 'info', 2000);
+
+    fetch(`/templates/${templateId}/delete`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(`✅ Template "${templateName}" deleted successfully!`, 'success', 4000);
+            // Remove the template card from the page
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
+        } else {
+            showToast(`❌ Failed to delete template: ${data.error}`, 'error', 5000);
+        }
+    })
+    .catch(error => {
+        console.error('Delete error:', error);
+        showToast('❌ Failed to delete template. Please try again.', 'error', 5000);
+    });
+}
+
+function deleteSequence(sequenceId, sequenceName) {
+    if (!confirm(`Are you sure you want to delete sequence "${sequenceName}"? This action cannot be undone.`)) {
+        return;
+    }
+
+    // Show loading state
+    showToast('Deleting sequence...', 'info', 2000);
+
+    fetch(`/sequences/delete/${sequenceId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(`✅ Sequence "${sequenceName}" deleted successfully!`, 'success', 4000);
+            // Remove the sequence card from the page
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
+        } else {
+            showToast(`❌ Failed to delete sequence: ${data.error}`, 'error', 5000);
+        }
+    })
+    .catch(error => {
+        console.error('Delete error:', error);
+        showToast('❌ Failed to delete sequence. Please try again.', 'error', 5000);
+    });
+}
+</script>
+{% endblock %}

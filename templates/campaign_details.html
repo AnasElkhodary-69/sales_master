@@ -1,0 +1,2205 @@
+{% extends "base.html" %}
+
+{% block title %}{{ campaign.name }} - Campaign Details{% endblock %}
+
+{% block extra_head %}
+<style>
+    .campaign-header {
+        background: linear-gradient(135deg, #3b82f6 0%, #667eea 100%);
+        color: white !important;
+        border-radius: 10px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+
+    .campaign-header h1,
+    .campaign-header h2,
+    .campaign-header h3,
+    .campaign-header h4,
+    .campaign-header h5,
+    .campaign-header h6,
+    .campaign-header p,
+    .campaign-header span,
+    .campaign-header div {
+        color: white !important;
+    }
+    
+    .status-indicator {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        text-transform: capitalize;
+    }
+    
+    .status-active { background: #10b981; color: white; }
+    .status-paused { background: #f59e0b; color: white; }
+    .status-completed { background: #6b7280; color: white; }
+    
+    .metric-card {
+        background: white;
+        border-radius: 8px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        text-align: center;
+        transition: transform 0.2s;
+    }
+    
+    .metric-card:hover {
+        transform: translateY(-2px);
+    }
+    
+    .metric-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        line-height: 1;
+        margin-bottom: 0.5rem;
+    }
+    
+    .metric-label {
+        font-size: 0.875rem;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
+    }
+    
+    .progress-circle {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin: 0 auto;
+        position: relative;
+    }
+    
+    /* Modern Toast Notifications */
+    .toast-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 1050;
+        pointer-events: none;
+    }
+    
+    .custom-toast {
+        min-width: 320px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        margin-bottom: 10px;
+        opacity: 0;
+        transform: translateX(100%);
+        transition: all 0.3s ease-in-out;
+        pointer-events: all;
+        overflow: hidden;
+    }
+    
+    .custom-toast.show {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    
+    .custom-toast.hide {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+    
+    .toast-success {
+        border-left: 4px solid #10b981;
+    }
+    
+    .toast-error {
+        border-left: 4px solid #ef4444;
+    }
+    
+    .toast-warning {
+        border-left: 4px solid #f59e0b;
+    }
+    
+    .toast-info {
+        border-left: 4px solid #3b82f6;
+    }
+    
+    .toast-header {
+        background: #f8fafc;
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid #e5e7eb;
+        display: flex;
+        justify-content: between;
+        align-items: center;
+    }
+    
+    .toast-header .toast-title {
+        font-weight: 600;
+        color: #374151;
+        margin: 0;
+        flex: 1;
+    }
+    
+    .toast-close {
+        background: none;
+        border: none;
+        font-size: 1.2rem;
+        color: #6b7280;
+        cursor: pointer;
+        padding: 0;
+        margin-left: 0.5rem;
+    }
+    
+    .toast-close:hover {
+        color: #374151;
+    }
+    
+    .toast-body {
+        padding: 0.75rem 1rem;
+        color: #6b7280;
+        font-size: 0.9rem;
+    }
+    
+    .toast-icon {
+        margin-right: 0.5rem;
+        font-size: 1rem;
+    }
+
+    /* Email Activity Table Styles */
+    #emailActivityTable {
+        font-size: 0.9rem;
+        table-layout: fixed;
+        width: 100%;
+    }
+
+    #emailActivityTable th {
+        font-weight: 600;
+        background-color: #f8f9fa;
+        border-bottom: 2px solid #dee2e6;
+        white-space: nowrap;
+        text-align: center;
+        vertical-align: middle;
+    }
+
+    #emailActivityTable th:first-child,
+    #emailActivityTable th:nth-child(2),
+    #emailActivityTable th:nth-child(3),
+    #emailActivityTable th:nth-child(4) {
+        text-align: left;
+    }
+
+    #emailActivityTable td {
+        vertical-align: middle;
+        padding: 0.75rem 0.5rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    #emailActivityTable tbody tr:hover {
+        background-color: rgba(13, 110, 253, 0.05);
+    }
+
+    .table-responsive {
+        max-height: 600px;
+        overflow-y: auto;
+        overflow-x: auto;
+    }
+
+    .sticky-top {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background-color: #f8f9fa;
+    }
+
+    .badge {
+        font-size: 0.7rem;
+        padding: 0.2rem 0.4rem;
+    }
+
+    .badge.rounded-pill {
+        font-size: 0.65rem;
+        min-width: 18px;
+        height: 18px;
+        line-height: 14px;
+        margin-top: 2px;
+        display: inline-block;
+    }
+
+    /* Status Filter Buttons */
+    #statusFilterButtons .btn {
+        font-size: 0.8rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+    }
+
+    #statusFilterButtons .btn:first-child {
+        border-top-left-radius: 0.375rem;
+        border-bottom-left-radius: 0.375rem;
+    }
+
+    #statusFilterButtons .btn:last-child {
+        border-top-right-radius: 0.375rem;
+        border-bottom-right-radius: 0.375rem;
+    }
+
+    /* Ensure consistent column widths */
+    #emailActivityTable td:nth-child(5),
+    #emailActivityTable td:nth-child(6),
+    #emailActivityTable td:nth-child(7),
+    #emailActivityTable td:nth-child(8),
+    #emailActivityTable td:nth-child(9) {
+        width: 80px !important;
+        max-width: 80px !important;
+        min-width: 80px !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Toast Notification Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Modern Confirmation Modal -->
+<div class="modal fade" id="confirmModal" tabindex="-1" aria-labelledby="confirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title" id="confirmModalLabel">Confirm Action</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="text-warning me-3">
+                        <i class="fas fa-exclamation-triangle fa-2x"></i>
+                    </div>
+                    <div>
+                        <p class="mb-0" id="confirmMessage">Are you sure you want to perform this action?</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmButton">Confirm</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Contacts Modal -->
+<div class="modal fade" id="addContactsModal" tabindex="-1" aria-labelledby="addContactsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addContactsModalLabel">
+                    <i class="fas fa-user-plus me-2"></i>Add Contacts to Campaign
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="contactsLoadingSpinner" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="text-muted mt-2">Loading available contacts...</p>
+                </div>
+                
+                <div id="contactsContent" style="display: none;">
+                    <div class="mb-3">
+                        <input type="search" class="form-control" id="contactSearchInput" placeholder="Search contacts by email, name, or company...">
+                    </div>
+
+                    <!-- Status Filter Buttons -->
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">Filter by Status:</label>
+                        <div class="btn-group w-100" role="group" id="statusFilterButtons">
+                            <input type="radio" class="btn-check" name="statusFilter" id="statusAll" value="" checked>
+                            <label class="btn btn-outline-secondary btn-sm" for="statusAll">
+                                <i class="fas fa-list me-1"></i>All
+                            </label>
+
+                            <input type="radio" class="btn-check" name="statusFilter" id="statusBreached" value="breached">
+                            <label class="btn btn-outline-danger btn-sm" for="statusBreached">
+                                🔴 Breached
+                            </label>
+
+                            <input type="radio" class="btn-check" name="statusFilter" id="statusSecure" value="not_breached">
+                            <label class="btn btn-outline-success btn-sm" for="statusSecure">
+                                🟢 Secure
+                            </label>
+
+                            <input type="radio" class="btn-check" name="statusFilter" id="statusRisky" value="risky">
+                            <label class="btn btn-outline-warning btn-sm" for="statusRisky">
+                                🟡 Risky
+                            </label>
+
+                            <input type="radio" class="btn-check" name="statusFilter" id="statusBounced" value="bounced">
+                            <label class="btn btn-outline-dark btn-sm" for="statusBounced">
+                                ⚫ Bounced
+                            </label>
+
+                            <input type="radio" class="btn-check" name="statusFilter" id="statusBlocked" value="blocked">
+                            <label class="btn btn-outline-danger btn-sm" for="statusBlocked">
+                                🚫 Blocked
+                            </label>
+
+                            <input type="radio" class="btn-check" name="statusFilter" id="statusScanning" value="unassigned">
+                            <label class="btn btn-outline-info btn-sm" for="statusScanning">
+                                🔵 Scanning
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="selectAllContacts">
+                            <label class="form-check-label" for="selectAllContacts">
+                                Select All (<span id="contactsCount">0</span> contacts visible)
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="border rounded" style="max-height: 400px; overflow-y: auto;">
+                        <div id="contactsList" class="list-group list-group-flush">
+                            <!-- Contacts will be populated here -->
+                        </div>
+                        
+                        <div id="noContactsMessage" class="text-center py-4 text-muted" style="display: none;">
+                            <i class="fas fa-users fa-2x mb-2"></i>
+                            <p>No available contacts found that match this campaign's criteria.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="addSelectedContactsBtn" disabled>
+                    <i class="fas fa-plus me-1"></i>Add Selected Contacts (<span id="selectedCount">0</span>)
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid">
+    <!-- Campaign Header -->
+    <div class="campaign-header">
+        <div class="d-flex justify-content-between align-items-start">
+            <div>
+                <h1 class="h2 mb-2">{{ campaign.name }}</h1>
+                <p class="mb-3 opacity-90">{{ campaign.description or "Email marketing campaign" }}</p>
+                
+                <div class="d-flex align-items-center gap-3">
+                    <span class="status-indicator status-{{ campaign.status }}">{{ campaign.status }}</span>
+                    <span class="opacity-75">
+                        <i class="fas fa-calendar me-1"></i>
+                        Created: {{ campaign.created_at.strftime('%B %d, %Y') if campaign.created_at }}
+                    </span>
+                    <span class="opacity-75">
+                        <i class="fas fa-tag me-1"></i>
+                        {% if campaign.template_type and campaign.template_type != 'unknown' %}
+                            {{ campaign.template_type.replace('_', ' ').title() }}
+                        {% else %}
+                            Security Campaign
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+            
+            <div class="text-end">
+                <div class="btn-group">
+                    {% if campaign.status == 'active' %}
+                    <button class="btn btn-warning btn-sm" onclick="pauseCampaign({{ campaign.id }})">
+                        <i class="fas fa-pause me-1"></i>Pause
+                    </button>
+                    {% elif campaign.status == 'paused' %}
+                    <button class="btn btn-success btn-sm" onclick="resumeCampaign({{ campaign.id }})">
+                        <i class="fas fa-play me-1"></i>Resume
+                    </button>
+                    {% endif %}
+                    
+                    <button class="btn btn-outline-light btn-sm" onclick="editCampaign({{ campaign.id }})">
+                        <i class="fas fa-edit me-1"></i>Edit
+                    </button>
+                    
+                    <div class="btn-group">
+                        <button class="btn btn-outline-light btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+                            <i class="fas fa-ellipsis-h"></i>
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#" onclick="duplicateCampaign({{ campaign.id }})">
+                                <i class="fas fa-copy me-2"></i>Duplicate
+                            </a></li>
+                            <li><a class="dropdown-item" href="#" onclick="exportResults({{ campaign.id }})">
+                                <i class="fas fa-download me-2"></i>Export Results
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-danger" href="#" onclick="deleteCampaign({{ campaign.id }})">
+                                <i class="fas fa-trash me-2"></i>Delete Campaign
+                            </a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Performance Metrics -->
+    <div class="row mb-4">
+        <div class="col-lg-2 col-md-6 mb-3">
+            <div class="metric-card">
+                <div class="metric-value text-primary">{{ performance.sent_count }}</div>
+                <div class="metric-label">Sent</div>
+                <small class="text-muted">of {{ performance.total_contacts }} total</small>
+            </div>
+        </div>
+        
+        <div class="col-lg-2 col-md-6 mb-3">
+            <div class="metric-card">
+                <div class="metric-value text-{{ 'success' if performance.delivery_rate > 95 else 'warning' if performance.delivery_rate > 85 else 'danger' }}">{{ performance.delivery_rate }}%</div>
+                <div class="metric-label">Delivered</div>
+                <small class="text-muted">{{ performance.delivered_count }} delivered</small>
+            </div>
+        </div>
+        
+        <div class="col-lg-2 col-md-6 mb-3">
+            <div class="metric-card">
+                <div class="metric-value text-info">{{ performance.open_rate }}%</div>
+                <div class="metric-label">Opened</div>
+                <small class="text-muted">{{ performance.opened_count }} opened</small>
+            </div>
+        </div>
+        
+        <div class="col-lg-2 col-md-6 mb-3">
+            <div class="metric-card">
+                <div class="metric-value text-primary">{{ performance.click_rate }}%</div>
+                <div class="metric-label">Clicked</div>
+                <small class="text-muted">{{ performance.clicked_count }} clicked</small>
+            </div>
+        </div>
+        
+        <div class="col-lg-2 col-md-6 mb-3">
+            <div class="metric-card">
+                <div class="metric-value text-success">{{ performance.reply_rate }}%</div>
+                <div class="metric-label">Replied</div>
+                <small class="text-muted">{{ responses }} replies</small>
+            </div>
+        </div>
+        
+        <div class="col-lg-2 col-md-6 mb-3">
+            <div class="metric-card">
+                <div class="metric-value text-warning">{{ performance.pending_count }}</div>
+                <div class="metric-label">Pending</div>
+                <small class="text-muted">Ready to send</small>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Additional Performance Insights -->
+    <div class="row mb-4">
+        <div class="col-lg-4 col-md-6 mb-3">
+            <div class="metric-card">
+                <div class="metric-value text-{{ 'success' if performance.bounce_rate < 2 else 'warning' if performance.bounce_rate < 5 else 'danger' }}">{{ performance.bounce_rate }}%</div>
+                <div class="metric-label">Bounce Rate</div>
+                <small class="text-muted">{{ performance.bounced_count }} bounced</small>
+            </div>
+        </div>
+
+        <div class="col-lg-4 col-md-6 mb-3">
+            <div class="metric-card">
+                <div class="metric-value text-{{ 'success' if performance.blocked_rate < 1 else 'warning' if performance.blocked_rate < 3 else 'danger' }}">{{ performance.blocked_rate }}%</div>
+                <div class="metric-label">Blocked Rate</div>
+                <small class="text-muted">{{ performance.blocked_count }} blocked</small>
+            </div>
+        </div>
+        
+        <div class="col-lg-4 col-md-6 mb-3">
+            <div class="metric-card">
+                <div class="metric-value text-info">{{ performance.recent_opens }}</div>
+                <div class="metric-label">Recent Opens</div>
+                <small class="text-muted">Last 24 hours</small>
+            </div>
+        </div>
+        
+        <div class="col-lg-4 col-md-6 mb-3">
+            <div class="metric-card">
+                <div class="metric-value text-warning">{{ performance.active_sequences }}</div>
+                <div class="metric-label">Active Sequences</div>
+                <small class="text-muted">{{ performance.stopped_sequences }} stopped</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Progress Overview -->
+    <div class="row mb-4">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-line me-2"></i>Campaign Progress
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h6>Overall Progress</h6>
+                            <div class="progress mb-3" style="height: 8px;">
+                                <div class="progress-bar bg-success" style="width: {% if performance.total_contacts > 0 %}{{ (performance.sent_count / performance.total_contacts * 100)|round }}{% else %}0{% endif %}%"></div>
+                            </div>
+                            
+                            <div class="row text-center">
+                                <div class="col-4">
+                                    <div class="fw-bold text-success">{{ performance.sent_count }}</div>
+                                    <small class="text-muted">Sent</small>
+                                </div>
+                                <div class="col-4">
+                                    <div class="fw-bold text-primary">{{ responses }}</div>
+                                    <small class="text-muted">Responses</small>
+                                </div>
+                                <div class="col-4">
+                                    <div class="fw-bold text-warning">{{ performance.pending_count }}</div>
+                                    <small class="text-muted">Pending</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4 text-center">
+                            <div class="progress-circle bg-light">
+                                {% set completion = (performance.sent_count / performance.total_contacts * 100)|round if performance.total_contacts > 0 else 0 %}
+                                {{ completion }}%
+                            </div>
+                            <small class="text-muted d-block mt-2">Complete</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-cogs me-2"></i>Campaign Settings
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        <strong>Daily Limit:</strong>
+                        <span class="float-end">{{ campaign.daily_limit or 50 }} emails</span>
+                    </div>
+                    <div class="mb-2">
+                        <strong>Template Type:</strong>
+                        <span class="float-end">
+                            {% if campaign.template_type and campaign.template_type != 'unknown' %}
+                                {{ campaign.template_type.replace('_', ' ').title() }}
+                            {% else %}
+                                Security Campaign
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="mb-2">
+                        <strong>Sender:</strong>
+                        <span class="float-end">{{ campaign.sender_name or 'Sales Team' }}</span>
+                    </div>
+                    <div class="mb-2">
+                        <strong>From Email:</strong>
+                        <small class="float-end text-muted">{{ campaign.sender_email or 'noreply@company.com' }}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Email Variants -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-flask me-2"></i>Email Variants
+                    </h5>
+                    <button class="btn btn-primary btn-sm" onclick="createVariant()">
+                        <i class="fas fa-plus me-1"></i>Create Variant
+                    </button>
+                </div>
+                <div class="card-body">
+                    {% if variants %}
+                    <div class="row" id="variants-container">
+                        {% for variant in variants %}
+                        <div class="col-md-6 col-lg-4 mb-3" data-variant-id="{{ variant.id }}">
+                            <div class="card variant-card h-100 {% if variant.is_default %}border-primary{% endif %}">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-0">
+                                            <span class="badge bg-{% if variant.is_default %}primary{% else %}secondary{% endif %} me-2">
+                                                {{ variant.variant_name }}
+                                            </span>
+                                            {% if variant.is_default %}
+                                            <span class="badge bg-success">Default</span>
+                                            {% endif %}
+                                        </h6>
+                                    </div>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown">
+                                            <i class="fas fa-ellipsis-v"></i>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li><button class="dropdown-item" onclick="editVariant({{ variant.id }})">
+                                                <i class="fas fa-edit me-2"></i>Edit
+                                            </button></li>
+                                            <li><button class="dropdown-item" onclick="previewVariant({{ variant.id }})">
+                                                <i class="fas fa-eye me-2"></i>Preview
+                                            </button></li>
+                                            {% if not variant.is_default %}
+                                            <li><button class="dropdown-item" onclick="setDefaultVariant({{ variant.id }})">
+                                                <i class="fas fa-star me-2 text-warning"></i>Set as Default
+                                            </button></li>
+                                            {% endif %}
+                                            {% if variants|length > 1 %}
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li><button class="dropdown-item text-danger" onclick="deleteVariant({{ variant.id }}, '{{ variant.variant_name }}')">
+                                                <i class="fas fa-trash me-2"></i>Delete
+                                            </button></li>
+                                            {% endif %}
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-2">
+                                        <strong>Subject:</strong>
+                                        <p class="small text-muted mb-2">{{ variant.subject_line[:60] }}{% if variant.subject_line|length > 60 %}...{% endif %}</p>
+                                    </div>
+                                    <div class="mb-2">
+                                        <strong>Preview:</strong>
+                                        <p class="small text-muted mb-2">
+                                            {% if variant.email_body_html %}
+                                                {{ variant.email_body_html|striptags|truncate(80) }}
+                                            {% else %}
+                                                No content
+                                            {% endif %}
+                                        </p>
+                                    </div>
+                                    <div class="row text-center">
+                                        <div class="col-4">
+                                            <div class="small fw-bold">{{ variant.emails_sent or 0 }}</div>
+                                            <div class="small text-muted">Sent</div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="small fw-bold">{{ variant.emails_opened or 0 }}</div>
+                                            <div class="small text-muted">Opened</div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="small fw-bold">{{ "%.1f"|format(variant.open_rate or 0) }}%</div>
+                                            <div class="small text-muted">Open Rate</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-flask fa-2x text-muted mb-3"></i>
+                        <h6 class="text-muted">No Email Variants</h6>
+                        <p class="text-muted small">Create different versions of your email to test performance</p>
+                        <button class="btn btn-primary" onclick="createVariant()">
+                            <i class="fas fa-plus me-1"></i>Create First Variant
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Campaign Contacts -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-users me-2"></i>Campaign Contacts
+                    </h5>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-primary" onclick="addContacts()">
+                            <i class="fas fa-plus me-1"></i>Add Contacts
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="exportContacts({{ campaign.id }})">
+                            <i class="fas fa-download me-1"></i>Export
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if contacts %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Contact</th>
+                                    <th>Company</th>
+                                    <th>Breach Status</th>
+                                    <th>Sequence Status</th>
+                                    <th>Current Step</th>
+                                    <th>Emails Sent</th>
+                                    <th>Last Email</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for contact_data in contacts %}
+                                {% set contact = contact_data.contact if contact_data.contact else contact_data %}
+                                <tr data-contact-id="{{ contact.id }}">
+                                    <td>
+                                        <div>
+                                            <strong>{{ contact.email }}</strong>
+                                            {% if contact.first_name or contact.last_name %}
+                                            <br><small class="text-muted">{{ contact.first_name }} {{ contact.last_name }}</small>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td>{{ contact.company or '-' }}</td>
+                                    <td>
+                                        {% set breach_status = contact_data.breach_status or contact.breach_status or 'unknown' %}
+                                        <span class="badge bg-{{ 'danger' if breach_status == 'breached' else 'success' if breach_status == 'not_breached' else 'info' if breach_status == 'unassigned' else 'warning' }}">
+                                            {% if breach_status == 'breached' %}
+                                                Breached
+                                            {% elif breach_status == 'not_breached' %}
+                                                Secure
+                                            {% elif breach_status == 'unassigned' %}
+                                                <i class="fas fa-spinner fa-spin me-1"></i>Scanning in Progress
+                                            {% else %}
+                                                Unknown
+                                            {% endif %}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% set seq_status = contact_data.sequence_status if contact_data.sequence_status else 'Not Enrolled' %}
+                                        <span class="badge bg-{{ 'success' if seq_status == 'Active' else 'info' if seq_status == 'Replied' else 'secondary' if seq_status == 'Completed' else 'danger' if seq_status == 'Blocked' else 'warning' }}">
+                                            {% if seq_status == 'Active' %}
+                                                <i class="fas fa-play me-1"></i>Active
+                                            {% elif seq_status == 'Replied' %}
+                                                <i class="fas fa-reply me-1"></i>Replied
+                                            {% elif seq_status == 'Completed' %}
+                                                <i class="fas fa-check me-1"></i>Completed
+                                            {% elif seq_status == 'Blocked' %}
+                                                <i class="fas fa-shield-alt me-1"></i>Blocked
+                                            {% else %}
+                                                <i class="fas fa-pause me-1"></i>Not Enrolled
+                                            {% endif %}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">{{ contact_data.current_step if contact_data.current_step else 'Step 0' }}</small>
+                                        {% if contact_data.sequence_status == 'Active' and contact_data.next_email_date %}
+                                        <br><small class="text-info">Next: {{ contact_data.next_step if contact_data.next_step else 'Step 1' }}</small>
+                                        <br><small class="text-primary">{{ contact_data.next_email_date.strftime('%m/%d/%Y %H:%M:%S') }}</small>
+                                        {% elif contact_data.sequence_status != 'Active' %}
+                                        <br><small class="text-muted">Sequence stopped</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-dark">{{ contact_data.emails_sent if contact_data.emails_sent else 0 }}</span>
+                                        {% if contact_data.emails_opened and contact_data.emails_opened > 0 %}
+                                        <br><small class="text-success"><i class="fas fa-envelope-open me-1"></i>{{ contact_data.emails_opened }} opened</small>
+                                        {% endif %}
+                                        {% if contact_data.emails_replied and contact_data.emails_replied > 0 %}
+                                        <br><small class="text-primary"><i class="fas fa-reply me-1"></i>{{ contact_data.emails_replied }} replied</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if contact_data.last_email_sent %}
+                                            <small class="text-success">{{ contact_data.last_email_sent.strftime('%m/%d/%Y') }}</small>
+                                        {% elif contact.last_contacted_at %}
+                                            <small class="text-success">{{ contact.last_contacted_at.strftime('%m/%d/%Y') }}</small>
+                                        {% elif contact.last_contacted %}
+                                            <small class="text-success">{{ contact.last_contacted.strftime('%m/%d/%Y') }}</small>
+                                        {% else %}
+                                            <small class="text-muted">Never</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-danger btn-sm" onclick="removeContact({{ contact.id }})" title="Remove from campaign">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                            <button class="btn btn-outline-warning btn-sm" onclick="deepCleanContact({{ contact.id }})" title="Deep clean for fresh testing">
+                                                <i class="fas fa-eraser"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-users text-muted fa-3x mb-3"></i>
+                        <h5 class="text-muted">No Contacts Added</h5>
+                        <p class="text-muted mb-3">Add contacts to start sending emails for this campaign.</p>
+                        <button class="btn btn-primary" onclick="addContacts()">
+                            <i class="fas fa-plus me-1"></i>Add Contacts
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Email Activity Log -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-history me-2"></i>Real-Time Email Activity
+                    </h5>
+                    <small class="text-muted">Latest email events from Brevo webhooks</small>
+                </div>
+                <div class="card-body" id="email-activity-container">
+                    {% if email_timeline and email_timeline|length > 0 %}
+                        <!-- Search and Controls -->
+                        <div class="row mb-3">
+                            <div class="col-md-8">
+                                <input type="text" class="form-control" id="emailActivitySearch" placeholder="Search by contact email, name, or company...">
+                            </div>
+                            <div class="col-md-4">
+                                <select class="form-select" id="emailStatusFilter">
+                                    <option value="">All Status</option>
+                                    <option value="sent">Sent</option>
+                                    <option value="delivered">Delivered</option>
+                                    <option value="opened">Opened</option>
+                                    <option value="clicked">Clicked</option>
+                                    <option value="replied">Replied</option>
+                                    <option value="bounced">Bounced</option>
+                                    <option value="blocked">Blocked</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Email Activity Table -->
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="emailActivityTable">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th style="min-width: 200px;">Contact</th>
+                                        <th style="min-width: 120px;">Company</th>
+                                        <th style="min-width: 200px;">Email Subject</th>
+                                        <th style="min-width: 110px;">Sent</th>
+                                        <th class="text-center" style="width: 80px;"><i class="fas fa-paper-plane" title="Delivered"></i></th>
+                                        <th class="text-center" style="width: 80px;"><i class="fas fa-envelope-open text-info" title="Opened"></i></th>
+                                        <th class="text-center" style="width: 80px;"><i class="fas fa-mouse-pointer text-primary" title="Clicked"></i></th>
+                                        <th class="text-center" style="width: 80px;"><i class="fas fa-reply text-success" title="Replied"></i></th>
+                                        <th class="text-center" style="width: 80px;"><i class="fas fa-exclamation-triangle text-warning" title="Bounced"></i></th>
+                                        <th class="text-center" style="width: 80px;"><i class="fas fa-shield-alt text-danger" title="Blocked"></i></th>
+                                        <th class="text-center" style="min-width: 90px;">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for activity in email_timeline %}
+                                    <tr data-email-id="{{ activity.email_id }}" data-status="{{ activity.status }}">
+                                        <td>
+                                            <div>
+                                                <strong>{{ activity.contact_name or activity.contact_email.split('@')[0] }}</strong>
+                                                <br>
+                                                <small class="text-muted">{{ activity.contact_email }}</small>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="text-muted">
+                                                {{ activity.contact_company or activity.contact_email.split('@')[1] if activity.contact_email else '-' }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="text-truncate d-inline-block" style="max-width: 200px;" title="{{ activity.subject }}">
+                                                {{ activity.subject or 'No Subject' }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            {% if activity.sent_at %}
+                                                <small>{{ activity.sent_at.strftime('%m/%d/%y %H:%M:%S') }}</small>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-center" style="width: 80px; padding: 8px 4px;">
+                                            {% if activity.delivered_at %}
+                                                <div>
+                                                    <i class="fas fa-check text-success" title="Delivered: {{ activity.delivered_at.strftime('%m/%d/%y %H:%M:%S') }}"></i>
+                                                    <small class="d-block text-muted" style="font-size: 0.7rem;">{{ activity.delivered_at.strftime('%H:%M:%S') }}</small>
+                                                </div>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-center" style="width: 80px; padding: 8px 4px;">
+                                            {% if activity.opened_at %}
+                                                <div>
+                                                    <i class="fas fa-envelope-open-text text-info" title="Opened: {{ activity.opened_at.strftime('%m/%d/%y %H:%M:%S') }}"></i>
+                                                    <small class="d-block text-muted" style="font-size: 0.7rem;">{{ activity.opened_at.strftime('%H:%M:%S') }}</small>
+                                                    {% if activity.open_count and activity.open_count > 1 %}
+                                                        <span class="badge bg-info rounded-pill" style="font-size: 0.6rem;">{{ activity.open_count }}</span>
+                                                    {% endif %}
+                                                </div>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-center" style="width: 80px; padding: 8px 4px;">
+                                            {% if activity.clicked_at %}
+                                                <div>
+                                                    <i class="fas fa-mouse-pointer text-primary" title="Clicked: {{ activity.clicked_at.strftime('%m/%d/%y %H:%M:%S') }}"></i>
+                                                    <small class="d-block text-muted" style="font-size: 0.7rem;">{{ activity.clicked_at.strftime('%H:%M:%S') }}</small>
+                                                    {% if activity.click_count and activity.click_count > 1 %}
+                                                        <span class="badge bg-primary rounded-pill" style="font-size: 0.6rem;">{{ activity.click_count }}</span>
+                                                    {% endif %}
+                                                </div>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-center" style="width: 80px; padding: 8px 4px;">
+                                            {% if activity.replied_at %}
+                                                <div>
+                                                    <i class="fas fa-reply text-success" title="Replied: {{ activity.replied_at.strftime('%m/%d/%y %H:%M:%S') }}"></i>
+                                                    <small class="d-block text-muted" style="font-size: 0.7rem;">{{ activity.replied_at.strftime('%H:%M:%S') }}</small>
+                                                </div>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-center" style="width: 80px; padding: 8px 4px;">
+                                            {% if activity.bounced_at %}
+                                                <div>
+                                                    <i class="fas fa-exclamation-triangle text-warning" title="Bounced: {{ activity.bounced_at.strftime('%m/%d/%y %H:%M:%S') }}"></i>
+                                                    <small class="d-block text-muted" style="font-size: 0.7rem;">{{ activity.bounced_at.strftime('%H:%M:%S') }}</small>
+                                                </div>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-center" style="width: 80px; padding: 8px 4px;">
+                                            {% if activity.blocked_at %}
+                                                <div>
+                                                    <i class="fas fa-shield-alt text-danger" title="Blocked: {{ activity.blocked_at.strftime('%m/%d/%y %H:%M:%S') }}"></i>
+                                                    <small class="d-block text-muted" style="font-size: 0.7rem;">{{ activity.blocked_at.strftime('%H:%M:%S') }}</small>
+                                                </div>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-{{ 'success' if activity.status == 'replied' else 'primary' if activity.status == 'clicked' else 'info' if activity.status == 'opened' else 'secondary' if activity.status == 'delivered' else 'warning' if activity.status == 'bounced' else 'danger' if activity.status == 'blocked' else 'light' }} text-{{ 'dark' if activity.status in ['delivered', 'sent'] else 'white' }}">
+                                                {{ activity.status.upper() }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Pagination Controls -->
+                        <div class="d-flex justify-content-between align-items-center mt-3">
+                            <div>
+                                <small class="text-muted">
+                                    Showing <span id="emailActivityCount">{{ email_timeline|length }}</span> email activities
+                                </small>
+                            </div>
+                            <div>
+                                <button class="btn btn-outline-primary btn-sm me-2" onclick="loadMoreEmailActivity()" id="loadMoreEmailsBtn">
+                                    <i class="fas fa-chevron-down me-1"></i>Load More
+                                </button>
+                                <button class="btn btn-outline-secondary btn-sm" onclick="refreshEmailActivity()" id="refreshEmailsBtn">
+                                    <i class="fas fa-sync-alt me-1"></i>Refresh
+                                </button>
+                            </div>
+                        </div>
+                    {% else %}
+                        <!-- Empty State -->
+                        <div class="text-center py-5">
+                            <i class="fas fa-paper-plane fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">No Email Activity Yet</h5>
+                            <p class="text-muted">Campaign emails and their tracking data will appear here once emails are sent.</p>
+                            <small class="text-muted">
+                                Real-time tracking includes: sent, delivered, opened, clicked, replied, and bounced events.
+                            </small>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Modern Toast Notification System
+function showToast(message, type = 'info', title = '') {
+    const toastContainer = document.getElementById('toastContainer');
+    
+    // Fallback to alert if toast container is not found
+    if (!toastContainer) {
+        console.error('Toast container not found, falling back to alert');
+        alert((title ? title + ': ' : '') + message);
+        return;
+    }
+    
+    const toastId = 'toast-' + Date.now();
+    
+    // Get icon based on type
+    const icons = {
+        success: 'fas fa-check-circle',
+        error: 'fas fa-exclamation-circle', 
+        warning: 'fas fa-exclamation-triangle',
+        info: 'fas fa-info-circle'
+    };
+    
+    // Get default title if not provided
+    const titles = {
+        success: 'Success',
+        error: 'Error',
+        warning: 'Warning', 
+        info: 'Information'
+    };
+    
+    const toastTitle = title || titles[type] || 'Notification';
+    const toastIcon = icons[type] || icons.info;
+    
+    const toastHtml = `
+        <div class="custom-toast toast-${type}" id="${toastId}">
+            <div class="toast-header">
+                <div class="toast-title">
+                    <i class="${toastIcon} toast-icon"></i>
+                    ${toastTitle}
+                </div>
+                <button type="button" class="toast-close" onclick="closeToast('${toastId}')">&times;</button>
+            </div>
+            <div class="toast-body">${message}</div>
+        </div>
+    `;
+    
+    toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+    
+    const toastElement = document.getElementById(toastId);
+    
+    console.log('Toast created:', toastId, type, message);
+    
+    // Show toast with animation
+    setTimeout(() => {
+        toastElement.classList.add('show');
+        console.log('Toast shown:', toastId);
+    }, 100);
+    
+    // Auto-hide after delay
+    const delay = type === 'error' ? 8000 : 5000;
+    setTimeout(() => {
+        closeToast(toastId);
+    }, delay);
+}
+
+function closeToast(toastId) {
+    const toastElement = document.getElementById(toastId);
+    if (toastElement) {
+        toastElement.classList.add('hide');
+        toastElement.classList.remove('show');
+        
+        // Remove from DOM after animation
+        setTimeout(() => {
+            if (toastElement && toastElement.parentNode) {
+                toastElement.parentNode.removeChild(toastElement);
+            }
+        }, 300);
+    }
+}
+
+// Modern Confirmation Modal System
+function showConfirm(message, title = 'Confirm Action', confirmText = 'Confirm', cancelText = 'Cancel') {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('confirmModal');
+        
+        // Fallback to browser confirm if modal is not available
+        if (!modal || typeof bootstrap === 'undefined') {
+            console.warn('Modal or Bootstrap not available, falling back to confirm()');
+            resolve(confirm(message));
+            return;
+        }
+        
+        const modalTitle = document.getElementById('confirmModalLabel');
+        const modalMessage = document.getElementById('confirmMessage');
+        const confirmButton = document.getElementById('confirmButton');
+        
+        // Set modal content
+        modalTitle.textContent = title;
+        modalMessage.textContent = message;
+        confirmButton.textContent = confirmText;
+        
+        // Remove any existing event listeners
+        const newConfirmButton = confirmButton.cloneNode(true);
+        confirmButton.parentNode.replaceChild(newConfirmButton, confirmButton);
+        
+        // Add new event listeners
+        newConfirmButton.addEventListener('click', () => {
+            bootstrap.Modal.getInstance(modal).hide();
+            resolve(true);
+        });
+        
+        // Handle modal close/cancel
+        modal.addEventListener('hidden.bs.modal', () => {
+            resolve(false);
+        }, { once: true });
+        
+        // Show modal
+        const bsModal = new bootstrap.Modal(modal);
+        bsModal.show();
+    });
+}
+
+// Campaign management functions
+async function pauseCampaign(campaignId) {
+    const confirmed = await showConfirm(
+        'Are you sure you want to pause this campaign?', 
+        'Pause Campaign', 
+        'Pause', 
+        'Cancel'
+    );
+    if (confirmed) {
+        updateCampaignStatus(campaignId, 'paused');
+    }
+}
+
+async function resumeCampaign(campaignId) {
+    const confirmed = await showConfirm(
+        'Are you sure you want to resume this campaign?', 
+        'Resume Campaign', 
+        'Resume', 
+        'Cancel'
+    );
+    if (confirmed) {
+        updateCampaignStatus(campaignId, 'active');
+    }
+}
+
+function updateCampaignStatus(campaignId, status) {
+    fetch(`/campaigns/${campaignId}/status`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: status })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast('Error updating campaign: ' + data.error, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('Error updating campaign status', 'error');
+    });
+}
+
+function editCampaign(campaignId) {
+    // Navigate to edit page (to be implemented)
+    window.location.href = `/campaigns/${campaignId}/edit`;
+}
+
+async function duplicateCampaign(campaignId) {
+    const confirmed = await showConfirm(
+        'Create a copy of this campaign?', 
+        'Duplicate Campaign', 
+        'Duplicate', 
+        'Cancel'
+    );
+    if (confirmed) {
+        fetch(`/campaigns/${campaignId}/duplicate`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('Campaign duplicated successfully!', 'success');
+                setTimeout(() => {
+                    window.location.href = `/campaigns/${data.new_campaign_id}`;
+                }, 1000);
+            } else {
+                showToast('Error duplicating campaign: ' + data.error, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('Error duplicating campaign', 'error');
+        });
+    }
+}
+
+async function deleteCampaign(campaignId) {
+    const confirmed = await showConfirm(
+        'Are you sure you want to delete this campaign? This action cannot be undone.', 
+        'Delete Campaign', 
+        'Delete', 
+        'Cancel'
+    );
+    if (confirmed) {
+        fetch(`/campaigns/${campaignId}/delete`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('Campaign deleted successfully!', 'success');
+                setTimeout(() => {
+                    window.location.href = '/campaigns';
+                }, 1000);
+            } else {
+                showToast('Error deleting campaign: ' + data.error, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('Error deleting campaign', 'error');
+        });
+    }
+}
+
+async function addContacts() {
+    const modal = new bootstrap.Modal(document.getElementById('addContactsModal'));
+    modal.show();
+    
+    // Load available contacts when modal opens
+    await loadAvailableContacts();
+}
+
+async function loadAvailableContacts() {
+    const spinner = document.getElementById('contactsLoadingSpinner');
+    const content = document.getElementById('contactsContent');
+    
+    spinner.style.display = 'block';
+    content.style.display = 'none';
+    
+    try {
+        const response = await fetch(`/campaigns/{{ campaign.id }}/contacts/available`);
+        const data = await response.json();
+        
+        if (data.success) {
+            populateContactsList(data.contacts);
+            document.getElementById('contactsCount').textContent = data.total_available;
+        } else {
+            showToast('Error loading contacts: ' + data.error, 'error');
+        }
+    } catch (error) {
+        console.error('Error loading contacts:', error);
+        showToast('Error loading available contacts', 'error');
+    }
+    
+    spinner.style.display = 'none';
+    content.style.display = 'block';
+}
+
+function populateContactsList(contacts) {
+    const contactsList = document.getElementById('contactsList');
+    const noContactsMessage = document.getElementById('noContactsMessage');
+    
+    if (contacts.length === 0) {
+        contactsList.innerHTML = '';
+        noContactsMessage.style.display = 'block';
+        return;
+    }
+    
+    noContactsMessage.style.display = 'none';
+    
+    contactsList.innerHTML = contacts.map(contact => {
+        const displayName = (contact.first_name || contact.last_name) 
+            ? `${contact.first_name || ''} ${contact.last_name || ''}`.trim()
+            : contact.email;
+        
+        // Map status to display - check email_status first for blocked
+        let breachStatusColor, breachStatusText;
+        if (contact.email_status === 'blocked') {
+            breachStatusColor = 'danger';
+            breachStatusText = 'Blocked';
+        } else {
+            switch(contact.breach_status) {
+                case 'breached':
+                    breachStatusColor = 'danger';
+                    breachStatusText = 'Breached';
+                    break;
+                case 'not_breached':
+                    breachStatusColor = 'success';
+                    breachStatusText = 'Secure';
+                    break;
+                case 'risky':
+                    breachStatusColor = 'warning';
+                    breachStatusText = 'Risky';
+                    break;
+                case 'bounced':
+                    breachStatusColor = 'dark';
+                    breachStatusText = 'Bounced';
+                    break;
+                case 'unassigned':
+                    breachStatusColor = 'info';
+                    breachStatusText = 'Scanning';
+                    break;
+                default:
+                    breachStatusColor = 'secondary';
+                    breachStatusText = 'Unknown';
+            }
+        }
+        
+        return `
+            <div class="list-group-item" data-status="${contact.email_status === 'blocked' ? 'blocked' : (contact.breach_status || 'unknown')}">
+                <div class="form-check">
+                    <input class="form-check-input contact-checkbox" type="checkbox" 
+                           value="${contact.id}" id="contact_${contact.id}" 
+                           onchange="updateSelectedCount()">
+                    <label class="form-check-label w-100" for="contact_${contact.id}">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="flex-grow-1">
+                                <div class="fw-semibold">${displayName}</div>
+                                <div class="text-muted small">${contact.email}</div>
+                                ${contact.company ? `<div class="text-muted small">${contact.company}</div>` : ''}
+                            </div>
+                            <span class="badge bg-${breachStatusColor}">${breachStatusText}</span>
+                        </div>
+                    </label>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    // Set up search and filter functionality
+    setupContactSearch();
+    setupStatusFilter();
+    setupSelectAll();
+    setupAddContactsButton();
+}
+
+function setupContactSearch() {
+    const searchInput = document.getElementById('contactSearchInput');
+    searchInput.addEventListener('input', function() {
+        filterContacts();
+    });
+}
+
+function setupStatusFilter() {
+    const statusButtons = document.querySelectorAll('input[name="statusFilter"]');
+    statusButtons.forEach(button => {
+        button.addEventListener('change', function() {
+            filterContacts();
+        });
+    });
+}
+
+function filterContacts() {
+    const searchTerm = document.getElementById('contactSearchInput').value.toLowerCase();
+    const selectedStatus = document.querySelector('input[name="statusFilter"]:checked').value;
+    const contactItems = document.querySelectorAll('#contactsList .list-group-item');
+
+    let visibleCount = 0;
+
+    contactItems.forEach(item => {
+        const text = item.textContent.toLowerCase();
+        const contactStatus = item.dataset.status || 'unknown';
+
+        // Check if item matches search term
+        const matchesSearch = !searchTerm || text.includes(searchTerm);
+
+        // Check if item matches status filter
+        const matchesStatus = !selectedStatus || contactStatus === selectedStatus;
+
+        if (matchesSearch && matchesStatus) {
+            item.style.display = 'block';
+            visibleCount++;
+        } else {
+            item.style.display = 'none';
+        }
+    });
+
+    // Update visible count
+    document.getElementById('contactsCount').textContent = visibleCount;
+
+    // Update "Select All" to reflect visible contacts
+    updateSelectAllState();
+}
+
+function updateSelectAllState() {
+    const selectAllCheckbox = document.getElementById('selectAllContacts');
+    const visibleCheckboxes = Array.from(document.querySelectorAll('.contact-checkbox')).filter(cb =>
+        cb.closest('.list-group-item').style.display !== 'none'
+    );
+
+    // Reset select all if no visible contacts
+    if (visibleCheckboxes.length === 0) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.disabled = true;
+    } else {
+        selectAllCheckbox.disabled = false;
+    }
+}
+
+function setupSelectAll() {
+    const selectAllCheckbox = document.getElementById('selectAllContacts');
+    selectAllCheckbox.addEventListener('change', function() {
+        const contactCheckboxes = document.querySelectorAll('.contact-checkbox');
+        const visibleCheckboxes = Array.from(contactCheckboxes).filter(cb => 
+            cb.closest('.list-group-item').style.display !== 'none'
+        );
+        
+        visibleCheckboxes.forEach(checkbox => {
+            checkbox.checked = this.checked;
+        });
+        
+        updateSelectedCount();
+    });
+}
+
+function setupAddContactsButton() {
+    document.getElementById('addSelectedContactsBtn').addEventListener('click', async function() {
+        const selectedContacts = Array.from(document.querySelectorAll('.contact-checkbox:checked'))
+            .map(cb => parseInt(cb.value));
+        
+        if (selectedContacts.length === 0) {
+            showToast('Please select at least one contact', 'warning');
+            return;
+        }
+        
+        await addSelectedContacts(selectedContacts);
+    });
+}
+
+async function addSelectedContacts(contactIds) {
+    const button = document.getElementById('addSelectedContactsBtn');
+    const originalText = button.innerHTML;
+    
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Adding Contacts...';
+    
+    try {
+        const response = await fetch(`/campaigns/{{ campaign.id }}/contacts/add`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ contact_ids: contactIds })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast(data.message, 'success');
+            
+            // Close modal
+            bootstrap.Modal.getInstance(document.getElementById('addContactsModal')).hide();
+            
+            // Update campaign statistics
+            updateCampaignStats();
+            
+            // Reload page to show new contacts in table
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+        } else {
+            showToast('Error adding contacts: ' + data.error, 'error');
+        }
+    } catch (error) {
+        console.error('Error adding contacts:', error);
+        showToast('Error adding contacts to campaign', 'error');
+    }
+    
+    button.disabled = false;
+    button.innerHTML = originalText;
+}
+
+function updateSelectedCount() {
+    const selectedCount = document.querySelectorAll('.contact-checkbox:checked').length;
+    document.getElementById('selectedCount').textContent = selectedCount;
+    document.getElementById('addSelectedContactsBtn').disabled = selectedCount === 0;
+}
+
+function exportResults(campaignId) {
+    window.location.href = `/campaigns/${campaignId}/export`;
+}
+
+function exportContacts(campaignId) {
+    window.location.href = `/campaigns/${campaignId}/contacts/export`;
+}
+
+async function removeContact(contactId) {
+    const confirmed = await showConfirm(
+        'Remove this contact from the campaign?',
+        'Remove Contact',
+        'Remove',
+        'Cancel'
+    );
+    if (confirmed) {
+        await executeRemoveContact(contactId);
+    }
+}
+
+async function deepCleanContact(contactId) {
+    const confirmed = await showConfirm(
+        'Deep clean this contact for fresh testing? This will completely remove all email history, sequences, and tracking data for this contact in this campaign.',
+        'Deep Clean Contact',
+        'Deep Clean',
+        'Cancel'
+    );
+    if (confirmed) {
+        await executeDeepClean(contactId);
+    }
+}
+
+async function executeDeepClean(contactId) {
+    try {
+        const response = await fetch(`/campaigns/{{ campaign.id }}/contacts/${contactId}/deep-clean`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showToast(data.message, 'success', 'Contact Cleaned');
+
+            // Show cleanup details in console for debugging
+            console.log('Deep clean results:', data.cleanup_details);
+
+            // Reload the page to show updated contact state
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+        } else {
+            showToast('Error deep cleaning contact: ' + data.error, 'error');
+        }
+    } catch (error) {
+        console.error('Error deep cleaning contact:', error);
+        showToast('Error deep cleaning contact', 'error');
+    }
+}
+
+async function executeRemoveContact(contactId) {
+    try {
+        const response = await fetch(`/campaigns/{{ campaign.id }}/contacts/${contactId}/remove`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast(data.message, 'success');
+            
+            // Remove the contact row from the UI with animation
+            const contactRow = document.querySelector(`tr[data-contact-id="${contactId}"]`);
+            if (contactRow) {
+                contactRow.style.transition = 'all 0.3s ease';
+                contactRow.style.opacity = '0';
+                contactRow.style.transform = 'translateX(-100%)';
+                
+                setTimeout(() => {
+                    contactRow.remove();
+                    
+                    // Check if no contacts are left in the table
+                    const remainingRows = document.querySelectorAll('tbody tr[data-contact-id]');
+                    if (remainingRows.length === 0) {
+                        // Reload to show the "No Contacts Added" state
+                        setTimeout(() => {
+                            location.reload();
+                        }, 500);
+                    } else {
+                        // Update campaign statistics
+                        updateCampaignStats();
+                    }
+                }, 300);
+            } else {
+                // If we can't find the row, just reload the page
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+            }
+        } else {
+            showToast('Error removing contact: ' + data.error, 'error');
+        }
+    } catch (error) {
+        console.error('Error removing contact:', error);
+        showToast('Error removing contact from campaign', 'error');
+    }
+}
+
+function updateCampaignStats() {
+    // Update the performance metrics after removing a contact
+    fetch(`/api/{{ campaign.id }}/stats`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update the metrics in the UI
+                const stats = data.stats;
+                
+                // Update sent count
+                const sentCountElement = document.querySelector('.metric-card .metric-value.text-primary');
+                if (sentCountElement) {
+                    sentCountElement.textContent = stats.sent_count;
+                }
+                
+                // Update total contacts in "of X total"
+                const totalContactsElement = document.querySelector('small.text-muted');
+                if (totalContactsElement && totalContactsElement.textContent.includes('total')) {
+                    totalContactsElement.textContent = `of ${stats.total_contacts} total`;
+                }
+                
+                // Update pending count
+                const pendingCountElement = document.querySelector('.metric-card .metric-value.text-warning');
+                if (pendingCountElement) {
+                    pendingCountElement.textContent = stats.pending_count;
+                }
+                
+                // Update response rate
+                const responseRateElement = document.querySelector('.metric-card .metric-value.text-success');
+                if (responseRateElement) {
+                    responseRateElement.textContent = stats.response_rate + '%';
+                }
+                
+                // Update progress bar
+                const progressBar = document.querySelector('.progress-bar');
+                if (progressBar && stats.total_contacts > 0) {
+                    const percentage = Math.round((stats.sent_count / stats.total_contacts) * 100);
+                    progressBar.style.width = percentage + '%';
+                }
+                
+                // Update completion percentage
+                const completionElement = document.querySelector('.progress-circle');
+                if (completionElement && stats.total_contacts > 0) {
+                    const completion = Math.round((stats.sent_count / stats.total_contacts) * 100);
+                    completionElement.textContent = completion + '%';
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error updating stats:', error);
+        });
+}
+
+// Email Activity Table Functions
+
+function setupEmailActivityTable() {
+    // Setup search functionality
+    const searchInput = document.getElementById('emailActivitySearch');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            filterEmailActivityTable();
+        });
+    }
+
+    // Setup status filter
+    const statusFilter = document.getElementById('emailStatusFilter');
+    if (statusFilter) {
+        statusFilter.addEventListener('change', function() {
+            filterEmailActivityTable();
+        });
+    }
+}
+
+function filterEmailActivityTable() {
+    const searchTerm = document.getElementById('emailActivitySearch')?.value.toLowerCase() || '';
+    const statusFilter = document.getElementById('emailStatusFilter')?.value.toLowerCase() || '';
+    const tableRows = document.querySelectorAll('#emailActivityTable tbody tr');
+    let visibleCount = 0;
+
+    tableRows.forEach(row => {
+        const contactEmail = row.children[0]?.textContent.toLowerCase() || '';
+        const company = row.children[1]?.textContent.toLowerCase() || '';
+        const subject = row.children[2]?.textContent.toLowerCase() || '';
+        const status = row.dataset.status?.toLowerCase() || '';
+
+        // Check if row matches search term
+        const matchesSearch = !searchTerm ||
+            contactEmail.includes(searchTerm) ||
+            company.includes(searchTerm) ||
+            subject.includes(searchTerm);
+
+        // Check if row matches status filter
+        const matchesStatus = !statusFilter || status === statusFilter;
+
+        if (matchesSearch && matchesStatus) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+
+    // Update count
+    const countElement = document.getElementById('emailActivityCount');
+    if (countElement) {
+        countElement.textContent = visibleCount;
+    }
+}
+
+// Track current pagination state
+let emailActivityOffset = {{ email_timeline|length if email_timeline else 0 }};
+
+async function loadMoreEmailActivity() {
+    try {
+        const btn = document.getElementById('loadMoreEmailsBtn');
+        if (btn) {
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Loading...';
+            btn.disabled = true;
+        }
+
+        showToast('Loading more email activity...', 'info');
+
+        const response = await fetch(`/campaigns/api/{{ campaign.id }}/timeline?limit=20&offset=${emailActivityOffset}`);
+        const data = await response.json();
+
+        if (data.success) {
+            if (data.timeline && data.timeline.length > 0) {
+                // Append new rows to the table
+                appendEmailActivityRows(data.timeline);
+
+                // Update offset for next load
+                emailActivityOffset += data.timeline.length;
+
+                // Update counter
+                const countElement = document.getElementById('emailActivityCount');
+                if (countElement) {
+                    const currentCount = parseInt(countElement.textContent) || 0;
+                    countElement.textContent = currentCount + data.timeline.length;
+                }
+
+                showToast(`Loaded ${data.timeline.length} more activities`, 'success');
+
+                // If we didn't get a full batch, there are no more records
+                if (!data.has_more || data.timeline.length < 20) {
+                    btn.innerHTML = '<i class="fas fa-check me-1"></i>No More Records';
+                    btn.disabled = true;
+                    setTimeout(() => {
+                        btn.style.display = 'none';
+                    }, 2000);
+                }
+            } else {
+                // No more records
+                showToast('No more email activities to load', 'info');
+                btn.innerHTML = '<i class="fas fa-check me-1"></i>No More Records';
+                btn.disabled = true;
+                setTimeout(() => {
+                    btn.style.display = 'none';
+                }, 2000);
+            }
+        } else {
+            showToast('Error loading more activity: ' + (data.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        console.error('Error loading activity:', error);
+        showToast('Error loading email activity', 'error');
+    } finally {
+        const btn = document.getElementById('loadMoreEmailsBtn');
+        if (btn) {
+            btn.innerHTML = '<i class="fas fa-chevron-down me-1"></i>Load More';
+            btn.disabled = false;
+        }
+    }
+}
+
+function appendEmailActivityRows(activities) {
+    const tableBody = document.querySelector('#emailActivityTable tbody');
+    if (!tableBody) {
+        console.error('Email activity table body not found');
+        return;
+    }
+
+    activities.forEach(activity => {
+        const row = createEmailActivityRow(activity);
+        tableBody.appendChild(row);
+    });
+}
+
+function createEmailActivityRow(activity) {
+    const row = document.createElement('tr');
+    row.setAttribute('data-email-id', activity.email_id);
+    row.setAttribute('data-status', activity.status);
+
+    // Format dates
+    const formatDate = (dateStr) => {
+        if (!dateStr) return '-';
+        try {
+            return new Date(dateStr).toLocaleString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        } catch (e) {
+            return dateStr;
+        }
+    };
+
+    // Create status badge
+    const getStatusBadge = (status) => {
+        const statusMap = {
+            'sent': 'secondary',
+            'delivered': 'primary',
+            'opened': 'info',
+            'clicked': 'warning',
+            'replied': 'success',
+            'bounced': 'danger',
+            'blocked': 'dark'
+        };
+        const badgeClass = statusMap[status] || 'secondary';
+        const statusIcon = status === 'blocked' ? '🚫 ' : '';
+        return `<span class="badge bg-${badgeClass}">${statusIcon}${status.charAt(0).toUpperCase() + status.slice(1)}</span>`;
+    };
+
+    row.innerHTML = `
+        <td>
+            <div>
+                <strong>${activity.contact_name || activity.contact_email.split('@')[0]}</strong>
+                <br>
+                <small class="text-muted">${activity.contact_email}</small>
+            </div>
+        </td>
+        <td>
+            <span class="text-muted">
+                ${activity.contact_company || activity.contact_email.split('@')[1] || '-'}
+            </span>
+        </td>
+        <td>
+            <div class="text-truncate" title="${activity.subject || 'No Subject'}">
+                ${activity.subject || 'No Subject'}
+            </div>
+        </td>
+        <td class="text-center">
+            ${activity.sent_at ? `<i class="fas fa-paper-plane text-primary" title="${formatDate(activity.sent_at)}"></i>` : '-'}
+        </td>
+        <td class="text-center">
+            ${activity.delivered_at ? `<i class="fas fa-check text-success" title="${formatDate(activity.delivered_at)}"></i>` : '-'}
+        </td>
+        <td class="text-center">
+            ${activity.opened_at ? `<i class="fas fa-envelope-open text-info" title="${formatDate(activity.opened_at)}"></i>` : '-'}
+            ${activity.open_count > 1 ? `<span class="count-badge">${activity.open_count}</span>` : ''}
+        </td>
+        <td class="text-center">
+            ${activity.clicked_at ? `<i class="fas fa-mouse-pointer text-warning" title="${formatDate(activity.clicked_at)}"></i>` : '-'}
+            ${activity.click_count > 1 ? `<span class="count-badge">${activity.click_count}</span>` : ''}
+        </td>
+        <td class="text-center">
+            ${activity.replied_at ? `<i class="fas fa-reply text-success" title="${formatDate(activity.replied_at)}"></i>` : '-'}
+        </td>
+        <td class="text-center">
+            ${activity.bounced_at ? `<i class="fas fa-exclamation-triangle text-warning" title="${activity.bounce_type || formatDate(activity.bounced_at)}"></i>` : '-'}
+        </td>
+        <td class="text-center">
+            ${activity.blocked_at ? `<i class="fas fa-shield-alt text-danger" title="${activity.block_reason || formatDate(activity.blocked_at)}"></i>` : '-'}
+        </td>
+        <td class="text-center">
+            ${getStatusBadge(activity.latest_event)}
+        </td>
+    `;
+
+    return row;
+}
+
+async function refreshEmailActivity() {
+    try {
+        const btn = document.getElementById('refreshEmailsBtn');
+        if (btn) {
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Refreshing...';
+            btn.disabled = true;
+        }
+
+        showToast('Refreshing email activity...', 'info');
+
+        // Refresh the page to get latest data
+        location.reload();
+    } catch (error) {
+        console.error('Error refreshing activity:', error);
+        showToast('Error refreshing email activity', 'error');
+    } finally {
+        const btn = document.getElementById('refreshEmailsBtn');
+        if (btn) {
+            btn.innerHTML = '<i class="fas fa-sync-alt me-1"></i>Refresh';
+            btn.disabled = false;
+        }
+    }
+}
+
+// Legacy function for backward compatibility
+async function loadMoreActivity() {
+    return loadMoreEmailActivity();
+}
+
+// Real-time updates (polling) - using accurate Brevo analytics
+setInterval(function() {
+    // Update campaign statistics every 30 seconds using the analytics API
+    fetch(`/campaigns/api/{{ campaign.id }}/analytics`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.metrics) {
+                // Update metrics without full page reload
+                updateMetrics(data.metrics);
+                window.statsErrorCount = 0; // Reset error counter on success
+            }
+        })
+        .catch(error => {
+            console.error('Error updating analytics:', error);
+            // Only show error toast if there are repeated failures
+            if (!window.statsErrorCount) window.statsErrorCount = 0;
+            window.statsErrorCount++;
+            if (window.statsErrorCount > 3) {
+                showToast('Unable to refresh campaign analytics', 'warning', 'Connection Issue');
+                window.statsErrorCount = 0; // Reset counter
+            }
+        });
+}, 30000);
+
+function updateMetrics(metrics) {
+    // Update email statistics with real-time Brevo webhook data
+    const emailStats = metrics.email_stats;
+    const performance = metrics.performance;
+    
+    // Update sent count
+    const sentElements = document.querySelectorAll('.metric-value');
+    sentElements.forEach(el => {
+        if (el.parentElement.querySelector('.metric-label').textContent === 'Sent') {
+            el.textContent = emailStats.sent_count;
+        }
+    });
+    
+    // Update delivery rate and count
+    sentElements.forEach(el => {
+        if (el.parentElement.querySelector('.metric-label').textContent === 'Delivered') {
+            el.textContent = performance.delivery_rate + '%';
+            el.parentElement.querySelector('small').textContent = emailStats.delivered_count + ' delivered';
+        }
+    });
+    
+    // Update bounce rate with color coding
+    sentElements.forEach(el => {
+        if (el.parentElement.querySelector('.metric-label').textContent === 'Bounce Rate') {
+            el.textContent = performance.bounce_rate + '%';
+            el.parentElement.querySelector('small').textContent = emailStats.bounced_count + ' bounced';
+
+            // Update color based on bounce rate
+            el.classList.remove('text-success', 'text-warning', 'text-danger');
+            if (performance.bounce_rate < 2) {
+                el.classList.add('text-success');
+            } else if (performance.bounce_rate < 5) {
+                el.classList.add('text-warning');
+            } else {
+                el.classList.add('text-danger');
+            }
+        }
+    });
+
+    // Update blocked rate with color coding
+    sentElements.forEach(el => {
+        if (el.parentElement.querySelector('.metric-label').textContent === 'Blocked Rate') {
+            el.textContent = performance.blocked_rate + '%';
+            el.parentElement.querySelector('small').textContent = emailStats.blocked_count + ' blocked';
+
+            // Update color based on blocked rate
+            el.classList.remove('text-success', 'text-warning', 'text-danger');
+            if (performance.blocked_rate < 1) {
+                el.classList.add('text-success');
+            } else if (performance.blocked_rate < 3) {
+                el.classList.add('text-warning');
+            } else {
+                el.classList.add('text-danger');
+            }
+        }
+    });
+    
+    console.log('Campaign metrics updated with real-time Brevo webhook data');
+}
+
+// Initialize Email Activity Table on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Setup email activity table functionality
+    setupEmailActivityTable();
+
+    // Initial filter setup
+    filterEmailActivityTable();
+
+    console.log('Email Activity Table initialized');
+});
+
+// ===== VARIANT MANAGEMENT FUNCTIONS =====
+
+function createVariant() {
+    const subject = prompt('Enter subject line for new variant:');
+    if (!subject) return;
+
+    const content = prompt('Enter email content (HTML):');
+    if (!content) return;
+
+    showLoadingToast('Creating variant...');
+
+    fetch(`/campaigns/{{ campaign.id }}/variants/create`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            subject_line: subject,
+            email_body_html: content,
+            sender_name: '{{ campaign.sender_name or "Sales Team" }}',
+            sender_email: '{{ campaign.sender_email or "noreply@company.com" }}'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoadingToast();
+        if (data.success) {
+            showToast(`✅ ${data.message}`, 'success', 3000);
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showToast(`❌ Failed to create variant: ${data.error}`, 'error', 5000);
+        }
+    })
+    .catch(error => {
+        hideLoadingToast();
+        console.error('Create variant error:', error);
+        showToast('❌ Failed to create variant. Please try again.', 'error', 5000);
+    });
+}
+
+function editVariant(variantId) {
+    const variantCard = document.querySelector(`[data-variant-id="${variantId}"]`);
+    if (!variantCard) return;
+
+    const currentSubject = variantCard.querySelector('.card-body p').textContent.replace('...', '');
+    const subject = prompt('Edit subject line:', currentSubject);
+    if (!subject) return;
+
+    const content = prompt('Edit email content (HTML):');
+    if (!content) return;
+
+    showLoadingToast('Updating variant...');
+
+    fetch(`/campaigns/{{ campaign.id }}/variants/${variantId}/edit`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            subject_line: subject,
+            email_body_html: content
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoadingToast();
+        if (data.success) {
+            showToast(`✅ ${data.message}`, 'success', 3000);
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showToast(`❌ Failed to update variant: ${data.error}`, 'error', 5000);
+        }
+    })
+    .catch(error => {
+        hideLoadingToast();
+        console.error('Edit variant error:', error);
+        showToast('❌ Failed to update variant. Please try again.', 'error', 5000);
+    });
+}
+
+function deleteVariant(variantId, variantName) {
+    if (!confirm(`Are you sure you want to delete variant ${variantName}? This action cannot be undone.`)) {
+        return;
+    }
+
+    showLoadingToast('Deleting variant...');
+
+    fetch(`/campaigns/{{ campaign.id }}/variants/${variantId}/delete`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoadingToast();
+        if (data.success) {
+            showToast(`✅ ${data.message}`, 'success', 3000);
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showToast(`❌ Failed to delete variant: ${data.error}`, 'error', 5000);
+        }
+    })
+    .catch(error => {
+        hideLoadingToast();
+        console.error('Delete variant error:', error);
+        showToast('❌ Failed to delete variant. Please try again.', 'error', 5000);
+    });
+}
+
+function setDefaultVariant(variantId) {
+    showLoadingToast('Setting default variant...');
+
+    fetch(`/campaigns/{{ campaign.id }}/variants/${variantId}/set-default`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoadingToast();
+        if (data.success) {
+            showToast(`✅ ${data.message}`, 'success', 3000);
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showToast(`❌ Failed to set default: ${data.error}`, 'error', 5000);
+        }
+    })
+    .catch(error => {
+        hideLoadingToast();
+        console.error('Set default variant error:', error);
+        showToast('❌ Failed to set default variant. Please try again.', 'error', 5000);
+    });
+}
+
+function previewVariant(variantId) {
+    showLoadingToast('Loading preview...');
+
+    fetch(`/campaigns/{{ campaign.id }}/variants/${variantId}/preview`)
+    .then(response => response.json())
+    .then(data => {
+        hideLoadingToast();
+        if (data.success) {
+            const preview = data.preview;
+            const previewWindow = window.open('', '_blank', 'width=800,height=600');
+            previewWindow.document.write(`
+                <html>
+                <head><title>Email Preview</title></head>
+                <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <div style="border: 1px solid #ddd; margin-bottom: 20px; padding: 10px; background: #f9f9f9;">
+                        <strong>From:</strong> ${preview.sender_name || 'Sales Team'} &lt;${preview.sender_email || 'noreply@company.com'}&gt;<br>
+                        <strong>Subject:</strong> ${preview.subject}
+                    </div>
+                    <div>${preview.content}</div>
+                </body>
+                </html>
+            `);
+        } else {
+            showToast(`❌ Failed to load preview: ${data.error}`, 'error', 5000);
+        }
+    })
+    .catch(error => {
+        hideLoadingToast();
+        console.error('Preview variant error:', error);
+        showToast('❌ Failed to load preview. Please try again.', 'error', 5000);
+    });
+}
+</script>
+{% endblock %}

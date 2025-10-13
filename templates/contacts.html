@@ -1,0 +1,1561 @@
+{% extends "base.html" %}
+
+{% block title %}Contact Management - SalesBreachPro{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0">
+                    <i class="fas fa-users me-2"></i>Contact Management
+                </h1>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="csv-help-icon" data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true" 
+                          title="<strong>CSV Upload Instructions:</strong><br/>
+                                 <em>Required Column:</em><br/>
+                                 • <strong>email</strong> - Contact email address<br/><br/>
+                                 <em>Optional Columns:</em><br/>
+                                 • <strong>first_name</strong> - First name<br/>
+                                 • <strong>last_name</strong> - Last name<br/>
+                                 • <strong>company</strong> - Company name<br/>
+                                 • <strong>title</strong> - Job title/role<br/>
+                                 • <strong>phone</strong> - Phone number<br/>
+                                 • <strong>industry</strong> - Industry sector<br/><br/>
+                                 <em>Flexible naming:</em> We support many column name variations<br/>
+                                 (e.g., 'Name', 'Full Name', 'Email Address', 'Role', etc.)">
+                        <i class="fas fa-question-circle text-muted"></i>
+                    </span>
+                    <!-- Hidden file input for CSV upload -->
+                    <input type="file" id="quickUploadFile" accept=".csv" style="display: none;">
+                    
+                    <button type="button" class="btn btn-primary" onclick="triggerGlobalUpload()">
+                        <i class="fas fa-upload me-1"></i>Upload Contacts
+                    </button>
+                    <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                        <i class="fas fa-cog me-1"></i>Actions
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="#" id="exportContacts">
+                            <i class="fas fa-download me-1"></i>Export All Contacts
+                        </a></li>
+                        <li><a class="dropdown-item" href="#" id="bulkDelete">
+                            <i class="fas fa-trash me-1"></i>Bulk Delete
+                        </a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="#" id="bulkBreached">
+                            <i class="fas fa-exclamation-triangle me-1 text-danger"></i>Mark as Breached
+                        </a></li>
+                        <li><a class="dropdown-item" href="#" id="bulkNotBreached">
+                            <i class="fas fa-shield-alt me-1 text-success"></i>Mark as Secure
+                        </a></li>
+                        <li><a class="dropdown-item" href="#" id="bulkUnknown">
+                            <i class="fas fa-question me-1 text-warning"></i>Mark as Unknown
+                        </a></li>
+                        <li><a class="dropdown-item" href="#" id="bulkUnassigned">
+                            <i class="fas fa-redo me-1 text-info"></i>Mark as Unassigned
+                        </a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="#" id="refreshList">
+                            <i class="fas fa-sync me-1"></i>Refresh List
+                        </a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body text-center">
+                    <h3>{{ total_contacts or 0 }}</h3>
+                    <p class="mb-0">Total Contacts</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body text-center">
+                    <h3>{{ active_count or 0 }}</h3>
+                    <p class="mb-0">Active Contacts</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body text-center">
+                    <h3>{{ in_campaigns_count or 0 }}</h3>
+                    <p class="mb-0">In Campaigns</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-danger text-white">
+                <div class="card-body text-center">
+                    <h3>{{ blocked_count or 0 }}</h3>
+                    <p class="mb-0">Blocked Emails</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Search and Filters -->
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <form method="GET" class="d-flex">
+                <input type="search" class="form-control me-2" name="search" 
+                       placeholder="Search contacts by email, name, or company..." 
+                       value="{{ request.args.get('search', '') }}">
+                <button type="submit" class="btn btn-outline-secondary">
+                    <i class="fas fa-search"></i>
+                </button>
+                {% if request.args.get('search') %}
+                    <a href="{{ url_for('contacts.index') }}" class="btn btn-outline-secondary ms-1">
+                        <i class="fas fa-times"></i>
+                    </a>
+                {% endif %}
+            </form>
+        </div>
+        <div class="col-md-6">
+            <div class="d-flex justify-content-end gap-2">
+                <!-- Activity Filters -->
+                <div class="btn-group" role="group">
+                    <input type="radio" class="btn-check" name="filter" id="all" autocomplete="off"
+                           {{ 'checked' if current_filter == 'all' else '' }}>
+                    <label class="btn btn-outline-secondary" for="all">All</label>
+
+                    <input type="radio" class="btn-check" name="filter" id="active" autocomplete="off"
+                           {{ 'checked' if current_filter == 'active' else '' }}>
+                    <label class="btn btn-outline-secondary" for="active">Active</label>
+
+                    <input type="radio" class="btn-check" name="filter" id="recent" autocomplete="off"
+                           {{ 'checked' if current_filter == 'recent' else '' }}>
+                    <label class="btn btn-outline-secondary" for="recent">Recent</label>
+                    <input type="radio" class="btn-check" name="filter" id="blocked" autocomplete="off"
+                           {{ 'checked' if current_filter == 'blocked' else '' }}>
+                    <label class="btn btn-outline-danger" for="blocked">🚫 Blocked</label>
+                </div>
+
+                <!-- Status Filter Dropdown -->
+                <div class="dropdown">
+                    <button class="btn btn-outline-primary dropdown-toggle" type="button" id="statusFilterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-filter me-1"></i>
+                        {% if request.args.get('status') %}
+                            {% set status = request.args.get('status') %}
+                            {% if status == 'breached' %}🔴 Breached
+                            {% elif status == 'not_breached' %}🟢 Secure
+                            {% elif status == 'risky' %}🟡 Risky
+                            {% elif status == 'bounced' %}⚫ Bounced
+                            {% elif status == 'unassigned' %}🔵 Scanning
+                            {% else %}Status
+                            {% endif %}
+                        {% else %}
+                            Contact Status
+                        {% endif %}
+                    </button>
+                    <ul class="dropdown-menu" aria-labelledby="statusFilterDropdown">
+                        <li><a class="dropdown-item {{ 'active' if not request.args.get('status') else '' }}" href="#" onclick="filterByStatus('')">
+                            <i class="fas fa-list me-2"></i>All Statuses
+                        </a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item {{ 'active' if request.args.get('status') == 'breached' else '' }}" href="#" onclick="filterByStatus('breached')">
+                            <span class="badge bg-danger me-2">🔴</span>Breached
+                        </a></li>
+                        <li><a class="dropdown-item {{ 'active' if request.args.get('status') == 'not_breached' else '' }}" href="#" onclick="filterByStatus('not_breached')">
+                            <span class="badge bg-success me-2">🟢</span>Secure
+                        </a></li>
+                        <li><a class="dropdown-item {{ 'active' if request.args.get('status') == 'risky' else '' }}" href="#" onclick="filterByStatus('risky')">
+                            <span class="badge bg-warning me-2">🟡</span>Risky
+                        </a></li>
+                        <li><a class="dropdown-item {{ 'active' if request.args.get('status') == 'bounced' else '' }}" href="#" onclick="filterByStatus('bounced')">
+                            <span class="badge bg-dark me-2">⚫</span>Bounced
+                        </a></li>
+                        <li><a class="dropdown-item {{ 'active' if request.args.get('status') == 'unassigned' else '' }}" href="#" onclick="filterByStatus('unassigned')">
+                            <span class="badge bg-info me-2">🔵</span>Scanning
+                        </a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Contacts Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        Contact List
+                        <span class="badge bg-primary ms-2">{{ pagination.total }}</span>
+                        {% if request.args.get('search') %}
+                            - Search results for "{{ request.args.get('search') }}"
+                        {% endif %}
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if contacts and contacts|length > 0 %}
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th width="40">
+                                            <input type="checkbox" id="masterCheckbox">
+                                        </th>
+                                        <th>Contact</th>
+                                        <th>Company</th>
+                                        <th>Title</th>
+                                        <th>Domain</th>
+                                        <th>Contact Status</th>
+                                        <th>Emails Sent</th>
+                                        <th>Campaigns</th>
+                                        <th>
+                                            <a href="javascript:void(0)" onclick="sortByDate()" class="text-decoration-none text-dark d-flex align-items-center">
+                                                Added
+                                                <i id="sortIcon" class="fas {{ 'fa-sort-up' if request.args.get('sort') == 'date_asc' else 'fa-sort-down' if request.args.get('sort') == 'date_desc' else 'fa-sort' }} ms-1"></i>
+                                            </a>
+                                        </th>
+                                        <th>Activity Status</th>
+                                        <th width="120">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for contact in contacts %}
+                                        <tr data-contact-id="{{ contact.id }}">
+                                            <td>
+                                                <input type="checkbox" class="contact-checkbox" 
+                                                       value="{{ contact.id }}">
+                                            </td>
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    <div class="avatar-sm bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2">
+                                                        {{ (contact.first_name or contact.email)[0]|upper }}
+                                                    </div>
+                                                    <div>
+                                                        <strong>
+                                                            {% if contact.first_name or contact.last_name %}
+                                                                {{ contact.first_name or '' }} {{ contact.last_name or '' }}
+                                                            {% else %}
+                                                                {{ contact.email.split('@')[0]|title }}
+                                                            {% endif %}
+                                                        </strong><br>
+                                                        <small class="text-muted">{{ contact.email }}</small>
+                                                        {% if contact.phone %}
+                                                            <br><small class="text-muted">
+                                                                <i class="fas fa-phone fa-xs me-1"></i>{{ contact.phone }}
+                                                            </small>
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                {% if contact.company %}
+                                                    <strong>{{ contact.company }}</strong>
+                                                    {% if contact.industry %}
+                                                        <br><small class="text-muted">{{ contact.industry }}</small>
+                                                    {% endif %}
+                                                {% else %}
+                                                    <span class="text-muted">Not specified</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if contact.title %}
+                                                    {{ contact.title }}
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-light text-dark">{{ contact.domain }}</span>
+                                            </td>
+                                            <td class="text-center">
+                                                {% set scan_status = contact.get_domain_scan_status() %}
+                                                
+                                                <!-- Breach Status Badge -->
+                                                {% if contact.breach_status == 'breached' %}
+                                                    <span class="badge bg-danger" title="Security breach detected">
+                                                        <i class="fas fa-exclamation-triangle me-1"></i>🔴 Breached
+                                                    </span>
+                                                {% elif contact.breach_status == 'not_breached' %}
+                                                    <span class="badge bg-success" title="No breaches found">
+                                                        <i class="fas fa-shield-check me-1"></i>🟢 Secure
+                                                    </span>
+                                                {% elif contact.breach_status == 'unassigned' %}
+                                                    <span class="badge bg-info" title="Scanning in progress">
+                                                        <i class="fas fa-spinner fa-spin me-1"></i>📋 Unassigned
+                                                    </span>
+                                                {% elif contact.breach_status == 'risky' %}
+                                                    <span class="badge bg-warning" title="Risky email - not scanned">
+                                                        <i class="fas fa-exclamation me-1"></i>⚠️ Risky
+                                                    </span>
+                                                {% elif contact.breach_status == 'bounced' %}
+                                                    <span class="badge bg-dark" title="Invalid email address">
+                                                        <i class="fas fa-ban me-1"></i>🚫 Bounced
+                                                    </span>
+                                                {% elif contact.email_status == 'blocked' %}
+                                                    <span class="badge bg-danger" title="Email blocked by recipient">
+                                                        <i class="fas fa-shield-alt me-1"></i>🚫 Blocked
+                                                    </span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary" title="Breach status unknown">
+                                                        <i class="fas fa-question-circle me-1"></i>⚪ Unknown
+                                                    </span>
+                                                {% endif %}
+                                                
+                                                <br><small class="mt-1">
+                                                    <!-- FlawTrack Scanning Status -->
+                                                    {% if scan_status.status == 'scanning' %}
+                                                        <span class="text-info" title="Domain scan in progress">
+                                                            <i class="fas fa-spinner fa-spin me-1"></i>Scanning...
+                                                        </span>
+                                                    {% elif scan_status.status == 'completed' %}
+                                                        <span class="text-success" title="Domain scan completed">
+                                                            <i class="fas fa-check me-1"></i>Scan completed
+                                                        </span>
+                                                    {% elif scan_status.status == 'failed' %}
+                                                        <span class="text-warning" title="{{ scan_status.error or 'Scan failed, will retry' }}">
+                                                            <i class="fas fa-exclamation-triangle me-1"></i>Retry ({{ scan_status.attempts }}/3)
+                                                        </span>
+                                                    {% else %}
+                                                        <span class="text-muted" title="Domain not scanned yet">
+                                                            <i class="fas fa-clock me-1"></i>Not scanned
+                                                        </span>
+                                                    {% endif %}
+                                                </small>
+                                            </td>
+                                            <td class="text-center">
+                                                <span class="badge bg-primary">{{ contact.email_count or 0 }}</span>
+                                            </td>
+                                            <td class="text-center">
+                                                <span class="badge bg-info">{{ contact.campaign_count or 0 }}</span>
+                                            </td>
+                                            <td>
+                                                <small>{{ contact.created_at.strftime('%m/%d/%Y') if contact.created_at else 'Unknown' }}</small>
+                                            </td>
+                                            <td>
+                                                {% if contact.blocked_at %}
+                                                    <span class="badge bg-danger">🚫 Blocked</span>
+                                                {% elif contact.status == 'active' %}
+                                                    <span class="badge bg-success">Active</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">{{ contact.status|title }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="btn-group btn-group-sm">
+                                                    <button type="button" class="btn btn-outline-primary" 
+                                                            onclick="editContact({{ contact.id }})" 
+                                                            title="Edit Contact">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                    <button type="button" class="btn btn-outline-info" 
+                                                            onclick="viewBreachInfo('{{ contact.domain }}')" 
+                                                            title="Check Breaches">
+                                                        <i class="fas fa-shield-alt"></i>
+                                                    </button>
+                                                    <button type="button" class="btn btn-outline-danger" 
+                                                            onclick="deleteContact({{ contact.id }})" 
+                                                            title="Delete Contact">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Pagination -->
+                        {% if pagination.pages > 1 %}
+                            <div class="card-footer">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        Showing {{ (pagination.current_page - 1) * pagination.per_page + 1 }} 
+                                        to {{ pagination.current_page * pagination.per_page if pagination.current_page * pagination.per_page < pagination.total else pagination.total }} 
+                                        of {{ pagination.total }} contacts
+                                    </div>
+                                    <nav>
+                                        <ul class="pagination mb-0">
+                                            {% if pagination.has_prev %}
+                                                <li class="page-item">
+                                                    <a class="page-link" href="{{ url_for('contacts.index', page=pagination.prev_num, search=request.args.get('search', ''), filter=request.args.get('filter', ''), status=request.args.get('status', ''), sort=request.args.get('sort', '')) }}">
+                                                        <i class="fas fa-chevron-left"></i>
+                                                    </a>
+                                                </li>
+                                            {% endif %}
+                                            
+                                            {% for page_num in range(1, pagination.pages + 1) %}
+                                                {% if page_num == pagination.current_page %}
+                                                    <li class="page-item active">
+                                                        <span class="page-link">{{ page_num }}</span>
+                                                    </li>
+                                                {% elif page_num <= 3 or page_num > pagination.pages - 3 or (page_num >= pagination.current_page - 1 and page_num <= pagination.current_page + 1) %}
+                                                    <li class="page-item">
+                                                        <a class="page-link" href="{{ url_for('contacts.index', page=page_num, search=request.args.get('search', ''), filter=request.args.get('filter', ''), status=request.args.get('status', ''), sort=request.args.get('sort', '')) }}">
+                                                            {{ page_num }}
+                                                        </a>
+                                                    </li>
+                                                {% elif page_num == 4 and pagination.current_page > 5 %}
+                                                    <li class="page-item disabled">
+                                                        <span class="page-link">...</span>
+                                                    </li>
+                                                {% elif page_num == pagination.pages - 3 and pagination.current_page < pagination.pages - 4 %}
+                                                    <li class="page-item disabled">
+                                                        <span class="page-link">...</span>
+                                                    </li>
+                                                {% endif %}
+                                            {% endfor %}
+                                            
+                                            {% if pagination.has_next %}
+                                                <li class="page-item">
+                                                    <a class="page-link" href="{{ url_for('contacts.index', page=pagination.next_num, search=request.args.get('search', ''), filter=request.args.get('filter', ''), status=request.args.get('status', ''), sort=request.args.get('sort', '')) }}">
+                                                        <i class="fas fa-chevron-right"></i>
+                                                    </a>
+                                                </li>
+                                            {% endif %}
+                                        </ul>
+                                    </nav>
+                                </div>
+                            </div>
+                        {% endif %}
+                        
+                    {% else %}
+                        <div class="text-center py-5">
+                            {% if request.args.get('search') %}
+                                <i class="fas fa-search fs-1 text-muted mb-3"></i>
+                                <h5>No contacts found</h5>
+                                <p class="text-muted">No contacts match your search criteria.</p>
+                                <a href="{{ url_for('contacts.index') }}" class="btn btn-secondary">Clear Search</a>
+                            {% else %}
+                                <i class="fas fa-users fs-1 text-muted mb-3"></i>
+                                <h5>No contacts yet</h5>
+                                <p class="text-muted">Upload your first CSV file to get started.</p>
+                                <button type="button" class="btn btn-primary" onclick="triggerGlobalUpload()">
+                                    <i class="fas fa-upload me-1"></i>Upload Contacts
+                                </button>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Upload Modal -->
+<div class="modal fade" id="quickUploadModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-upload me-2"></i>Upload Contacts
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Upload Progress -->
+                <div id="uploadProgressSection" style="display: none;">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span id="uploadProgressMessage">Uploading...</span>
+                            <span id="uploadProgressPercent">0%</span>
+                        </div>
+                        <div class="progress mb-2">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                 id="uploadProgressBar" role="progressbar" style="width: 0%"></div>
+                        </div>
+                        
+                        <!-- Additional Progress Info -->
+                        <div id="progressDetails" class="small text-muted">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <span id="progressRowInfo">Processing rows...</span>
+                                </div>
+                                <div class="col-md-6">
+                                    <span id="progressScanInfo">Scanning domains...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Upload Results -->
+                <div id="uploadResultsSection" style="display: none;">
+                    <!-- Results will be populated by JavaScript -->
+                </div>
+
+                <!-- Upload Instructions -->
+                <div id="uploadInstructionsSection">
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-info-circle me-2"></i>CSV Format Requirements</h6>
+                        <p class="mb-2"><strong>Required column:</strong> email</p>
+                        <p class="mb-2"><strong>Optional columns:</strong> first_name, last_name, company, title, phone, industry</p>
+                        <p class="mb-0"><strong>Example:</strong> email,first_name,last_name,company</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="selectAnotherFile" style="display: none;">
+                    <i class="fas fa-upload me-1"></i>Upload Another File
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Contact Modal -->
+<div class="modal fade" id="editContactModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Contact</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editContactForm">
+                    <input type="hidden" id="editContactId">
+                    
+                    <div class="mb-3">
+                        <label for="editEmail" class="form-label">Email *</label>
+                        <input type="email" class="form-control" id="editEmail" required>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="editFirstName" class="form-label">First Name</label>
+                                <input type="text" class="form-control" id="editFirstName">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="editLastName" class="form-label">Last Name</label>
+                                <input type="text" class="form-control" id="editLastName">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editCompany" class="form-label">Company</label>
+                        <input type="text" class="form-control" id="editCompany">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editTitle" class="form-label">Title</label>
+                        <input type="text" class="form-control" id="editTitle">
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="editPhone" class="form-label">Phone</label>
+                                <input type="text" class="form-control" id="editPhone">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="editIndustry" class="form-label">Industry</label>
+                                <input type="text" class="form-control" id="editIndustry">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editStatus" class="form-label">Status</label>
+                        <select class="form-select" id="editStatus">
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                            <option value="unsubscribed">Unsubscribed</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveContactBtn">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Breach Info Modal -->
+<div class="modal fade" id="breachInfoModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Security Breach Information</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="breachInfoContent">
+                <div class="text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p>Loading breach information...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Error Modal -->
+<div class="modal fade" id="errorModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Error
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="errorMessage">An error occurred. Please try again.</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Confirmation Modal -->
+<div class="modal fade" id="confirmModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title">
+                    <i class="fas fa-question-circle me-2"></i>Confirm Action
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="confirmMessage">Are you sure you want to perform this action?</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmActionBtn">Confirm</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Modal helper functions
+function showError(message) {
+    document.getElementById('errorMessage').innerHTML = message;
+    new bootstrap.Modal(document.getElementById('errorModal')).show();
+}
+
+function showSuccess(message) {
+    // Create a success toast or alert
+    const alertHtml = `
+        <div class="alert alert-success alert-dismissible fade show position-fixed" style="top: 20px; right: 20px; z-index: 9999; max-width: 400px;" role="alert">
+            <i class="fas fa-check-circle me-2"></i>${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('afterbegin', alertHtml);
+
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        const alert = document.querySelector('.alert-success');
+        if (alert) alert.remove();
+    }, 5000);
+}
+
+function showConfirm(message, onConfirm) {
+    document.getElementById('confirmMessage').innerHTML = message;
+    const modal = new bootstrap.Modal(document.getElementById('confirmModal'));
+    
+    // Remove any existing event listeners
+    const confirmBtn = document.getElementById('confirmActionBtn');
+    const newConfirmBtn = confirmBtn.cloneNode(true);
+    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+    
+    // Add new event listener
+    newConfirmBtn.addEventListener('click', function() {
+        modal.hide();
+        onConfirm();
+    });
+    
+    modal.show();
+}
+
+function updateContactStats() {
+    fetch('/api/contact-stats')
+        .then(response => response.json())
+        .then(data => {
+            if (!data.error) {
+                // Update the statistics cards
+                const totalElement = document.querySelector('[class*="bg-primary"] h3');
+                const activeElement = document.querySelector('[class*="bg-success"] h3'); 
+                const campaignsElement = document.querySelector('[class*="bg-warning"] h3');
+                const companiesElement = document.querySelector('[class*="bg-info"] h3');
+                
+                if (totalElement) totalElement.textContent = data.total_contacts || 0;
+                if (activeElement) activeElement.textContent = data.active_contacts || 0;
+                if (campaignsElement) campaignsElement.textContent = data.in_campaigns_count || 0;
+                if (companiesElement) companiesElement.textContent = data.companies_count || 0;
+            }
+        })
+        .catch(error => {
+            console.error('Error updating contact stats:', error);
+        });
+}
+
+// Contact management functions
+function editContact(contactId) {
+    // Fetch contact data and populate modal
+    fetch(`/api/contacts/${contactId}`)
+        .then(response => response.json())
+        .then(contact => {
+            document.getElementById('editContactId').value = contact.id;
+            document.getElementById('editEmail').value = contact.email;
+            document.getElementById('editFirstName').value = contact.first_name || '';
+            document.getElementById('editLastName').value = contact.last_name || '';
+            document.getElementById('editCompany').value = contact.company || '';
+            document.getElementById('editTitle').value = contact.title || '';
+            document.getElementById('editPhone').value = contact.phone || '';
+            document.getElementById('editIndustry').value = contact.industry || '';
+            document.getElementById('editStatus').value = contact.status || 'active';
+            
+            new bootstrap.Modal(document.getElementById('editContactModal')).show();
+        })
+        .catch(error => {
+            showError('Failed to load contact data. Please try again.');
+            console.error('Error:', error);
+        });
+}
+
+function deleteContact(contactId) {
+    showConfirm('Are you sure you want to delete this contact? This action cannot be undone.', function() {
+        fetch(`/api/contacts/${contactId}`, {
+            method: 'DELETE'
+        })
+        .then(response => {
+            if (!response.ok) {
+                // Handle HTTP error status
+                return response.json().then(result => {
+                    throw new Error(result.error || result.message || 'Unknown error');
+                });
+            }
+            return response.json();
+        })
+        .then(result => {
+            if (result.success) {
+                // Remove the contact row from the table
+                const contactRow = document.querySelector(`tr[data-contact-id="${contactId}"]`);
+                if (contactRow) {
+                    contactRow.remove();
+                }
+                
+                // Update statistics
+                updateContactStats();
+                
+                // Show success message
+                console.log('Contact deleted successfully');
+                
+                // Reload page after a short delay to update counts
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            } else {
+                showError('Error deleting contact: ' + (result.error || result.message || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            showError('Failed to delete contact: ' + error.message);
+            console.error('Error deleting contact:', error);
+        });
+    });
+}
+
+function viewBreachInfo(domain, contactEmail = null) {
+    const modal = new bootstrap.Modal(document.getElementById('breachInfoModal'));
+    const modalTitle = document.querySelector('#breachInfoModal .modal-title');
+    
+    // Update modal title based on context
+    if (contactEmail) {
+        modalTitle.textContent = `Security Information - ${domain}`;
+    } else {
+        modalTitle.textContent = `Domain Security Information - ${domain}`;
+    }
+    
+    modal.show();
+    
+    // Fetch breach information and scanning status
+    Promise.all([
+        fetch(`/api/breach-lookup/${domain}`).then(r => r.json()),
+        fetch(`/api/domain-scan-status/${domain}`).then(r => r.json()).catch(() => ({}))
+    ])
+        .then(([breachData, scanData]) => {
+            let content = '';
+            
+            // Check actual breach status vs scan status
+            if (breachData.error || breachData.status === 'secure') {
+                // Domain is secure/not breached
+                content = `
+                    <div class="alert alert-success">
+                        <h6><i class="fas fa-shield-check me-2"></i>Security Status: Clean</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>Domain:</strong> ${domain}<br>
+                                <strong>Status:</strong> 
+                                <span class="badge bg-success fs-6">🟢 NOT BREACHED</span><br>
+                                <strong>Contacts:</strong> ${breachData.contacts_affected || 'N/A'}
+                            </div>
+                            <div class="col-md-6">
+                                <p class="mb-1 small">No security breaches found for this domain.</p>
+                                <p class="mb-0 small text-success">✅ This domain appears to be secure based on our analysis.</p>
+                            </div>
+                        </div>
+                        ${scanData.status ? `
+                        <div class="mt-2 pt-2 border-top">
+                            <small class="text-muted">
+                                <strong>Scan Status:</strong> ${getScanStatusBadge(scanData.status)} 
+                                ${scanData.last_updated ? `• Last scanned: ${new Date(scanData.last_updated).toLocaleDateString()}` : ''}
+                            </small>
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+            } else {
+                // Domain has breaches
+                const breachDataForDisplay = breachData.breach_data || [];
+                const sampleRecords = Array.isArray(breachDataForDisplay) ? breachDataForDisplay.slice(0, 3) : [];
+                
+                content = `
+                    <div class="alert alert-danger">
+                        <h6><i class="fas fa-exclamation-triangle me-2"></i>Security Breach Detected</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>Domain:</strong> ${breachData.domain}<br>
+                                <strong>Status:</strong> 
+                                <span class="badge bg-danger fs-6">🔴 BREACHED</span><br>
+                                <strong>Records Found:</strong> ${breachData.records_affected || 'Unknown'}<br>
+                                <strong>Year:</strong> ${breachData.breach_year || 'Recent'}
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Contacts Affected:</strong> ${breachData.contacts_affected || 'N/A'}<br>
+                                <strong>Data Types:</strong> ${breachData.data_types || 'Credentials, Email addresses'}<br>
+                                <p class="mb-0 small text-danger mt-1">⚠️ Credential breach detected in security databases.</p>
+                            </div>
+                        </div>
+                        
+                        ${sampleRecords.length > 0 ? `
+                        <div class="mt-3">
+                            <h6>Sample Breach Records Found:</h6>
+                            <div class="row">
+                                ${sampleRecords.map(record => `
+                                <div class="col-md-4 mb-2">
+                                    <div class="card border-danger">
+                                        <div class="card-body p-2">
+                                            <small>
+                                                <strong>Service:</strong> ${record.service_name || 'Unknown'}<br>
+                                                <strong>Email:</strong> ${record.identifier || 'Hidden'}<br>
+                                                <strong>Found:</strong> ${record.created_at ? new Date(record.created_at).toLocaleDateString() : 'Recent'}
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                        ` : ''}
+                        
+                        ${scanData.status ? `
+                        <div class="mt-2 pt-2 border-top">
+                            <small class="text-muted">
+                                <strong>Scan Status:</strong> ${getScanStatusBadge(scanData.status)} 
+                                ${scanData.last_updated ? `• Last scanned: ${new Date(scanData.last_updated).toLocaleDateString()}` : ''}
+                            </small>
+                        </div>
+                        ` : ''}
+                        
+                        <div class="mt-3">
+                            <h6>Email Campaign Suggestions:</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="fas fa-check text-success me-2"></i>Use breach-specific email template</li>
+                                <li><i class="fas fa-check text-success me-2"></i>Mention security improvements and consultation</li>
+                                <li><i class="fas fa-check text-success me-2"></i>Reference specific breach data for credibility</li>
+                            </ul>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            document.getElementById('breachInfoContent').innerHTML = content;
+        })
+        .catch(error => {
+            document.getElementById('breachInfoContent').innerHTML = `
+                <div class="alert alert-danger">
+                    <h6><i class="fas fa-exclamation-triangle me-2"></i>Error</h6>
+                    <p>Failed to load breach information for ${domain}</p>
+                </div>
+            `;
+        });
+}
+
+// Helper function to get scan status badge
+function getScanStatusBadge(status) {
+    const badges = {
+        'not_scanned': '<span class="badge bg-secondary">Not scanned</span>',
+        'scanning': '<span class="badge bg-info">Scanning...</span>',
+        'completed': '<span class="badge bg-success">Completed</span>',
+        'failed': '<span class="badge bg-warning">Failed</span>'
+    };
+    return badges[status] || '<span class="badge bg-secondary">Unknown</span>';
+}
+
+// Checkbox management with null checks
+const masterCheckbox = document.getElementById('masterCheckbox');
+if (masterCheckbox) {
+    masterCheckbox.addEventListener('change', function() {
+        const checkboxes = document.querySelectorAll('.contact-checkbox');
+        checkboxes.forEach(cb => cb.checked = this.checked);
+        updateBulkActions();
+    });
+}
+
+document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('contact-checkbox')) {
+        updateBulkActions();
+        updateMasterCheckbox();
+    }
+});
+
+function updateMasterCheckbox() {
+    const masterCheckbox = document.getElementById('masterCheckbox');
+    if (masterCheckbox) {
+        const allCheckboxes = document.querySelectorAll('.contact-checkbox');
+        const checkedCheckboxes = document.querySelectorAll('.contact-checkbox:checked');
+        
+        if (allCheckboxes.length === 0) {
+            masterCheckbox.checked = false;
+            masterCheckbox.indeterminate = false;
+        } else if (checkedCheckboxes.length === 0) {
+            masterCheckbox.checked = false;
+            masterCheckbox.indeterminate = false;
+        } else if (checkedCheckboxes.length === allCheckboxes.length) {
+            masterCheckbox.checked = true;
+            masterCheckbox.indeterminate = false;
+        } else {
+            masterCheckbox.checked = false;
+            masterCheckbox.indeterminate = true;
+        }
+    }
+}
+
+function updateBulkActions() {
+    const selected = document.querySelectorAll('.contact-checkbox:checked');
+    const bulkDeleteBtn = document.getElementById('bulkDelete');
+    
+    if (bulkDeleteBtn) {
+        if (selected.length > 0) {
+            bulkDeleteBtn.innerHTML = `<i class="fas fa-trash me-1"></i>Bulk Delete (${selected.length})`;
+            bulkDeleteBtn.classList.remove('disabled');
+        } else {
+            bulkDeleteBtn.innerHTML = '<i class="fas fa-trash me-1"></i>Bulk Delete';
+            bulkDeleteBtn.classList.add('disabled');
+        }
+    }
+}
+
+// Save contact changes with null checks
+const saveContactBtn = document.getElementById('saveContactBtn');
+if (saveContactBtn) {
+    saveContactBtn.addEventListener('click', function() {
+        const contactId = document.getElementById('editContactId')?.value;
+        const formData = {
+            email: document.getElementById('editEmail')?.value || '',
+            first_name: document.getElementById('editFirstName')?.value || '',
+            last_name: document.getElementById('editLastName')?.value || '',
+            company: document.getElementById('editCompany')?.value || '',
+            title: document.getElementById('editTitle')?.value || '',
+            phone: document.getElementById('editPhone')?.value || '',
+            industry: document.getElementById('editIndustry')?.value || '',
+            status: document.getElementById('editStatus')?.value || 'active'
+        };
+        
+        if (contactId) {
+            fetch(`/api/contacts/${contactId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(formData)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    const modal = document.getElementById('editContactModal');
+                    if (modal) {
+                        bootstrap.Modal.getInstance(modal).hide();
+                    }
+                    
+                    // Update statistics in case the contact's active status changed
+                    updateContactStats();
+                    
+                    location.reload(); // Still need to reload to update the table row data
+                } else {
+                    showError('Error updating contact: ' + (result.message || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                showError('Failed to update contact. Please try again.');
+                console.error('Error:', error);
+            });
+        }
+    });
+}
+
+// Export contacts with null check
+const exportContacts = document.getElementById('exportContacts');
+if (exportContacts) {
+    exportContacts.addEventListener('click', function() {
+        window.location.href = '/api/contacts/export';
+    });
+}
+
+// Bulk delete with null check
+const bulkDeleteBtn = document.getElementById('bulkDelete');
+if (bulkDeleteBtn) {
+    bulkDeleteBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        
+        const selected = document.querySelectorAll('.contact-checkbox:checked');
+        if (selected.length === 0) {
+            showError('Please select contacts to delete.');
+            return;
+        }
+        
+        const contactIds = Array.from(selected).map(cb => parseInt(cb.value));
+        const message = `Are you sure you want to delete ${selected.length} contact${selected.length > 1 ? 's' : ''}? This action cannot be undone.`;
+        
+        showConfirm(message, function() {
+            // Perform bulk delete
+            fetch('/api/contacts/bulk-delete', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ contact_ids: contactIds })
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    // Remove deleted rows from table
+                    contactIds.forEach(id => {
+                        const row = document.querySelector(`tr[data-contact-id="${id}"]`);
+                        if (row) row.remove();
+                    });
+                    
+                    // Update statistics
+                    updateContactStats();
+                    
+                    // Reset checkboxes
+                    const masterCheckbox = document.getElementById('masterCheckbox');
+                    if (masterCheckbox) masterCheckbox.checked = false;
+                    
+                    console.log(`Successfully deleted ${result.deleted_count} contacts`);
+                } else {
+                    showError('Error deleting contacts: ' + (result.message || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                showError('Failed to delete contacts. Please try again.');
+                console.error('Error:', error);
+            });
+        });
+    });
+}
+
+// Bulk breach status update handlers
+function handleBulkBreachStatusUpdate(status, statusName) {
+    const selected = document.querySelectorAll('.contact-checkbox:checked');
+    if (selected.length === 0) {
+        showError('Please select contacts to update.');
+        return;
+    }
+    
+    const contactIds = Array.from(selected).map(cb => parseInt(cb.value));
+    const message = `Are you sure you want to mark ${selected.length} contact${selected.length > 1 ? 's' : ''} as ${statusName}?`;
+
+    showConfirm(message, function() {
+        fetch('/api/contacts/bulk-update-breach-status', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                contact_ids: contactIds,
+                breach_status: status
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                showSuccess(data.message || `Successfully updated ${data.updated_count || 0} contacts`);
+                setTimeout(() => location.reload(), 2000);
+            } else {
+                showError(data.error || 'Failed to update breach status');
+            }
+        })
+        .catch(error => {
+            showError('Failed to update breach status. Please try again.');
+            console.error('Error:', error);
+        });
+    });
+}
+
+// Bulk breach status buttons with null checks
+const bulkBreachedBtn = document.getElementById('bulkBreached');
+if (bulkBreachedBtn) {
+    bulkBreachedBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        handleBulkBreachStatusUpdate('breached', 'Breached');
+    });
+}
+
+const bulkNotBreachedBtn = document.getElementById('bulkNotBreached');
+if (bulkNotBreachedBtn) {
+    bulkNotBreachedBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        handleBulkBreachStatusUpdate('not_breached', 'Secure');
+    });
+}
+
+const bulkUnknownBtn = document.getElementById('bulkUnknown');
+if (bulkUnknownBtn) {
+    bulkUnknownBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        handleBulkBreachStatusUpdate('unknown', 'Unknown');
+    });
+}
+
+const bulkUnassignedBtn = document.getElementById('bulkUnassigned');
+if (bulkUnassignedBtn) {
+    bulkUnassignedBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        handleBulkBreachStatusUpdate('unassigned', 'Unassigned (will be re-scanned)');
+    });
+}
+
+// Refresh list with null check
+const refreshList = document.getElementById('refreshList');
+if (refreshList) {
+    refreshList.addEventListener('click', function() {
+        location.reload();
+    });
+}
+
+// Trigger file selection for upload - open upload page in new tab
+function triggerGlobalUpload() {
+    // Open the dedicated upload page in a new tab with preview and campaign selection
+    window.open('/contacts/upload', '_blank');
+}
+
+// Quick upload functionality disabled - users should use the dedicated upload page
+// This ensures all uploads go through the preview and campaign selection process
+/*
+const quickUploadFile = document.getElementById('quickUploadFile');
+if (quickUploadFile) {
+    quickUploadFile.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            // Validate file type
+            if (!file.name.toLowerCase().endsWith('.csv')) {
+                showError('Please select a CSV file.');
+                return;
+            }
+
+            // Validate file size (10MB limit)
+            if (file.size > 10 * 1024 * 1024) {
+                showError('File size must be less than 10MB.');
+                return;
+            }
+
+            // Show modal and start upload
+            const modal = new bootstrap.Modal(document.getElementById('quickUploadModal'));
+            modal.show();
+
+            // Start upload immediately
+            uploadFile(file);
+        }
+    });
+}
+*/
+
+// Handle "Upload Another File" button with null check
+const selectAnotherFile = document.getElementById('selectAnotherFile');
+if (selectAnotherFile) {
+    selectAnotherFile.addEventListener('click', function() {
+        const quickUploadInput = document.getElementById('quickUploadFile');
+        if (quickUploadInput) {
+            quickUploadInput.click();
+        }
+    });
+}
+
+function uploadFile(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    // Show progress section
+    document.getElementById('uploadInstructionsSection').style.display = 'none';
+    document.getElementById('uploadResultsSection').style.display = 'none';
+    document.getElementById('uploadProgressSection').style.display = 'block';
+    document.getElementById('selectAnotherFile').style.display = 'none';
+    
+    // Start with initial upload progress
+    updateProgress("Uploading and processing file...", 50);
+    
+    // Upload file directly
+    fetch('/contacts/upload/csv', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        updateProgress("Processing complete!", 100);
+        
+        setTimeout(() => {
+            if (data.success) {
+                // Pass the complete response data to showUploadResults
+                showUploadResults(data);
+            } else {
+                showUploadError(data.message || 'Upload failed');
+            }
+        }, 500);
+    })
+    .catch(error => {
+        console.error('Upload error:', error);
+        showUploadError('Upload failed - please try again');
+    });
+}
+
+function monitorUploadProgress(uploadId) {
+    const progressInterval = setInterval(() => {
+        fetch(`/contacts/upload/progress/${uploadId}`)
+        .then(response => response.json())
+        .then(progress => {
+            if (progress.error) {
+                clearInterval(progressInterval);
+                showUploadError(progress.error);
+                return;
+            }
+            
+            // Update progress display
+            updateProgress(progress.message, progress.progress, progress);
+            
+            // Check if completed
+            if (progress.status === 'completed') {
+                clearInterval(progressInterval);
+                
+                // Clean up progress data on server
+                fetch(`/contacts/upload/cleanup/${uploadId}`, { method: 'POST' });
+                
+                // Show results
+                showUploadResults(progress.result);
+            } else if (progress.status === 'error') {
+                clearInterval(progressInterval);
+                showUploadError(progress.message);
+            }
+        })
+        .catch(error => {
+            clearInterval(progressInterval);
+            showUploadError('Error monitoring upload progress');
+        });
+    }, 500); // Check every 500ms
+}
+
+function updateProgress(message, percent, details = {}) {
+    // Update main progress bar
+    document.getElementById('uploadProgressBar').style.width = percent + '%';
+    document.getElementById('uploadProgressPercent').textContent = Math.round(percent) + '%';
+    document.getElementById('uploadProgressMessage').textContent = message;
+    
+    // Update detailed info
+    const progressRowInfo = document.getElementById('progressRowInfo');
+    const progressScanInfo = document.getElementById('progressScanInfo');
+    
+    if (details.total_rows && details.processed_rows !== undefined) {
+        progressRowInfo.textContent = `Processed ${details.processed_rows}/${details.total_rows} rows`;
+    } else if (details.total_contacts && details.contacts_created !== undefined) {
+        progressRowInfo.textContent = `Created ${details.contacts_created}/${details.total_contacts} contacts`;
+    } else {
+        progressRowInfo.textContent = 'Processing rows...';
+    }
+    
+    if (details.total_domains && details.domains_scanned !== undefined) {
+        if (details.current_domain) {
+            progressScanInfo.textContent = `Scanning ${details.current_domain} (${details.domains_scanned}/${details.total_domains})`;
+        } else {
+            progressScanInfo.textContent = `Scanned ${details.domains_scanned}/${details.total_domains} domains`;
+        }
+    } else {
+        progressScanInfo.textContent = 'Scanning domains...';
+    }
+}
+
+function showUploadResults(response) {
+    document.getElementById('uploadProgressSection').style.display = 'none';
+    document.getElementById('uploadResultsSection').style.display = 'block';
+    document.getElementById('selectAnotherFile').style.display = 'inline-block';
+    
+    // Get summary data (with fallbacks for backward compatibility)
+    const summary = response.summary || {
+        total_rows_processed: response.total_rows || 0,
+        contacts_created: response.contacts_created || 0,
+        duplicates_skipped: response.skipped_contacts || 0,
+        errors: response.error_count || 0
+    };
+    
+    const details = response.details || {};
+    
+    // Determine alert type based on results
+    let alertClass = 'alert-success';
+    let iconClass = 'fas fa-check-circle';
+    let title = 'Upload Completed!';
+    
+    if (summary.contacts_created === 0 && summary.duplicates_skipped > 0 && summary.errors === 0) {
+        alertClass = 'alert-warning';
+        iconClass = 'fas fa-exclamation-triangle';
+        title = 'No New Contacts Added';
+    } else if (summary.errors > 0 && summary.contacts_created === 0) {
+        alertClass = 'alert-danger';
+        iconClass = 'fas fa-exclamation-circle';
+        title = 'Upload Issues Found';
+    }
+    
+    let resultsHtml = `
+        <div class="alert ${alertClass}">
+            <h6><i class="${iconClass} me-2"></i>${title}</h6>
+            <p class="mb-3">${response.message}</p>
+            
+            <div class="row text-center mb-3">
+                <div class="col-6 col-md-3">
+                    <strong class="text-primary fs-4">${summary.total_rows_processed}</strong><br>
+                    <small class="text-muted">Rows Processed</small>
+                </div>
+                <div class="col-6 col-md-3">
+                    <strong class="text-success fs-4">${summary.contacts_created}</strong><br>
+                    <small class="text-muted">New Contacts</small>
+                </div>
+                <div class="col-6 col-md-3">
+                    <strong class="text-warning fs-4">${summary.duplicates_skipped}</strong><br>
+                    <small class="text-muted">Duplicates</small>
+                </div>
+                <div class="col-6 col-md-3">
+                    <strong class="text-danger fs-4">${summary.errors}</strong><br>
+                    <small class="text-muted">Errors</small>
+                </div>
+            </div>`;
+    
+    // Add breach scanning results if available
+    const scanResults = response.scan_results || {};
+    if (scanResults.domains_scanned > 0) {
+        resultsHtml += `
+            <div class="border-top pt-3 mb-3">
+                <h6 class="text-info mb-2"><i class="fas fa-shield-alt me-2"></i>Breach Scan Results</h6>
+                <div class="row text-center">
+                    <div class="col-6 col-md-3">
+                        <strong class="text-info fs-5">${scanResults.domains_scanned}</strong><br>
+                        <small class="text-muted">Domains Scanned</small>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <strong class="text-danger fs-5">${scanResults.breached_domains}</strong><br>
+                        <small class="text-muted">Breached</small>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <strong class="text-success fs-5">${scanResults.secure_domains}</strong><br>
+                        <small class="text-muted">Secure</small>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <strong class="text-secondary fs-5">${scanResults.unknown_domains}</strong><br>
+                        <small class="text-muted">Unknown</small>
+                    </div>
+                </div>
+            </div>
+    `;
+    }
+    
+    
+    // Add duplicate details if any
+    if (summary.duplicates_skipped > 0 && details.duplicate_emails && details.duplicate_emails.length > 0) {
+        resultsHtml += `
+            <div class="mt-3">
+                <h6 class="text-warning"><i class="fas fa-copy me-1"></i>Duplicate Emails Found:</h6>
+                <div class="bg-light p-2 rounded" style="max-height: 150px; overflow-y: auto;">
+        `;
+        
+        details.duplicate_emails.forEach(dup => {
+            resultsHtml += `
+                <small class="d-block">
+                    <strong>${dup.email}</strong> - ${dup.existing_name} (${dup.existing_company})
+                </small>
+            `;
+        });
+        
+        if (details.has_more_duplicates) {
+            const remaining = details.total_duplicates - details.duplicate_emails.length;
+            resultsHtml += `<small class="text-muted"><em>...and ${remaining} more</em></small>`;
+        }
+        
+        resultsHtml += `</div></div>`;
+    }
+    
+    // Add error details if any
+    if (summary.errors > 0 && details.error_rows && details.error_rows.length > 0) {
+        resultsHtml += `
+            <div class="mt-3">
+                <h6 class="text-danger"><i class="fas fa-exclamation-circle me-1"></i>Errors Found:</h6>
+                <div class="bg-light p-2 rounded" style="max-height: 100px; overflow-y: auto;">
+        `;
+        
+        details.error_rows.forEach(error => {
+            resultsHtml += `<small class="d-block text-danger">${error}</small>`;
+        });
+        
+        if (details.has_more_errors) {
+            const remaining = details.total_errors - details.error_rows.length;
+            resultsHtml += `<small class="text-muted"><em>...and ${remaining} more</em></small>`;
+        }
+        
+        resultsHtml += `</div></div>`;
+    }
+    
+    resultsHtml += '</div>';
+    
+    document.getElementById('uploadResultsSection').innerHTML = resultsHtml;
+    
+    // Update contact statistics and refresh page after showing results
+    updateContactStats();
+    
+    // Always refresh the page after showing results for a longer time
+    // This ensures users see the detailed feedback before the page refreshes
+    setTimeout(() => {
+        location.reload();
+    }, 5000);  // 5 seconds to read the detailed results
+}
+
+function showUploadError(message) {
+    document.getElementById('uploadProgressSection').style.display = 'none';
+    document.getElementById('uploadResultsSection').style.display = 'block';
+    document.getElementById('selectAnotherFile').style.display = 'inline-block';
+    
+    // Provide helpful error messaging with common solutions
+    let helpText = '';
+    if (message.includes('file')) {
+        helpText = `
+            <div class="mt-2">
+                <small class="text-muted">
+                    <strong>Common solutions:</strong><br>
+                    • Make sure the file is a valid CSV format<br>
+                    • Check that the file contains at least one email address<br>
+                    • Ensure the file size is under 10MB
+                </small>
+            </div>
+        `;
+    } else if (message.includes('network') || message.includes('connection')) {
+        helpText = `
+            <div class="mt-2">
+                <small class="text-muted">
+                    <strong>Network issue:</strong> Please check your internet connection and try again.
+                </small>
+            </div>
+        `;
+    }
+    
+    document.getElementById('uploadResultsSection').innerHTML = `
+        <div class="alert alert-danger">
+            <h6><i class="fas fa-exclamation-triangle me-2"></i>Upload Failed</h6>
+            <p>${message}</p>
+            ${helpText}
+        </div>
+    `;
+}
+
+// Initialize bulk actions and tooltips on page load
+document.addEventListener('DOMContentLoaded', function() {
+    updateBulkActions();
+    updateMasterCheckbox();
+    
+    // Initialize Bootstrap tooltips
+    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+    const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
+});
+
+// Date sorting function
+function sortByDate() {
+    const currentUrl = new URL(window.location.href);
+    const currentSort = currentUrl.searchParams.get('sort');
+
+    // Toggle between ascending and descending
+    let newSort;
+    if (currentSort === 'date_asc') {
+        newSort = 'date_desc';
+    } else {
+        newSort = 'date_asc';
+    }
+
+    // Update the sort parameter
+    currentUrl.searchParams.set('sort', newSort);
+
+    // Reset to page 1 when changing sort
+    currentUrl.searchParams.delete('page');
+
+    // Navigate to new URL
+    window.location.href = currentUrl.toString();
+}
+
+// Status filter function
+function filterByStatus(status) {
+    const currentUrl = new URL(window.location.href);
+
+    // Update the status parameter
+    if (status === '' || status === 'all') {
+        currentUrl.searchParams.delete('status');
+    } else {
+        currentUrl.searchParams.set('status', status);
+    }
+
+    // Reset to page 1 when changing filters
+    currentUrl.searchParams.delete('page');
+
+    // Navigate to new URL
+    window.location.href = currentUrl.toString();
+}
+
+// Handle filter button changes
+document.addEventListener('change', function(e) {
+    if (e.target.name === 'filter') {
+        const filterValue = e.target.id;
+        const currentUrl = new URL(window.location.href);
+
+        // Update the filter parameter
+        if (filterValue === 'all') {
+            currentUrl.searchParams.delete('filter');
+        } else {
+            currentUrl.searchParams.set('filter', filterValue);
+        }
+
+        // Reset to page 1 when changing filters
+        currentUrl.searchParams.delete('page');
+
+        // Navigate to new URL
+        window.location.href = currentUrl.toString();
+    }
+});
+</script>
+{% endblock %}

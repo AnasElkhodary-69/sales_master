@@ -1,0 +1,788 @@
+{% extends "base.html" %}
+
+{% block title %}Account Settings - SalesBreachPro{% endblock %}
+
+{% block extra_head %}
+<style>
+    .settings-card {
+        transition: all 0.3s ease;
+    }
+    .settings-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    }
+    .profile-avatar {
+        width: 80px;
+        height: 80px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 2rem;
+        font-weight: bold;
+    }
+    .section-divider {
+        border-bottom: 2px solid #f8f9fa;
+        margin: 2rem 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h2 mb-1">
+                        <i class="fas fa-cog text-primary me-2"></i>
+                        Account Settings
+                    </h1>
+                    <p class="text-muted mb-0">Manage your account preferences and security</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('dashboard.index') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Profile Information -->
+        <div class="col-md-4 mb-4">
+            <div class="card settings-card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-user me-2"></i>Profile Information
+                    </h5>
+                </div>
+                <div class="card-body text-center">
+                    <div class="profile-avatar mx-auto mb-3">
+                        {{ session.username[0].upper() if session.username else 'A' }}
+                    </div>
+                    <h6 class="mb-2">{{ session.username or 'Administrator' }}</h6>
+                    <p class="text-muted mb-3">SalesBreachPro Admin</p>
+                    <span class="badge bg-success">Active Account</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Account Security -->
+        <div class="col-md-8 mb-4">
+            <div class="card settings-card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-shield-alt me-2"></i>Account Security
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-key me-2"></i>Current Credentials</h6>
+                            <table class="table table-sm">
+                                <tr>
+                                    <td><strong>Username:</strong></td>
+                                    <td>{{ session.username or 'admin' }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Password:</strong></td>
+                                    <td>••••••••••••••••••</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Last Login:</strong></td>
+                                    <td>{{ moment().format('YYYY-MM-DD HH:mm') if moment else 'Current Session' }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-info-circle me-2"></i>Security Status</h6>
+                            <div class="alert alert-info">
+                                <small>
+                                    <strong>Note:</strong> This is a demo environment. In production, credentials should be managed through environment variables or a secure configuration system.
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Settings -->
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card settings-card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-sliders-h me-2"></i>Application Settings
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Dashboard Theme</label>
+                        <select class="form-select" disabled>
+                            <option>Professional (Default)</option>
+                            <option>Dark Mode (Coming Soon)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Email Notifications</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" checked disabled>
+                            <label class="form-check-label">
+                                Campaign completion alerts
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" checked disabled>
+                            <label class="form-check-label">
+                                Security breach notifications
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Time Zone</label>
+                        <select class="form-select" disabled>
+                            <option>UTC (Coordinated Universal Time)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Email Signature Settings -->
+        <div class="col-md-12 mb-4">
+            <div class="card settings-card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-signature me-2"></i>Email Signature
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <div class="row">
+                            <div class="col-lg-8">
+                                <div class="mb-3">
+                                    <label for="email_signature" class="form-label">
+                                        <strong>Default Email Signature</strong>
+                                    </label>
+                                    <div class="form-text mb-2">
+                                        Just type your signature naturally. New lines will become line breaks automatically.
+                                    </div>
+                                    <textarea class="form-control" id="email_signature" name="email_signature" 
+                                              rows="4" placeholder="Best regards,&#10;Your Name&#10;Your Company">{{ email_signature_plain if email_signature_plain else 'Best regards,\nSalesBreachPro Team' }}</textarea>
+                                    
+                                    <div class="mt-2">
+                                        <small class="text-muted">
+                                            <strong>For hyperlinks:</strong> Type [Text](URL) - Example: [Visit our website](https://example.com)
+                                        </small>
+                                    </div>
+                                </div>
+                                
+                                <div class="d-flex gap-2">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save me-1"></i>Update Signature
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" onclick="previewSignature()">
+                                        <i class="fas fa-eye me-1"></i>Preview
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="col-lg-4">
+                                <div class="border rounded p-3 bg-light">
+                                    <h6><i class="fas fa-eye me-2"></i>Live Preview</h6>
+                                    <div class="border rounded p-2 bg-white">
+                                        <div id="signature-preview">{{ email_signature|safe if email_signature else 'Best regards,<br>SalesBreachPro Team' }}</div>
+                                    </div>
+                                    
+                                    <hr>
+                                    
+                                    <h6><i class="fas fa-lightbulb me-2"></i>Examples</h6>
+                                    <div class="small text-muted">
+                                        <div class="mb-2">
+                                            <strong>Simple:</strong><br>
+                                            <code>Thanks,<br>John Smith</code>
+                                        </div>
+                                        <div class="mb-2">
+                                            <strong>Professional:</strong><br>
+                                            <code>Best regards,<br>John Smith<br>Sales Manager</code>
+                                        </div>
+                                        <div class="mb-2">
+                                            <strong>With Link:</strong><br>
+                                            <code>Best regards,<br>John Smith<br>[Our Website](https://company.com)</code>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Email Configuration -->
+        <div class="col-md-12 mb-4">
+            <div class="card settings-card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-envelope-open me-2"></i>Email Configuration
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('dashboard.settings') }}">
+                        <input type="hidden" name="config_type" value="email">
+                        
+                        <div class="row">
+                            <div class="col-lg-6">
+                                <h6><i class="fas fa-server me-2"></i>SMTP Settings</h6>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label"><i class="fas fa-envelope me-2"></i>Email Provider</label>
+                                    <div class="form-control-plaintext">
+                                        <strong>Brevo (SendinBlue)</strong>
+                                        <small class="text-muted d-block">Configured email service provider</small>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="brevo_api_key" class="form-label">Brevo API Key</label>
+                                    <input type="password" class="form-control" id="brevo_api_key" name="brevo_api_key" 
+                                           value="{{ email_config.get('brevo_api_key', '') }}" 
+                                           placeholder="Enter your Brevo API key">
+                                    <div class="form-text">
+                                        <small>You can find your API key in your <a href="https://app.brevo.com/settings/keys/api" target="_blank">Brevo account settings</a></small>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="sender_email" class="form-label">Default Sender Email</label>
+                                    <input type="email" class="form-control" id="sender_email" name="sender_email" 
+                                           value="{{ email_config.get('sender_email', '') }}" 
+                                           placeholder="noreply@yourcompany.com">
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="sender_name" class="form-label">Default Sender Name</label>
+                                    <input type="text" class="form-control" id="sender_name" name="sender_name" 
+                                           value="{{ email_config.get('sender_name', 'SalesBreachPro Team') }}" 
+                                           placeholder="Your Company Name">
+                                </div>
+                            </div>
+                            
+                            <div class="col-lg-6">
+                                <h6><i class="fas fa-info-circle me-2"></i>Provider Information</h6>
+                                
+                                <div id="brevo-info" class="provider-info">
+                                    <div class="alert alert-info">
+                                        <h6><i class="fas fa-envelope me-2"></i>Brevo API Setup</h6>
+                                        <ul class="mb-0">
+                                            <li>Go to <a href="https://app.brevo.com/settings/keys/api" target="_blank">Brevo API Keys</a></li>
+                                            <li>Create a new API key with transactional email permissions</li>
+                                            <li>Copy and paste the API key above</li>
+                                            <li>Verify your sender domain in Brevo settings</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                
+                                
+                                <div class="mt-3">
+                                    <h6><i class="fas fa-shield-alt me-2"></i>Security Notice</h6>
+                                    <div class="alert alert-secondary">
+                                        <small>
+                                            Your Brevo API key is stored securely in the database and is only used for sending emails. 
+                                            Never share this API key with anyone.
+                                        </small>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-3">
+                                    <a href="{{ url_for('dashboard.test_email') }}" class="btn btn-outline-primary">
+                                        <i class="fas fa-paper-plane me-1"></i>Test Email Configuration
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <hr>
+                        
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-save me-1"></i>Save Email Configuration
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="testConnection()">
+                                <i class="fas fa-plug me-1"></i>Test Connection
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- FlawTrack API Configuration -->
+        <div class="col-md-12 mb-4">
+            <div class="card settings-card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-shield-alt me-2"></i>FlawTrack API Configuration
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('dashboard.settings') }}">
+                        <input type="hidden" name="config_type" value="flawtrack">
+                        
+                        <div class="row">
+                            <div class="col-lg-6">
+                                <h6><i class="fas fa-bug me-2"></i>Breach Detection API</h6>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label"><i class="fas fa-search me-2"></i>API Provider</label>
+                                    <div class="form-control-plaintext">
+                                        <strong>FlawTrack API</strong>
+                                        <small class="text-muted d-block">Real-time breach data for contact assessment</small>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="flawtrack_api_key" class="form-label">FlawTrack API Key</label>
+                                    <input type="password" class="form-control" id="flawtrack_api_key" name="flawtrack_api_key" 
+                                           value="{{ flawtrack_config.get('flawtrack_api_key', '') }}" 
+                                           placeholder="Enter your FlawTrack API key">
+                                    <div class="form-text">
+                                        <small>Your FlawTrack API key for breach data queries</small>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="flawtrack_endpoint" class="form-label">API Endpoint</label>
+                                    <input type="url" class="form-control" id="flawtrack_endpoint" name="flawtrack_endpoint" 
+                                           value="{{ flawtrack_config.get('flawtrack_endpoint', '') }}" 
+                                           placeholder="https://api.flawtrack.com/v1/search">
+                                </div>
+                            </div>
+                            
+                            <div class="col-lg-6">
+                                <h6><i class="fas fa-info-circle me-2"></i>API Information</h6>
+                                
+                                <div class="alert alert-info">
+                                    <h6><i class="fas fa-shield-alt me-2"></i>FlawTrack API Setup</h6>
+                                    <ul class="mb-0">
+                                        <li>Register for a FlawTrack API account</li>
+                                        <li>Get your API key from the dashboard</li>
+                                        <li>Configure the correct API endpoint URL</li>
+                                        <li>Used to check if contact domains have known breaches</li>
+                                    </ul>
+                                </div>
+                                
+                                <div class="mt-3">
+                                    <h6><i class="fas fa-chart-line me-2"></i>Usage</h6>
+                                    <div class="alert alert-secondary">
+                                        <small>
+                                            FlawTrack API automatically checks contact domains when they're added to campaigns. 
+                                            Breach data helps select appropriate email templates (breach response vs. proactive security).
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <hr>
+                        
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-save me-1"></i>Save FlawTrack Configuration
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="testFlawTrackConnection()">
+                                <i class="fas fa-bug me-1"></i>Test API Connection
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- IMAP Reply Detection Configuration -->
+        <div class="col-md-12 mb-4">
+            <div class="card settings-card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-reply me-2"></i>Reply Detection Configuration
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('dashboard.settings') }}">
+                        <input type="hidden" name="config_type" value="imap_reply">
+
+                        <div class="row">
+                            <div class="col-lg-6">
+                                <h6><i class="fas fa-server me-2"></i>IMAP Settings</h6>
+
+                                <div class="mb-3">
+                                    <label class="form-label">IMAP Server</label>
+                                    <input type="text"
+                                           class="form-control"
+                                           name="imap_server"
+                                           value="{{ imap_config.get('imap_server', 'imap.gmail.com') if imap_config else 'imap.gmail.com' }}"
+                                           placeholder="imap.gmail.com">
+                                    <div class="form-text">IMAP server address for checking replies</div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Email Address</label>
+                                    <input type="email"
+                                           class="form-control"
+                                           name="reply_email"
+                                           value="{{ imap_config.get('reply_email', '') if imap_config else '' }}"
+                                           placeholder="replies@yourcompany.com">
+                                    <div class="form-text">Email address to monitor for replies</div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Email Password</label>
+                                    <input type="password"
+                                           class="form-control"
+                                           name="reply_password"
+                                           value="{{ imap_config.get('reply_password', '') if imap_config else '' }}"
+                                           placeholder="App password or email password">
+                                    <div class="form-text">Use app password for Gmail/Office365</div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Check Interval (minutes)</label>
+                                    <input type="number"
+                                           class="form-control"
+                                           name="check_interval"
+                                           value="{{ imap_config.get('check_interval', '15') if imap_config else '15' }}"
+                                           min="5" max="60">
+                                    <div class="form-text">How often to check for new replies</div>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-6">
+                                <h6><i class="fas fa-cog me-2"></i>Detection Settings</h6>
+
+                                <div class="mb-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input"
+                                               type="checkbox"
+                                               name="enable_imap"
+                                               id="enable_imap"
+                                               {{ 'checked' if imap_config and imap_config.get('enabled', 'false') == 'true' else '' }}>
+                                        <label class="form-check-label" for="enable_imap">
+                                            Enable IMAP Reply Detection
+                                        </label>
+                                    </div>
+                                    <div class="form-text">Automatically check for email replies and stop sequences</div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input"
+                                               type="checkbox"
+                                               name="auto_stop_sequences"
+                                               id="auto_stop_sequences"
+                                               {{ 'checked' if imap_config and imap_config.get('auto_stop', 'true') == 'true' else 'checked' }}>
+                                        <label class="form-check-label" for="auto_stop_sequences">
+                                            Auto-stop sequences on reply
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input"
+                                               type="checkbox"
+                                               name="log_detection"
+                                               id="log_detection"
+                                               {{ 'checked' if imap_config and imap_config.get('log_detection', 'true') == 'true' else 'checked' }}>
+                                        <label class="form-check-label" for="log_detection">
+                                            Log detection events
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <strong>Setup Instructions:</strong>
+                                    <ul class="mb-0 mt-2">
+                                        <li>Create a dedicated email for reply monitoring</li>
+                                        <li>For Gmail: Enable 2FA and create an App Password</li>
+                                        <li>For Office365: Use app password or OAuth</li>
+                                        <li>Test connection after saving settings</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="text-end">
+                            <button type="button" class="btn btn-outline-primary me-2" onclick="testIMAPConnection()">
+                                <i class="fas fa-plug me-1"></i>Test Connection
+                            </button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i>Save IMAP Configuration
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Information -->
+        <div class="col-md-6 mb-4">
+            <div class="card settings-card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info me-2"></i>System Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <td><strong>Application:</strong></td>
+                            <td>SalesBreachPro</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Version:</strong></td>
+                            <td>1.0.0 (Demo)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Environment:</strong></td>
+                            <td><span class="badge bg-warning">Development</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Database:</strong></td>
+                            <td>SQLite (Local)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Session:</strong></td>
+                            <td><span class="badge bg-success">Active</span></td>
+                        </tr>
+                    </table>
+                    
+                    <div class="mt-3">
+                        <h6>Quick Actions</h6>
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-outline-primary btn-sm" disabled>
+                                <i class="fas fa-download me-1"></i>Export Settings
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" disabled>
+                                <i class="fas fa-sync me-1"></i>Clear Cache
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Danger Zone -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-danger settings-card">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>Danger Zone
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h6>Sign Out of Current Session</h6>
+                            <p class="text-muted mb-0">
+                                This will log you out of the current session and require re-authentication to access the dashboard.
+                            </p>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <a href="{{ url_for('auth.logout') }}" class="btn btn-danger">
+                                <i class="fas fa-sign-out-alt me-2"></i>Sign Out
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function convertTextToHtml(text) {
+    if (!text || !text.trim()) {
+        return '<em class="text-muted">No signature entered</em>';
+    }
+    
+    // Convert line breaks to <br> tags
+    let html = text.replace(/\n/g, '<br>');
+    
+    // Convert [Text](URL) to hyperlinks
+    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+    
+    return html;
+}
+
+function previewSignature() {
+    const signature = document.getElementById('email_signature').value;
+    const preview = document.getElementById('signature-preview');
+    
+    preview.innerHTML = convertTextToHtml(signature);
+}
+
+// Auto-update preview when typing
+document.getElementById('email_signature').addEventListener('input', function() {
+    previewSignature();
+});
+
+// Initialize preview
+document.addEventListener('DOMContentLoaded', function() {
+    previewSignature();
+    
+    // Initialize email provider display
+    toggleProviderInfo();
+});
+
+// Add hidden input to store HTML version when form is submitted
+document.querySelector('form').addEventListener('submit', function(e) {
+    const plainText = document.getElementById('email_signature').value;
+    const htmlVersion = convertTextToHtml(plainText);
+    
+    // Create hidden input for HTML version
+    let hiddenInput = document.getElementById('email_signature_html');
+    if (!hiddenInput) {
+        hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = 'email_signature_html';
+        hiddenInput.id = 'email_signature_html';
+        this.appendChild(hiddenInput);
+    }
+    hiddenInput.value = htmlVersion;
+});
+
+// Show Brevo info by default
+const brevoInfo = document.getElementById('brevo-info');
+if (brevoInfo) {
+    brevoInfo.style.display = 'block';
+}
+
+function testConnection() {
+    const btn = event.target;
+    const originalText = btn.innerHTML;
+    
+    // Gather form data
+    const formData = new FormData();
+    formData.append('config_type', 'test_connection');
+    // Brevo API configuration
+    formData.append('brevo_api_key', document.getElementById('brevo_api_key').value);
+    formData.append('sender_email', document.getElementById('sender_email').value);
+    formData.append('sender_name', document.getElementById('sender_name').value);
+    
+    // Show loading state
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Testing...';
+    
+    fetch('{{ url_for("dashboard.settings") }}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ Connection successful! SMTP settings are working correctly.');
+        } else {
+            alert('❌ Connection failed: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('❌ Network error occurred while testing connection.');
+    })
+    .finally(() => {
+        // Restore button state
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    });
+}
+
+function testFlawTrackConnection() {
+    const btn = event.target;
+    const originalText = btn.innerHTML;
+    
+    // Gather form data
+    const formData = new FormData();
+    formData.append('config_type', 'test_flawtrack');
+    formData.append('flawtrack_api_key', document.getElementById('flawtrack_api_key').value);
+    formData.append('flawtrack_endpoint', document.getElementById('flawtrack_endpoint').value);
+    
+    // Show loading state
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Testing...';
+    
+    fetch('{{ url_for("dashboard.settings") }}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ FlawTrack connection successful! API is working correctly.');
+        } else {
+            alert('❌ FlawTrack connection failed: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('❌ Network error occurred while testing FlawTrack connection.');
+    })
+    .finally(() => {
+        // Restore button state
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    });
+}
+
+function testIMAPConnection() {
+    const btn = event.target;
+    const originalText = btn.innerHTML;
+
+    // Create form data
+    const formData = new FormData();
+    formData.append('config_type', 'test_imap');
+    formData.append('imap_server', document.querySelector('input[name="imap_server"]').value);
+    formData.append('reply_email', document.querySelector('input[name="reply_email"]').value);
+    formData.append('reply_password', document.querySelector('input[name="reply_password"]').value);
+
+    // Show loading state
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Testing...';
+
+    fetch('{{ url_for("dashboard.settings") }}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ IMAP connection successful! ' + data.message);
+        } else {
+            alert('❌ IMAP connection failed: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('❌ Network error occurred while testing IMAP connection.');
+    })
+    .finally(() => {
+        // Restore button state
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    });
+}
+</script>
+{% endblock %}

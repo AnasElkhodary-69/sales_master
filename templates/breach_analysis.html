@@ -1,0 +1,1084 @@
+{% extends "base.html" %}
+
+{% block title %}Breach Analysis - SalesBreachPro{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0">
+                    <i class="fas fa-shield-alt me-2"></i>Breach Analysis Dashboard
+                </h1>
+                <div>
+                    <button class="btn btn-primary" id="scanAllDomainsBtn">
+                        <i class="fas fa-search me-1"></i>Scan All Domains
+                    </button>
+                    <div class="btn-group">
+                        <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-download me-1"></i>Export
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#" id="exportHighRisk">High Risk Contacts</a></li>
+                            <li><a class="dropdown-item" href="#" id="exportBreachData">Breach Data Report</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Breach Status Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card bg-danger text-white">
+                <div class="card-body text-center">
+                    <i class="fas fa-shield-alt fs-1 mb-2"></i>
+                    <h3 id="breachedCount">{{ breach_summary.breached_contacts or 0 }}</h3>
+                    <p class="mb-0">🔴 BREACHED</p>
+                    <small>Security Compromised</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-success text-white">
+                <div class="card-body text-center">
+                    <i class="fas fa-shield-check fs-1 mb-2"></i>
+                    <h3 id="notBreachedCount">{{ breach_summary.secure_contacts or 0 }}</h3>
+                    <p class="mb-0">🟢 NOT BREACHED</p>
+                    <small>Security Clean</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-info text-white">
+                <div class="card-body text-center">
+                    <i class="fas fa-question-circle fs-1 mb-2"></i>
+                    <h3 id="unknownStatusCount">{{ breach_summary.unknown_contacts or 0 }}</h3>
+                    <p class="mb-0">⚪ UNKNOWN</p>
+                    <small>Needs Analysis</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Risk Analysis Chart -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-pie me-2"></i>Breach Status Distribution
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="riskChart" width="400" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>Campaign Recommendations
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="recommendation-item mb-3">
+                        <div class="d-flex align-items-center mb-1">
+                            <span class="badge bg-danger me-2">🔴 Breached</span>
+                            <strong>{{ breach_summary.breached_contacts or 0 }} contacts</strong>
+                        </div>
+                        <small class="text-muted">Use urgent breach-specific email templates with immediate security focus</small>
+                    </div>
+                    
+                    <div class="recommendation-item mb-3">
+                        <div class="d-flex align-items-center mb-1">
+                            <span class="badge bg-success me-2">🟢 Secure</span>
+                            <strong>{{ breach_summary.secure_contacts or 0 }} contacts</strong>
+                        </div>
+                        <small class="text-muted">Proactive security positioning and prevention approach</small>
+                    </div>
+                    
+                    <div class="recommendation-item mb-3">
+                        <div class="d-flex align-items-center mb-1">
+                            <span class="badge bg-secondary me-2">⚪ Unknown</span>
+                            <strong>{{ breach_summary.unknown_contacts or 0 }} contacts</strong>
+                        </div>
+                        <small class="text-muted">General security awareness and assessment approach</small>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <button class="btn btn-primary btn-sm" onclick="generateCampaignSuggestions()">
+                            <i class="fas fa-magic me-1"></i>Generate Campaign Ideas
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Top Breached Domains -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list me-2"></i>Domain Analysis Results
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0" id="breachTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Domain</th>
+                                    <th>Breach Name</th>
+                                    <th>Year</th>
+                                    <th>Breach Status</th>
+                                    <th>Contacts</th>
+                                    <th>Records Affected</th>
+                                    <th>Data Types</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="breachTableBody">
+                                <tr>
+                                    <td colspan="8" class="text-center py-4">
+                                        <div class="spinner-border spinner-border-sm me-2" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        Loading breach data...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- High Risk Contacts -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-shield-alt me-2"></i>Contact Analysis by Status
+                        </h5>
+                        <div class="btn-group btn-group-sm">
+                            <button type="button" class="btn btn-outline-danger active" data-status="breached">🔴 Breached</button>
+                            <button type="button" class="btn btn-outline-success" data-status="not_breached">🟢 Secure</button>
+                            <button type="button" class="btn btn-outline-secondary" data-status="unknown">⚪ Unknown</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th width="40">
+                                        <input type="checkbox" id="selectAllRisk">
+                                    </th>
+                                    <th>Contact</th>
+                                    <th>Company</th>
+                                    <th>Breach Status</th>
+                                    <th>Breach Details</th>
+                                    <th>Template</th>
+                                    <th width="150">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="statusContactsBody">
+                                <tr>
+                                    <td colspan="7" class="text-center py-4">
+                                        <div class="spinner-border spinner-border-sm me-2" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        Loading breached contacts...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">Select contacts to create targeted campaigns</small>
+                        <div>
+                            <button class="btn btn-success btn-sm" id="createCampaignBtn" disabled>
+                                <i class="fas fa-envelope me-1"></i>Create Campaign
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" id="bulkSelectBtn">
+                                <i class="fas fa-check-square me-1"></i>Select All Visible
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Domain Details Modal -->
+<div class="modal fade" id="domainDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-globe me-2"></i>Domain Security Details
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="domainDetailsContent">
+                <div class="text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p>Loading domain details...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="createDomainCampaignBtn">
+                    <i class="fas fa-envelope me-1"></i>Create Campaign for Domain
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Contact Modal -->
+<div class="modal fade" id="editContactModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-edit me-2"></i>Edit Contact
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editContactForm">
+                    <input type="hidden" id="editContactId">
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="editFirstName" class="form-label">First Name</label>
+                                <input type="text" class="form-control" id="editFirstName">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="editLastName" class="form-label">Last Name</label>
+                                <input type="text" class="form-control" id="editLastName">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editEmail" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="editEmail" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editCompany" class="form-label">Company</label>
+                        <input type="text" class="form-control" id="editCompany">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editTitle" class="form-label">Title</label>
+                        <input type="text" class="form-control" id="editTitle">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveContactBtn">
+                    <i class="fas fa-save me-1"></i>Save Changes
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Email Preview Modal -->
+<div class="modal fade" id="emailPreviewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-envelope me-2"></i>Email Template Preview
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="emailPreviewContent">
+                <div class="text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p>Loading email preview...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-success" id="sendEmailBtn">
+                    <i class="fas fa-paper-plane me-1"></i>Send Email
+                </button>
+                <button type="button" class="btn btn-primary" id="editEmailTemplateBtn">
+                    <i class="fas fa-edit me-1"></i>Edit Template
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Domain Scan Progress Modal -->
+<div class="modal fade" id="scanProgressModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-search me-2"></i>Scanning Domains for Breaches
+                </h5>
+            </div>
+            <div class="modal-body">
+                <div class="progress mb-3">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                         id="scanProgressBar" role="progressbar" style="width: 0%"></div>
+                </div>
+                <p id="scanProgressText">Initializing scan...</p>
+                <div class="scan-results mt-3" id="scanResults" style="display: none;">
+                    <h6>Scan Results:</h6>
+                    <ul id="scanResultsList"></ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="cancelScanBtn" disabled>Cancel</button>
+                <button type="button" class="btn btn-primary" id="closeScanBtn" style="display: none;" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Chart.js for risk visualization -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+// Risk analysis functionality
+class BreachAnalysis {
+    constructor() {
+        this.riskChart = null;
+        this.currentBreachStatus = 'breached';
+        this.selectedContacts = new Set();
+        this.initializeChart();
+        this.loadBreachData();
+        this.loadStatusContacts();
+        this.setupEventListeners();
+    }
+    
+    initializeChart() {
+        const ctx = document.getElementById('riskChart').getContext('2d');
+        const statusData = {
+            breached: {{ breach_summary.breached_contacts or 0 }},
+            secure: {{ breach_summary.secure_contacts or 0 }},
+            unknown: {{ breach_summary.unknown_contacts or 0 }}
+        };
+        
+        this.riskChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['🔴 Breached', '🟢 Secure', '⚪ Unknown'],
+                datasets: [{
+                    data: [statusData.breached, statusData.secure, statusData.unknown],
+                    backgroundColor: ['#dc3545', '#198754', '#6c757d'],
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((context.parsed * 100) / total).toFixed(1);
+                                return context.label + ': ' + context.parsed + ' (' + percentage + '%)';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    setupEventListeners() {
+        // Breach status buttons
+        document.querySelectorAll('[data-status]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('[data-status]').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                this.currentBreachStatus = e.target.dataset.status;
+                this.loadStatusContacts();
+            });
+        });
+        
+        // Scan all domains button
+        document.getElementById('scanAllDomainsBtn').addEventListener('click', () => {
+            this.startDomainScan();
+        });
+        
+        // Cancel scan button
+        document.getElementById('cancelScanBtn').addEventListener('click', () => {
+            this.cancelScan();
+        });
+        
+        // Select all checkbox
+        document.getElementById('selectAllRisk').addEventListener('change', (e) => {
+            const checkboxes = document.querySelectorAll('.status-contact-checkbox');
+            checkboxes.forEach(cb => {
+                cb.checked = e.target.checked;
+                if (e.target.checked) {
+                    this.selectedContacts.add(cb.value);
+                } else {
+                    this.selectedContacts.delete(cb.value);
+                }
+            });
+            this.updateCreateCampaignButton();
+        });
+        
+        // Create campaign button
+        document.getElementById('createCampaignBtn').addEventListener('click', () => {
+            this.createTargetedCampaign();
+        });
+    }
+    
+    loadBreachData() {
+        fetch('/api/breach-analysis/domains')
+            .then(response => response.json())
+            .then(data => {
+                this.renderBreachTable(data.domains || []);
+            })
+            .catch(error => {
+                console.error('Error loading breach data:', error);
+                document.getElementById('breachTableBody').innerHTML = `
+                    <tr><td colspan="8" class="text-center text-muted">Error loading breach data</td></tr>
+                `;
+            });
+    }
+    
+    loadStatusContacts() {
+        const tbody = document.getElementById('statusContactsBody');
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center py-4">
+                    <div class="spinner-border spinner-border-sm me-2" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    Loading ${this.currentBreachStatus} contacts...
+                </td>
+            </tr>
+        `;
+        
+        fetch(`/api/breach-analysis/contacts/${this.currentBreachStatus}`)
+            .then(response => response.json())
+            .then(data => {
+                this.renderStatusContacts(data.contacts || []);
+            })
+            .catch(error => {
+                console.error('Error loading status contacts:', error);
+                tbody.innerHTML = `
+                    <tr><td colspan="7" class="text-center text-muted">Error loading contacts</td></tr>
+                `;
+            });
+    }
+    
+    renderBreachTable(domains) {
+        const tbody = document.getElementById('breachTableBody');
+        
+        if (domains.length === 0) {
+            tbody.innerHTML = `
+                <tr><td colspan="8" class="text-center text-muted">No breach data available</td></tr>
+            `;
+            return;
+        }
+        
+        tbody.innerHTML = domains.map(domain => {
+            const statusBadge = domain.breach_status === 'breached' ? 'danger' :
+                               domain.breach_status === 'not_breached' ? 'success' :
+                               domain.breach_status === 'unassigned' ? 'info' : 'secondary';
+            const statusText = domain.breach_status === 'breached' ? '🔴 Breached' :
+                              domain.breach_status === 'not_breached' ? '🟢 Secure' :
+                              domain.breach_status === 'unassigned' ? '📋 Unassigned' : '⚪ Unknown';
+            
+            return `
+                <tr>
+                    <td><strong>${domain.domain}</strong></td>
+                    <td>${domain.breach_name || 'Multiple'}</td>
+                    <td>${domain.breach_year || '-'}</td>
+                    <td>
+                        <span class="badge bg-${statusBadge}">${statusText}</span>
+                    </td>
+                    <td><span class="badge bg-primary">${domain.contact_count}</span></td>
+                    <td>${domain.records_affected ? domain.records_affected.toLocaleString() : 'Unknown'}</td>
+                    <td>${domain.data_types || 'Not specified'}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary" onclick="viewDomainDetails('${domain.domain}')">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+    
+    renderStatusContacts(contacts) {
+        const tbody = document.getElementById('statusContactsBody');
+        
+        if (contacts.length === 0) {
+            tbody.innerHTML = `
+                <tr><td colspan="7" class="text-center text-muted">No ${this.currentBreachStatus} contacts found</td></tr>
+            `;
+            return;
+        }
+        
+        tbody.innerHTML = contacts.map(contact => {
+            const statusBadge = contact.breach_status === 'breached' ? 'danger' :
+                               contact.breach_status === 'not_breached' ? 'success' :
+                               contact.breach_status === 'unassigned' ? 'info' : 'secondary';
+            const statusText = contact.breach_status === 'breached' ? '🔴 Breached' :
+                              contact.breach_status === 'not_breached' ? '🟢 Secure' :
+                              contact.breach_status === 'unassigned' ? '📋 Unassigned' : '⚪ Unknown';
+            const templateType = contact.breach_status === 'breached' ? 'Breach Response' : 
+                                contact.breach_status === 'not_breached' ? 'Proactive Security' : 'Security Assessment';
+            
+            return `
+                <tr>
+                    <td>
+                        <input type="checkbox" class="status-contact-checkbox" value="${contact.id}" 
+                               onchange="analysis.updateSelectedContacts(this)">
+                    </td>
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <div class="avatar-sm bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2">
+                                ${(contact.first_name || contact.email)[0].toUpperCase()}
+                            </div>
+                            <div>
+                                <strong>${contact.first_name || ''} ${contact.last_name || ''}</strong><br>
+                                <small class="text-muted">${contact.email}</small>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <strong>${contact.company || 'Not specified'}</strong><br>
+                        <small class="text-muted">${contact.title || ''}</small>
+                    </td>
+                    <td>
+                        <span class="badge bg-${statusBadge}">${statusText}</span><br>
+                        <small class="text-muted">${contact.domain}</small>
+                    </td>
+                    <td>
+                        <small>
+                            <strong>${contact.breach_name}</strong><br>
+                            Year: ${contact.breach_year || 'Unknown'}<br>
+                            ${contact.data_types || 'Data types not specified'}
+                        </small>
+                    </td>
+                    <td>
+                        <span class="badge bg-info">${templateType}</span>
+                    </td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-primary" onclick="editContact(${contact.id})" title="Edit">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-outline-success" onclick="previewEmail(${contact.id})" title="Preview Email">
+                                <i class="fas fa-envelope"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+    
+    updateSelectedContacts(checkbox) {
+        if (checkbox.checked) {
+            this.selectedContacts.add(checkbox.value);
+        } else {
+            this.selectedContacts.delete(checkbox.value);
+        }
+        this.updateCreateCampaignButton();
+    }
+    
+    updateCreateCampaignButton() {
+        const btn = document.getElementById('createCampaignBtn');
+        btn.disabled = this.selectedContacts.size === 0;
+        btn.innerHTML = `<i class="fas fa-envelope me-1"></i>Create Campaign (${this.selectedContacts.size})`;
+    }
+    
+    startDomainScan() {
+        console.log('Starting domain scan...');
+        
+        const modalElement = document.getElementById('scanProgressModal');
+        if (!modalElement) {
+            console.error('Modal element not found!');
+            alert('Error: Modal not found');
+            return;
+        }
+        
+        const modal = new bootstrap.Modal(modalElement);
+        modal.show();
+        
+        // Reset modal state
+        document.getElementById('scanProgressBar').style.width = '0%';
+        document.getElementById('scanProgressBar').classList.remove('bg-success', 'bg-danger', 'bg-warning');
+        document.getElementById('scanProgressText').textContent = 'Initializing scan...';
+        document.getElementById('cancelScanBtn').disabled = false;
+        document.getElementById('cancelScanBtn').style.display = 'inline-block';
+        document.getElementById('closeScanBtn').style.display = 'none';
+        
+        // Start scan process
+        console.log('Making API call to /api/breach-analysis/scan-domains');
+        fetch('/api/breach-analysis/scan-domains', { 
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+            .then(response => {
+                console.log('API response status:', response.status);
+                return response.json();
+            })
+            .then(data => {
+                console.log('API response data:', data);
+                if (data.success) {
+                    this.pollScanProgress(data.scan_id);
+                } else {
+                    this.showScanError(data.error || 'Unknown error');
+                }
+            })
+            .catch(error => {
+                console.error('API call failed:', error);
+                this.showScanError('Failed to start scan: ' + error.message);
+            });
+    }
+    
+    createTargetedCampaign() {
+        if (this.selectedContacts.size === 0) return;
+        
+        const contactIds = Array.from(this.selectedContacts);
+        window.location.href = `/campaigns/new?contacts=${contactIds.join(',')}&status=${this.currentBreachStatus}`;
+    }
+    
+    pollScanProgress(scanId) {
+        this.currentScanId = scanId;
+        
+        // Enable cancel button
+        document.getElementById('cancelScanBtn').disabled = false;
+        
+        // Update progress display
+        document.getElementById('scanProgressText').textContent = 'Scanning domains...';
+        document.getElementById('scanProgressBar').style.width = '0%';
+        
+        // Poll for progress
+        this.progressInterval = setInterval(() => {
+            fetch(`/api/breach-analysis/scan-progress/${scanId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        this.updateScanProgress(data);
+                        
+                        if (data.is_complete) {
+                            this.completeScan(data);
+                        }
+                    } else {
+                        this.showScanError(data.error);
+                    }
+                })
+                .catch(error => {
+                    this.showScanError('Progress check failed: ' + error.message);
+                });
+        }, 2000); // Check every 2 seconds
+    }
+    
+    updateScanProgress(data) {
+        const progressBar = document.getElementById('scanProgressBar');
+        const progressText = document.getElementById('scanProgressText');
+        
+        progressBar.style.width = `${data.progress}%`;
+        progressText.textContent = `Scanning... ${data.domains_scanned}/${data.domains_total} domains (${data.progress}%)`;
+        
+        // Update results if any
+        if (data.breaches_found > 0) {
+            const resultsList = document.getElementById('scanResultsList');
+            resultsList.innerHTML = `<li class="text-success">Found ${data.breaches_found} potential security issues</li>`;
+        }
+    }
+    
+    completeScan(data) {
+        clearInterval(this.progressInterval);
+        
+        // Update UI
+        document.getElementById('scanProgressText').textContent = 'Scan completed!';
+        document.getElementById('scanProgressBar').style.width = '100%';
+        document.getElementById('scanProgressBar').classList.add('bg-success');
+        
+        // Update results
+        const resultsList = document.getElementById('scanResultsList');
+        resultsList.innerHTML = `
+            <li class="text-success">✅ Scanned ${data.domains_total} domains</li>
+            <li class="text-info">🔍 Found ${data.breaches_found} security issues</li>
+            <li class="text-primary">📊 Risk scores updated</li>
+        `;
+        
+        // Hide cancel, show close
+        document.getElementById('cancelScanBtn').style.display = 'none';
+        document.getElementById('closeScanBtn').style.display = 'inline-block';
+        
+        // Refresh the page data after a brief delay
+        setTimeout(() => {
+            location.reload();
+        }, 3000);
+    }
+    
+    showScanError(error) {
+        clearInterval(this.progressInterval);
+        
+        // Update UI
+        document.getElementById('scanProgressText').textContent = 'Scan failed!';
+        document.getElementById('scanProgressBar').classList.add('bg-danger');
+        
+        // Show error
+        const resultsList = document.getElementById('scanResultsList');
+        resultsList.innerHTML = `<li class="text-danger">❌ Error: ${error}</li>`;
+        
+        // Hide cancel, show close
+        document.getElementById('cancelScanBtn').style.display = 'none';
+        document.getElementById('closeScanBtn').style.display = 'inline-block';
+    }
+    
+    cancelScan() {
+        console.log('Cancel scan called, scanId:', this.currentScanId, 'interval:', this.progressInterval);
+        
+        if (this.progressInterval) {
+            clearInterval(this.progressInterval);
+            this.progressInterval = null;
+        }
+        
+        if (this.currentScanId) {
+            fetch(`/api/breach-analysis/cancel-scan/${this.currentScanId}`, { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Cancel response:', data);
+                    if (data.success) {
+                        // Update UI
+                        document.getElementById('scanProgressText').textContent = 'Scan cancelled';
+                        document.getElementById('scanProgressBar').classList.add('bg-warning');
+                        
+                        const resultsList = document.getElementById('scanResultsList');
+                        resultsList.innerHTML = '<li class="text-warning">⚠️ Scan was cancelled by user</li>';
+                        
+                        // Hide cancel, show close
+                        document.getElementById('cancelScanBtn').style.display = 'none';
+                        document.getElementById('closeScanBtn').style.display = 'inline-block';
+                    }
+                })
+                .catch(error => {
+                    console.error('Cancel failed:', error);
+                    // Still update UI even if cancel API fails
+                    document.getElementById('scanProgressText').textContent = 'Scan cancelled';
+                    document.getElementById('scanProgressBar').classList.add('bg-warning');
+                    document.getElementById('cancelScanBtn').style.display = 'none';
+                    document.getElementById('closeScanBtn').style.display = 'inline-block';
+                });
+        } else {
+            // No scan ID, just update UI
+            document.getElementById('scanProgressText').textContent = 'Scan cancelled';
+            document.getElementById('scanProgressBar').classList.add('bg-warning');
+            document.getElementById('cancelScanBtn').style.display = 'none';
+            document.getElementById('closeScanBtn').style.display = 'inline-block';
+        }
+    }
+}
+
+// Initialize breach analysis when page loads
+let analysis;
+document.addEventListener('DOMContentLoaded', function() {
+    analysis = new BreachAnalysis();
+});
+
+// Helper functions
+function viewDomainDetails(domain) {
+    console.log('Viewing details for domain:', domain);
+    
+    const modal = new bootstrap.Modal(document.getElementById('domainDetailsModal'));
+    modal.show();
+    
+    // Fetch domain details from our demo data
+    fetch(`/api/breach-analysis/domains`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const domainData = data.domains.find(d => d.domain === domain);
+                if (domainData) {
+                    displayDomainDetails(domainData);
+                } else {
+                    showDomainError(`Domain ${domain} not found in breach database`);
+                }
+            } else {
+                showDomainError('Failed to load domain details');
+            }
+        })
+        .catch(error => {
+            console.error('Error loading domain details:', error);
+            showDomainError('Error loading domain details: ' + error.message);
+        });
+}
+
+function displayDomainDetails(domain) {
+    const statusBadge = domain.breach_status === 'breached' ? 'danger' : 
+                       domain.breach_status === 'not_breached' ? 'success' : 'secondary';
+    const statusText = domain.breach_status === 'breached' ? 'Breached' : 
+                      domain.breach_status === 'not_breached' ? 'Secure' : 'Unknown';
+    
+    const content = `
+        <div class="row">
+            <div class="col-md-6">
+                <h6><i class="fas fa-globe me-2"></i>Domain Information</h6>
+                <table class="table table-sm">
+                    <tr><td><strong>Domain:</strong></td><td>${domain.domain}</td></tr>
+                    <tr><td><strong>Status:</strong></td><td><span class="badge bg-${statusBadge}">${statusText}</span></td></tr>
+                    <tr><td><strong>Contacts:</strong></td><td>${domain.contact_count} contacts in database</td></tr>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <h6><i class="fas fa-exclamation-triangle me-2"></i>Breach Information</h6>
+                <table class="table table-sm">
+                    <tr><td><strong>Breach Name:</strong></td><td>${domain.breach_name}</td></tr>
+                    <tr><td><strong>Year:</strong></td><td>${domain.breach_year}</td></tr>
+                    <tr><td><strong>Records Affected:</strong></td><td>${domain.records_affected.toLocaleString()}</td></tr>
+                    <tr><td><strong>Data Types:</strong></td><td>${domain.data_types}</td></tr>
+                </table>
+            </div>
+        </div>
+        
+        <div class="mt-3">
+            <h6><i class="fas fa-lightbulb me-2"></i>Campaign Recommendations</h6>
+            <div class="alert alert-info">
+                <ul class="mb-0">
+                    <li><strong>Email Template:</strong> Use ${statusText.toLowerCase()}-specific notification template</li>
+                    <li><strong>Approach:</strong> ${domain.breach_status === 'breached' ? 'Urgent security consultation' : domain.breach_status === 'not_breached' ? 'Proactive security positioning' : 'Security awareness and assessment'}</li>
+                    <li><strong>Focus Areas:</strong> ${domain.data_types.includes('Password') ? 'Password security, ' : ''}${domain.data_types.includes('Email') ? 'Email security, ' : ''}Data protection</li>
+                    <li><strong>Timeline:</strong> ${domain.breach_status === 'breached' ? 'Immediate contact recommended' : 'Contact within 1-2 weeks'}</li>
+                </ul>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('domainDetailsContent').innerHTML = content;
+}
+
+function showDomainError(message) {
+    document.getElementById('domainDetailsContent').innerHTML = `
+        <div class="alert alert-danger">
+            <h6><i class="fas fa-exclamation-triangle me-2"></i>Error</h6>
+            <p>${message}</p>
+        </div>
+    `;
+}
+
+function editContact(contactId) {
+    console.log('Editing contact:', contactId);
+    
+    // Find contact in demo data and populate modal
+    fetch(`/api/breach-analysis/contacts/breached`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                let contact = data.contacts.find(c => c.id == contactId);
+                
+                if (!contact) {
+                    // Try secure status
+                    return fetch(`/api/breach-analysis/contacts/not_breached`).then(res => res.json());
+                }
+                return {success: true, contacts: [contact]};
+            }
+            throw new Error('Failed to load contact data');
+        })
+        .then(data => {
+            if (data.success && data.contacts.length > 0) {
+                let contact = data.contacts.find(c => c.id == contactId) || data.contacts[0];
+                populateEditModal(contact);
+            } else {
+                // Try unknown status
+                return fetch(`/api/breach-analysis/contacts/unknown`).then(res => res.json());
+            }
+        })
+        .then(data => {
+            if (data && data.success && data.contacts.length > 0) {
+                let contact = data.contacts.find(c => c.id == contactId);
+                if (contact) {
+                    populateEditModal(contact);
+                } else {
+                    alert('Contact not found');
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error loading contact:', error);
+            alert('Error loading contact data');
+        });
+}
+
+function populateEditModal(contact) {
+    document.getElementById('editContactId').value = contact.id;
+    document.getElementById('editFirstName').value = contact.first_name || '';
+    document.getElementById('editLastName').value = contact.last_name || '';
+    document.getElementById('editEmail').value = contact.email || '';
+    document.getElementById('editCompany').value = contact.company || '';
+    document.getElementById('editTitle').value = contact.title || '';
+    
+    const modal = new bootstrap.Modal(document.getElementById('editContactModal'));
+    modal.show();
+}
+
+function previewEmail(contactId) {
+    console.log('Previewing email for contact:', contactId);
+    
+    const modal = new bootstrap.Modal(document.getElementById('emailPreviewModal'));
+    modal.show();
+    
+    // Find contact and generate email preview
+    fetch(`/api/breach-analysis/contacts/breached`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                let contact = data.contacts.find(c => c.id == contactId);
+                if (contact) {
+                    generateEmailPreview(contact);
+                    return;
+                }
+            }
+            // Try other breach statuses
+            return Promise.all([
+                fetch(`/api/breach-analysis/contacts/not_breached`).then(res => res.json()),
+                fetch(`/api/breach-analysis/contacts/unknown`).then(res => res.json())
+            ]);
+        })
+        .then(results => {
+            if (Array.isArray(results)) {
+                for (let data of results) {
+                    if (data.success) {
+                        let contact = data.contacts.find(c => c.id == contactId);
+                        if (contact) {
+                            generateEmailPreview(contact);
+                            return;
+                        }
+                    }
+                }
+                showEmailError('Contact not found');
+            }
+        })
+        .catch(error => {
+            console.error('Error loading contact for email preview:', error);
+            showEmailError('Error loading contact data: ' + error.message);
+        });
+}
+
+function generateEmailPreview(contact) {
+    const templateType = contact.breach_status === 'breached' ? 'Breach Response' : 
+                        contact.breach_status === 'not_breached' ? 'Proactive Security' : 'Security Assessment';
+    
+    const emailContent = `
+        <div class="email-preview">
+            <div class="email-header mb-3">
+                <h6><i class="fas fa-envelope me-2"></i>Email Preview</h6>
+                <div class="row">
+                    <div class="col-md-6">
+                        <small><strong>To:</strong> ${contact.first_name} ${contact.last_name} &lt;${contact.email}&gt;</small><br>
+                        <small><strong>Template:</strong> ${templateType}</small>
+                    </div>
+                    <div class="col-md-6">
+                        <small><strong>Company:</strong> ${contact.company}</small><br>
+                        <small><strong>Status:</strong> <span class="badge bg-${contact.breach_status === 'breached' ? 'danger' : contact.breach_status === 'not_breached' ? 'success' : contact.breach_status === 'unassigned' ? 'info' : 'secondary'}">${contact.breach_status === 'breached' ? '🔴 Breached' : contact.breach_status === 'not_breached' ? '🟢 Secure' : contact.breach_status === 'unassigned' ? '📋 Unassigned' : '⚪ Unknown'}</span></small>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="email-content border p-3 bg-light">
+                <p><strong>Subject:</strong> ${getEmailSubject(contact)}</p>
+                <hr>
+                <p>Dear ${contact.first_name || 'Valued Contact'},</p>
+                
+                <p>${getEmailBody(contact)}</p>
+                
+                <p>Our cybersecurity team specializes in helping companies like ${contact.company} strengthen their security posture and protect against future threats.</p>
+                
+                <p><strong>We'd like to offer you a complimentary security consultation</strong> to discuss:</p>
+                <ul>
+                    <li>Current security vulnerabilities in your organization</li>
+                    <li>Best practices for data protection</li>
+                    <li>Implementation of advanced security measures</li>
+                    <li>Employee security awareness training</li>
+                </ul>
+                
+                <p>Would you be available for a brief 15-minute call this week to discuss how we can help protect ${contact.company}'s valuable data?</p>
+                
+                <p>Best regards,<br>
+                SalesBreachPro Security Team</p>
+                
+                <hr>
+                <small class="text-muted">This email was generated based on breach data for ${contact.domain} (${contact.breach_name}, ${contact.breach_year})</small>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('emailPreviewContent').innerHTML = emailContent;
+}
+
+function getEmailSubject(contact) {
+    if (contact.breach_status === 'breached') {
+        return `Urgent: Security Breach Affecting ${contact.company} - Immediate Action Required`;
+    } else if (contact.breach_status === 'not_breached') {
+        return `Proactive Security Consultation for ${contact.company}`;
+    } else {
+        return `Security Assessment for ${contact.company}`;
+    }
+}
+
+function getEmailBody(contact) {
+    if (contact.breach_status === 'breached') {
+        return `We recently discovered that ${contact.company}'s domain (${contact.domain}) was involved in the ${contact.breach_name} security breach in ${contact.breach_year}. This incident potentially exposed ${contact.data_types && contact.data_types.toLowerCase()} and requires immediate attention to prevent further security risks.`;
+    } else if (contact.breach_status === 'not_breached') {
+        return `As part of our proactive security outreach, we noticed that ${contact.company} may benefit from enhanced cybersecurity measures. With the increasing number of data breaches affecting businesses like yours, now is the perfect time to strengthen your security infrastructure.`;
+    } else {
+        return `Our security research indicates that ${contact.company}'s domain (${contact.domain}) may benefit from a comprehensive security assessment. With the increasing number of data breaches affecting businesses, it's important to review your current security measures.`;
+    }
+}
+
+function showEmailError(message) {
+    document.getElementById('emailPreviewContent').innerHTML = `
+        <div class="alert alert-danger">
+            <h6><i class="fas fa-exclamation-triangle me-2"></i>Error</h6>
+            <p>${message}</p>
+        </div>
+    `;
+}
+
+function generateCampaignSuggestions() {
+    // Implement campaign suggestion generator
+    alert('Campaign suggestion feature coming soon!');
+}
+</script>
+{% endblock %}

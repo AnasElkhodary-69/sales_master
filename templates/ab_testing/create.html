@@ -1,0 +1,394 @@
+{% extends "base.html" %}
+
+{% block title %}Create A/B Test - SalesBreachPro{% endblock %}
+
+{% block extra_head %}
+<style>
+    .variant-section {
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        transition: all 0.3s ease;
+    }
+
+    .variant-section.variant-a {
+        border-color: #007bff;
+        background: rgba(0, 123, 255, 0.05);
+    }
+
+    .variant-section.variant-b {
+        border-color: #28a745;
+        background: rgba(40, 167, 69, 0.05);
+    }
+
+    .variant-header {
+        font-weight: 600;
+        margin-bottom: 15px;
+        padding: 8px 12px;
+        border-radius: 4px;
+        color: white;
+    }
+
+    .variant-a .variant-header {
+        background: #007bff;
+    }
+
+    .variant-b .variant-header {
+        background: #28a745;
+    }
+
+    .help-text {
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+
+    .step-indicator {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 30px;
+    }
+
+    .step {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #e9ecef;
+        color: #6c757d;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        position: relative;
+    }
+
+    .step.active {
+        background: #007bff;
+        color: white;
+    }
+
+    .step:not(:last-child)::after {
+        content: '';
+        position: absolute;
+        left: 100%;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 50px;
+        height: 2px;
+        background: #e9ecef;
+    }
+
+    .step.active:not(:last-child)::after {
+        background: #007bff;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2><i class="fas fa-flask me-2"></i>Create A/B Test</h2>
+                    <p class="text-muted mb-0">Compare two email variants to optimize your campaigns</p>
+                </div>
+                <div>
+                    <a href="/ab-testing/" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-1"></i>Back to Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Step Indicator -->
+    <div class="step-indicator mb-4">
+        <div class="step active me-3">1</div>
+        <div class="step">2</div>
+    </div>
+
+    <!-- Create Form -->
+    <form method="POST" id="ab-test-form">
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-cog me-2"></i>Test Configuration</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="name" class="form-label">Test Name *</label>
+                                    <input type="text" class="form-control" id="name" name="name" required
+                                           placeholder="e.g., Subject Line Test - Security Alert">
+                                    <div class="help-text">Choose a descriptive name for your test</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="test_type" class="form-label">Test Type *</label>
+                                    <select class="form-select" id="test_type" name="test_type" required>
+                                        <option value="subject_line">Subject Line Test</option>
+                                        <option value="email_body">Email Body Test</option>
+                                        <option value="sender_name">Sender Name Test</option>
+                                        <option value="send_time">Send Time Test</option>
+                                        <option value="complete_email">Complete Email Test</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="campaign_id" class="form-label">Campaign *</label>
+                                    <select class="form-select" id="campaign_id" name="campaign_id" required>
+                                        <option value="">Select a campaign</option>
+                                        {% for campaign in campaigns %}
+                                        <option value="{{ campaign.id }}">{{ campaign.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="help-text">Choose the campaign to test</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="template_id" class="form-label">Base Template (Optional)</label>
+                                    <select class="form-select" id="template_id" name="template_id">
+                                        <option value="">Create from scratch</option>
+                                        {% for template in templates %}
+                                        <option value="{{ template.id }}"
+                                                {% if request.args.get('template_id') == template.id|string %}selected{% endif %}>
+                                            {{ template.name }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="help-text">Use an existing template as starting point</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="traffic_split" class="form-label">Traffic Split (% for Variant A)</label>
+                                    <input type="number" class="form-control" id="traffic_split" name="traffic_split"
+                                           value="50" min="10" max="90">
+                                    <div class="help-text">Percentage of contacts to receive Variant A</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="sample_size" class="form-label">Sample Size</label>
+                                    <input type="number" class="form-control" id="sample_size" name="sample_size"
+                                           value="100" min="20" max="10000">
+                                    <div class="help-text">Total number of contacts to include</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="primary_metric" class="form-label">Primary Metric</label>
+                                    <select class="form-select" id="primary_metric" name="primary_metric">
+                                        <option value="open_rate">Open Rate</option>
+                                        <option value="click_rate">Click Rate</option>
+                                        <option value="response_rate">Response Rate</option>
+                                    </select>
+                                    <div class="help-text">Main metric to optimize for</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description (Optional)</label>
+                            <textarea class="form-control" id="description" name="description" rows="2"
+                                      placeholder="Describe what you're testing and why"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Variant A -->
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="variant-section variant-a">
+                    <div class="variant-header">
+                        <i class="fas fa-flask me-2"></i>Variant A (Control)
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="variant_a_subject" class="form-label">Subject Line *</label>
+                        <input type="text" class="form-control" id="variant_a_subject" name="variant_a_subject"
+                               required placeholder="Your current/control subject line">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="variant_a_sender_name" class="form-label">Sender Name</label>
+                        <input type="text" class="form-control" id="variant_a_sender_name" name="variant_a_sender_name"
+                               placeholder="John Smith">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="variant_a_sender_email" class="form-label">Sender Email</label>
+                        <input type="email" class="form-control" id="variant_a_sender_email" name="variant_a_sender_email"
+                               placeholder="john@company.com">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="variant_a_body" class="form-label">Email Body *</label>
+                        <textarea class="form-control" id="variant_a_body" name="variant_a_body" rows="8" required
+                                  placeholder="Write your email content here. You can use variables like {{first_name}}, {{company_name}}, etc."></textarea>
+                        <div class="help-text">Use variables: {{first_name}}, {{company_name}}, {{domain}}, {{breach_count}}</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="variant_a_cta" class="form-label">Call-to-Action Text</label>
+                        <input type="text" class="form-control" id="variant_a_cta" name="variant_a_cta"
+                               placeholder="Schedule a consultation">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="variant_a_time_offset" class="form-label">Send Time Offset (hours)</label>
+                        <input type="number" class="form-control" id="variant_a_time_offset" name="variant_a_time_offset"
+                               value="0" min="0" max="168">
+                        <div class="help-text">Delay sending by X hours (0 = immediate)</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Variant B -->
+            <div class="col-md-6">
+                <div class="variant-section variant-b">
+                    <div class="variant-header">
+                        <i class="fas fa-flask me-2"></i>Variant B (Test)
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="variant_b_subject" class="form-label">Subject Line *</label>
+                        <input type="text" class="form-control" id="variant_b_subject" name="variant_b_subject"
+                               required placeholder="Your test subject line">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="variant_b_sender_name" class="form-label">Sender Name</label>
+                        <input type="text" class="form-control" id="variant_b_sender_name" name="variant_b_sender_name"
+                               placeholder="John Smith">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="variant_b_sender_email" class="form-label">Sender Email</label>
+                        <input type="email" class="form-control" id="variant_b_sender_email" name="variant_b_sender_email"
+                               placeholder="john@company.com">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="variant_b_body" class="form-label">Email Body *</label>
+                        <textarea class="form-control" id="variant_b_body" name="variant_b_body" rows="8" required
+                                  placeholder="Write your test email content here. You can use variables like {{first_name}}, {{company_name}}, etc."></textarea>
+                        <div class="help-text">Use variables: {{first_name}}, {{company_name}}, {{domain}}, {{breach_count}}</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="variant_b_cta" class="form-label">Call-to-Action Text</label>
+                        <input type="text" class="form-control" id="variant_b_cta" name="variant_b_cta"
+                               placeholder="Get your security assessment">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="variant_b_time_offset" class="form-label">Send Time Offset (hours)</label>
+                        <input type="number" class="form-control" id="variant_b_time_offset" name="variant_b_time_offset"
+                               value="0" min="0" max="168">
+                        <div class="help-text">Delay sending by X hours (0 = immediate)</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Submit Buttons -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <button type="submit" class="btn btn-primary btn-lg me-3">
+                            <i class="fas fa-save me-2"></i>Create A/B Test
+                        </button>
+                        <a href="/ab-testing/" class="btn btn-outline-secondary">
+                            <i class="fas fa-times me-2"></i>Cancel
+                        </a>
+
+                        <div class="mt-3 text-muted small">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Your test will be created in draft mode. You can review and start it from the dashboard.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-populate fields when template is selected
+    const templateSelect = document.getElementById('template_id');
+    if (templateSelect) {
+        templateSelect.addEventListener('change', function() {
+            const templateId = this.value;
+            if (templateId) {
+                // You could fetch template details and populate variant A fields
+                console.log('Selected template:', templateId);
+            }
+        });
+    }
+
+    // Copy variant A to variant B helper
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey && e.key === 'd') {
+            e.preventDefault();
+            copyVariantAToB();
+        }
+    });
+
+    // Add copy button functionality
+    addCopyButton();
+});
+
+function copyVariantAToB() {
+    const fieldsToMap = [
+        ['variant_a_subject', 'variant_b_subject'],
+        ['variant_a_sender_name', 'variant_b_sender_name'],
+        ['variant_a_sender_email', 'variant_b_sender_email'],
+        ['variant_a_body', 'variant_b_body'],
+        ['variant_a_cta', 'variant_b_cta'],
+        ['variant_a_time_offset', 'variant_b_time_offset']
+    ];
+
+    fieldsToMap.forEach(([sourceId, targetId]) => {
+        const source = document.getElementById(sourceId);
+        const target = document.getElementById(targetId);
+        if (source && target && !target.value) {
+            target.value = source.value;
+        }
+    });
+
+    showToast('📋 Variant A copied to Variant B. Now modify Variant B as needed.', 'info', 3000);
+}
+
+function addCopyButton() {
+    const variantBHeader = document.querySelector('.variant-b .variant-header');
+    if (variantBHeader) {
+        const copyBtn = document.createElement('button');
+        copyBtn.type = 'button';
+        copyBtn.className = 'btn btn-sm btn-outline-light float-end';
+        copyBtn.innerHTML = '<i class="fas fa-copy me-1"></i>Copy from A';
+        copyBtn.onclick = copyVariantAToB;
+        variantBHeader.appendChild(copyBtn);
+    }
+}
+</script>
+{% endblock %}

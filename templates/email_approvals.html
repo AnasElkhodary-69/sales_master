@@ -1,0 +1,503 @@
+{% extends "base.html" %}
+
+{% block title %}Email Approvals - SalesBreachPro{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2><i class="fas fa-check-square me-3"></i>Email Approvals</h2>
+                    <p class="text-muted mb-0">Review and approve emails before sending</p>
+                </div>
+                <div>
+                    {% if pending_emails %}
+                        <button class="btn btn-success" onclick="approveAllSelected()" disabled id="approveAllBtn">
+                            <i class="fas fa-check me-2"></i>Approve Selected
+                        </button>
+                        <button class="btn btn-warning ms-2" onclick="rejectAllSelected()" disabled id="rejectAllBtn">
+                            <i class="fas fa-times me-2"></i>Reject Selected
+                        </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pending Emails -->
+    <div class="row">
+        <div class="col-12">
+            {% if pending_emails %}
+                <div class="card">
+                    <div class="card-header">
+                        <div class="row align-items-center">
+                            <div class="col">
+                                <h5 class="mb-0">
+                                    <i class="fas fa-clock me-2"></i>Pending Approvals
+                                    <span class="badge bg-warning ms-2">{{ pending_emails|length }}</span>
+                                </h5>
+                            </div>
+                            <div class="col-auto">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="selectAll" onchange="toggleAll(this)">
+                                    <label class="form-check-label" for="selectAll">Select All</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 40px;">
+                                            <input type="checkbox" class="form-check-input" id="headerCheckbox" onchange="toggleAll(this)">
+                                        </th>
+                                        <th>Contact</th>
+                                        <th>Campaign</th>
+                                        <th>Subject</th>
+                                        <th>Type</th>
+                                        <th>Created</th>
+                                        <th style="width: 200px;">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for email in pending_emails %}
+                                    <tr data-email-id="{{ email.id }}">
+                                        <td>
+                                            <input type="checkbox" class="form-check-input email-checkbox" value="{{ email.id }}" onchange="updateButtons()">
+                                        </td>
+                                        <td>
+                                            <div>
+                                                <strong>{{ email.contact.email }}</strong>
+                                                {% if email.contact.first_name or email.contact.last_name %}
+                                                    <br><small class="text-muted">{{ email.contact.first_name }} {{ email.contact.last_name }}</small>
+                                                {% endif %}
+                                                {% if email.contact.company %}
+                                                    <br><small class="text-muted">{{ email.contact.company }}</small>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-primary">{{ email.campaign.name }}</span>
+                                        </td>
+                                        <td>
+                                            <strong>{{ email.subject }}</strong>
+                                            <br><button class="btn btn-sm btn-outline-info mt-1" onclick="previewEmail({{ email.id }})">
+                                                <i class="fas fa-eye me-1"></i>Preview
+                                            </button>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-secondary">{{ email.email_type.replace('_', ' ').title() }}</span>
+                                        </td>
+                                        <td>
+                                            <small class="text-muted">{{ email.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-success me-1" onclick="approveEmail({{ email.id }})">
+                                                <i class="fas fa-check me-1"></i>Approve
+                                            </button>
+                                            <button class="btn btn-sm btn-danger" onclick="rejectEmail({{ email.id }})">
+                                                <i class="fas fa-times me-1"></i>Reject
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <div class="card">
+                    <div class="card-body text-center py-5">
+                        <i class="fas fa-check-circle text-success" style="font-size: 3rem;"></i>
+                        <h4 class="mt-3">No Pending Approvals</h4>
+                        <p class="text-muted">All emails have been processed or no campaigns require approval.</p>
+                        <a href="{{ url_for('campaigns.index') }}" class="btn btn-primary">
+                            <i class="fas fa-arrow-left me-2"></i>Back to Campaigns
+                        </a>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Email Preview Modal -->
+<div class="modal fade" id="emailPreviewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="previewModalTitle">Email Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="emailPreviewContent">
+                    <div class="text-center py-3">
+                        <div class="spinner-border" role="status"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <div id="previewModeButtons">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-warning" id="editEmailBtn" onclick="enterEditMode()">
+                        <i class="fas fa-edit me-1"></i>Edit Email
+                    </button>
+                    <button type="button" class="btn btn-success" id="previewApproveBtn" onclick="approveFromPreview()">
+                        <i class="fas fa-check me-1"></i>Approve & Send
+                    </button>
+                    <button type="button" class="btn btn-danger" id="previewRejectBtn" onclick="rejectFromPreview()">
+                        <i class="fas fa-times me-1"></i>Reject
+                    </button>
+                </div>
+                <div id="editModeButtons" style="display: none;">
+                    <button type="button" class="btn btn-secondary" onclick="cancelEdit()">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="saveEmailChanges()">
+                        <i class="fas fa-save me-1"></i>Save Changes
+                    </button>
+                    <button type="button" class="btn btn-success" onclick="saveAndApprove()">
+                        <i class="fas fa-check me-1"></i>Save & Approve
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentPreviewEmailId = null;
+
+function toggleAll(checkbox) {
+    const emailCheckboxes = document.querySelectorAll('.email-checkbox');
+    emailCheckboxes.forEach(cb => cb.checked = checkbox.checked);
+    updateButtons();
+}
+
+function updateButtons() {
+    const selected = document.querySelectorAll('.email-checkbox:checked');
+    const approveBtn = document.getElementById('approveAllBtn');
+    const rejectBtn = document.getElementById('rejectAllBtn');
+
+    if (approveBtn && rejectBtn) {
+        approveBtn.disabled = selected.length === 0;
+        rejectBtn.disabled = selected.length === 0;
+    }
+}
+
+function approveEmail(emailId) {
+    if (!confirm('Approve and send this email?')) return;
+
+    fetch(`/campaigns/api/approve-email/${emailId}`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast('Error: ' + data.error, 'error');
+        }
+    })
+    .catch(error => {
+        showToast('Error approving email: ' + error.message, 'error');
+    });
+}
+
+function rejectEmail(emailId) {
+    const notes = prompt('Reason for rejection (optional):');
+    if (notes === null) return;
+
+    fetch(`/campaigns/api/reject-email/${emailId}`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({notes: notes})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'warning');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast('Error: ' + data.error, 'error');
+        }
+    })
+    .catch(error => {
+        showToast('Error rejecting email: ' + error.message, 'error');
+    });
+}
+
+function approveAllSelected() {
+    const selected = document.querySelectorAll('.email-checkbox:checked');
+    const emailIds = Array.from(selected).map(cb => parseInt(cb.value));
+
+    if (emailIds.length === 0) return;
+    if (!confirm(`Approve and send ${emailIds.length} emails?`)) return;
+
+    fetch('/campaigns/api/batch-approve', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({email_ids: emailIds})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast('Error: ' + data.error, 'error');
+        }
+    })
+    .catch(error => {
+        showToast('Error in batch approval: ' + error.message, 'error');
+    });
+}
+
+function previewEmail(emailId) {
+    currentPreviewEmailId = emailId;
+
+    // Show loading spinner
+    document.getElementById('emailPreviewContent').innerHTML = `
+        <div class="text-center py-3">
+            <div class="spinner-border" role="status"></div>
+            <div class="mt-2">Loading email preview...</div>
+        </div>
+    `;
+
+    // Fetch full email content
+    fetch(`/campaigns/api/email-preview/${emailId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const email = data.email;
+                originalEmailData = email; // Store for edit mode
+                const contactName = email.contact_name || 'Unknown';
+                const contactCompany = email.contact_company ? ` (${email.contact_company})` : '';
+
+                document.getElementById('emailPreviewContent').innerHTML = `
+                    <div class="email-preview">
+                        <!-- Email Headers -->
+                        <div class="email-headers mb-4">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <strong>To:</strong> ${email.contact_email}<br>
+                                    <strong>Name:</strong> ${contactName}${contactCompany}<br>
+                                    <strong>Campaign:</strong> ${email.campaign_name}
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Type:</strong> ${email.email_type.replace('_', ' ')}<br>
+                                    <strong>Status:</strong> <span class="badge bg-warning">${email.approval_status}</span><br>
+                                    <strong>Created:</strong> ${email.created_at}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Email Subject -->
+                        <div class="email-subject mb-3">
+                            <strong>Subject:</strong> ${email.subject}
+                        </div>
+
+                        <!-- Email Content -->
+                        <div class="email-content border-top pt-3">
+                            <h6>Email Content:</h6>
+                            ${email.html_body ?
+                                `<div class="html-content border rounded p-3" style="background: #f8f9fa;">${email.html_body}</div>` :
+                                `<div class="text-content border rounded p-3" style="background: #f8f9fa; white-space: pre-wrap;">${email.body || 'No content available'}</div>`
+                            }
+                        </div>
+                    </div>
+                `;
+            } else {
+                document.getElementById('emailPreviewContent').innerHTML = `
+                    <div class="alert alert-danger">
+                        <h6>Error Loading Preview</h6>
+                        <p class="mb-0">${data.error || 'Unable to load email preview'}</p>
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            document.getElementById('emailPreviewContent').innerHTML = `
+                <div class="alert alert-danger">
+                    <h6>Error Loading Preview</h6>
+                    <p class="mb-0">Network error: ${error.message}</p>
+                </div>
+            `;
+        });
+
+    new bootstrap.Modal(document.getElementById('emailPreviewModal')).show();
+}
+
+function approveFromPreview() {
+    if (currentPreviewEmailId) {
+        approveEmail(currentPreviewEmailId);
+    }
+}
+
+function rejectFromPreview() {
+    if (currentPreviewEmailId) {
+        rejectEmail(currentPreviewEmailId);
+    }
+}
+
+// Update buttons on page load
+document.addEventListener('DOMContentLoaded', updateButtons);
+
+// Email editing functionality
+let originalEmailData = null;
+let isEditMode = false;
+
+function enterEditMode() {
+    if (!currentPreviewEmailId) return;
+
+    isEditMode = true;
+
+    // Update modal title and buttons
+    document.getElementById('previewModalTitle').textContent = 'Edit Email';
+    document.getElementById('previewModeButtons').style.display = 'none';
+    document.getElementById('editModeButtons').style.display = 'block';
+
+    // Get current email data
+    const email = originalEmailData;
+    if (!email) return;
+
+    // Create editable form
+    document.getElementById('emailPreviewContent').innerHTML = `
+        <div class="email-edit-form">
+            <!-- Email Headers (read-only) -->
+            <div class="email-headers mb-4 p-3 bg-light rounded">
+                <div class="row">
+                    <div class="col-md-6">
+                        <strong>To:</strong> ${email.contact_email}<br>
+                        <strong>Name:</strong> ${email.contact_name || 'Unknown'}<br>
+                        <strong>Campaign:</strong> ${email.campaign_name}
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Type:</strong> ${email.email_type.replace('_', ' ')}<br>
+                        <strong>Status:</strong> <span class="badge bg-warning">${email.approval_status}</span><br>
+                        <strong>Created:</strong> ${email.created_at}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Editable Subject -->
+            <div class="mb-3">
+                <label for="editSubject" class="form-label"><strong>Subject:</strong></label>
+                <input type="text" id="editSubject" class="form-control" value="${email.subject || ''}" placeholder="Enter email subject">
+            </div>
+
+            <!-- Editable Email Content -->
+            <div class="mb-3">
+                <label for="editBody" class="form-label"><strong>Email Content:</strong></label>
+                <textarea id="editBody" class="form-control" rows="15" placeholder="Enter email content">${email.html_body || email.body || ''}</textarea>
+                <div class="form-text">You can use HTML tags for formatting.</div>
+            </div>
+        </div>
+    `;
+}
+
+function cancelEdit() {
+    isEditMode = false;
+
+    // Restore original preview
+    document.getElementById('previewModalTitle').textContent = 'Email Preview';
+    document.getElementById('previewModeButtons').style.display = 'block';
+    document.getElementById('editModeButtons').style.display = 'none';
+
+    // Reload original preview
+    previewEmail(currentPreviewEmailId);
+}
+
+function saveEmailChanges() {
+    if (!currentPreviewEmailId) return;
+
+    const subject = document.getElementById('editSubject').value.trim();
+    const body = document.getElementById('editBody').value.trim();
+
+    if (!subject) {
+        showToast('Subject cannot be empty', 'error');
+        return;
+    }
+
+    if (!body) {
+        showToast('Email body cannot be empty', 'error');
+        return;
+    }
+
+    // Show saving state
+    const saveBtn = document.querySelector('#editModeButtons .btn-primary');
+    const originalText = saveBtn.innerHTML;
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Saving...';
+    saveBtn.disabled = true;
+
+    // Save changes via API
+    fetch(`/campaigns/api/edit-email/${currentPreviewEmailId}`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            subject: subject,
+            body: body
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            // Exit edit mode and reload preview
+            cancelEdit();
+        } else {
+            showToast('Error: ' + data.error, 'error');
+        }
+    })
+    .catch(error => {
+        showToast('Error saving changes: ' + error.message, 'error');
+    })
+    .finally(() => {
+        saveBtn.innerHTML = originalText;
+        saveBtn.disabled = false;
+    });
+}
+
+function saveAndApprove() {
+    if (!currentPreviewEmailId) return;
+
+    const subject = document.getElementById('editSubject').value.trim();
+    const body = document.getElementById('editBody').value.trim();
+
+    if (!subject || !body) {
+        showToast('Subject and body cannot be empty', 'error');
+        return;
+    }
+
+    // Save first, then approve
+    fetch(`/campaigns/api/edit-email/${currentPreviewEmailId}`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            subject: subject,
+            body: body
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Close modal and approve
+            const modal = bootstrap.Modal.getInstance(document.getElementById('emailPreviewModal'));
+            modal.hide();
+            approveEmail(currentPreviewEmailId);
+        } else {
+            showToast('Error saving: ' + data.error, 'error');
+        }
+    })
+    .catch(error => {
+        showToast('Error: ' + error.message, 'error');
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,420 @@
+{% extends "base.html" %}
+
+{% block title %}New Email Sequence - SalesBreachPro{% endblock %}
+
+{% block extra_css %}
+<style>
+.step-builder {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.step-item {
+    padding: 15px;
+    border-bottom: 1px solid #f1f3f4;
+    background: #fafbfc;
+    margin-bottom: 10px;
+    border-radius: 6px;
+    position: relative;
+}
+
+.step-item:last-child {
+    border-bottom: none;
+}
+
+.step-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 10px;
+}
+
+.step-number {
+    background: #007bff;
+    color: white;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.step-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr 2fr auto;
+    gap: 15px;
+    align-items: end;
+}
+
+.remove-step {
+    background: #dc3545;
+    color: white;
+    border: none;
+    width: 35px;
+    height: 35px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.add-step-btn {
+    width: 100%;
+    padding: 15px;
+    border: 2px dashed #dee2e6;
+    background: none;
+    color: #6c757d;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.add-step-btn:hover {
+    border-color: #007bff;
+    color: #007bff;
+    background: #f8f9fa;
+}
+
+.preview-timeline {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin-top: 20px;
+}
+
+.timeline-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+    position: relative;
+}
+
+.timeline-item:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 30px;
+    width: 2px;
+    height: 25px;
+    background: #dee2e6;
+}
+
+.timeline-dot {
+    width: 30px;
+    height: 30px;
+    background: #28a745;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 12px;
+    margin-right: 15px;
+    z-index: 1;
+}
+
+.timeline-content {
+    flex: 1;
+    padding: 8px 12px;
+    background: white;
+    border-radius: 4px;
+    border: 1px solid #e9ecef;
+}
+
+.form-help {
+    background: #e7f3ff;
+    border: 1px solid #b8daff;
+    border-radius: 6px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4><i class="fas fa-plus"></i> Create New Email Sequence</h4>
+                </div>
+                <div class="card-body">
+                    <div class="form-help">
+                        <h6><i class="fas fa-info-circle"></i> Email Sequence Configuration</h6>
+                        <p class="mb-0">
+                            Define the timing and structure of your email follow-up sequence. Each step represents 
+                            an email that will be sent after the specified number of days from the previous step.
+                        </p>
+                    </div>
+
+                    <form method="POST" id="sequenceForm">
+                        <!-- Basic Information -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="name">Sequence Name *</label>
+                                    <input type="text" class="form-control" id="name" name="name" required
+                                           placeholder="e.g., Standard 5-Email Follow-up">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="description">Description</label>
+                                    <input type="text" class="form-control" id="description" name="description"
+                                           placeholder="Brief description of this sequence">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Sequence Steps Builder -->
+                        <div class="form-group">
+                            <label>Email Sequence Steps</label>
+                            <div class="step-builder">
+                                <div id="steps-container">
+                                    <!-- Steps will be added here dynamically -->
+                                </div>
+                                <button type="button" class="add-step-btn" onclick="addStep()">
+                                    <i class="fas fa-plus"></i> Add Email Step
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Hidden field for steps data -->
+                        <input type="hidden" name="steps_json" id="steps_json">
+
+                        <!-- Actions -->
+                        <div class="form-group">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Create Sequence
+                            </button>
+                            <a href="{{ url_for('sequences.sequence_configs') }}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <!-- Preview Timeline -->
+            <div class="card">
+                <div class="card-header">
+                    <h6><i class="fas fa-eye"></i> Sequence Preview</h6>
+                </div>
+                <div class="card-body">
+                    <div id="timeline-preview">
+                        <p class="text-muted text-center">
+                            Add email steps to see the timeline preview
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Help Card -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6><i class="fas fa-question-circle"></i> Quick Tips</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="mb-0" style="font-size: 14px;">
+                        <li><strong>Step 0:</strong> Initial email (sent immediately)</li>
+                        <li><strong>Delay Days:</strong> Days to wait before sending</li>
+                        <li><strong>Common Timing:</strong> 0, 2, 5, 12, 26 days</li>
+                        <li><strong>Best Practice:</strong> 4-6 emails max for effectiveness</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let stepCount = 0;
+
+// Initialize with default steps
+document.addEventListener('DOMContentLoaded', function() {
+    // Add default sequence steps
+    const defaultSteps = [
+        { step_number: 0, delay_days: 0, step_name: 'Initial Outreach' },
+        { step_number: 1, delay_days: 2, step_name: 'First Follow-up' },
+        { step_number: 2, delay_days: 5, step_name: 'Second Follow-up' }
+    ];
+    
+    defaultSteps.forEach(step => {
+        addStep(step);
+    });
+    updatePreview();
+});
+
+function addStep(stepData = null) {
+    const container = document.getElementById('steps-container');
+    const stepNumber = stepData ? stepData.step_number : stepCount;
+    const delayDays = stepData ? stepData.delay_days : (stepNumber === 0 ? 0 : 2);
+    const stepName = stepData ? stepData.step_name : (stepNumber === 0 ? 'Initial Email' : `Follow-up ${stepNumber}`);
+    
+    const stepDiv = document.createElement('div');
+    stepDiv.className = 'step-item';
+    stepDiv.dataset.stepNumber = stepNumber;
+    
+    stepDiv.innerHTML = `
+        <div class="step-header">
+            <div class="step-number">${stepNumber}</div>
+            <h6 class="mb-0">Email Step ${stepNumber}</h6>
+        </div>
+        <div class="step-fields">
+            <div class="form-group mb-0">
+                <label>Step Name</label>
+                <input type="text" class="form-control form-control-sm step-name" 
+                       value="${stepName}" placeholder="Step name">
+            </div>
+            <div class="form-group mb-0">
+                <label>Delay Days</label>
+                <input type="number" class="form-control form-control-sm step-delay" 
+                       value="${delayDays}" min="0" placeholder="0">
+                <small class="text-muted">Days to wait</small>
+            </div>
+            <div class="form-group mb-0">
+                <label>Description</label>
+                <input type="text" class="form-control form-control-sm" 
+                       placeholder="Optional description">
+            </div>
+            ${stepNumber > 0 ? `
+            <button type="button" class="remove-step" onclick="removeStep(this)">
+                <i class="fas fa-trash"></i>
+            </button>
+            ` : '<div></div>'}
+        </div>
+    `;
+    
+    container.appendChild(stepDiv);
+    
+    // Add event listeners
+    const nameInput = stepDiv.querySelector('.step-name');
+    const delayInput = stepDiv.querySelector('.step-delay');
+    
+    nameInput.addEventListener('input', updatePreview);
+    delayInput.addEventListener('input', updatePreview);
+    
+    stepCount = Math.max(stepCount, stepNumber + 1);
+    updatePreview();
+}
+
+function removeStep(button) {
+    const stepItem = button.closest('.step-item');
+    stepItem.remove();
+    renumberSteps();
+    updatePreview();
+}
+
+function renumberSteps() {
+    const steps = document.querySelectorAll('.step-item');
+    steps.forEach((step, index) => {
+        step.dataset.stepNumber = index;
+        const stepNumber = step.querySelector('.step-number');
+        const stepHeader = step.querySelector('.step-header h6');
+        
+        stepNumber.textContent = index;
+        stepHeader.textContent = `Email Step ${index}`;
+        
+        // Update remove button visibility
+        const removeBtn = step.querySelector('.remove-step');
+        if (removeBtn) {
+            if (index === 0) {
+                removeBtn.style.display = 'none';
+            } else {
+                removeBtn.style.display = 'flex';
+            }
+        }
+    });
+}
+
+function updatePreview() {
+    const preview = document.getElementById('timeline-preview');
+    const steps = document.querySelectorAll('.step-item');
+    
+    if (steps.length === 0) {
+        preview.innerHTML = '<p class="text-muted text-center">Add email steps to see the timeline preview</p>';
+        return;
+    }
+    
+    let html = '<div class="preview-timeline">';
+    let cumulativeDays = 0;
+    
+    steps.forEach((step, index) => {
+        const stepName = step.querySelector('.step-name').value || `Step ${index}`;
+        const delayDays = parseInt(step.querySelector('.step-delay').value) || 0;
+        
+        if (index > 0) {
+            cumulativeDays += delayDays;
+        }
+        
+        const timeLabel = cumulativeDays === 0 ? 'Immediate' : 
+                         cumulativeDays === 1 ? 'Day 1' : 
+                         `Day ${cumulativeDays}`;
+        
+        html += `
+            <div class="timeline-item">
+                <div class="timeline-dot">${index}</div>
+                <div class="timeline-content">
+                    <strong>${stepName}</strong><br>
+                    <small class="text-muted">${timeLabel}</small>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    preview.innerHTML = html;
+    
+    // Update hidden field with steps data
+    updateStepsJSON();
+}
+
+function updateStepsJSON() {
+    const steps = document.querySelectorAll('.step-item');
+    const stepsData = [];
+    
+    steps.forEach((step, index) => {
+        const stepName = step.querySelector('.step-name').value || `Step ${index}`;
+        const delayDays = parseInt(step.querySelector('.step-delay').value) || 0;
+        
+        stepsData.push({
+            step_number: index,
+            delay_days: delayDays,
+            step_name: stepName
+        });
+    });
+    
+    document.getElementById('steps_json').value = JSON.stringify(stepsData);
+}
+
+// Form submission
+document.getElementById('sequenceForm').addEventListener('submit', function(e) {
+    updateStepsJSON();
+    
+    const stepsData = JSON.parse(document.getElementById('steps_json').value);
+    if (stepsData.length === 0) {
+        e.preventDefault();
+        alert('Please add at least one email step to the sequence.');
+        return;
+    }
+    
+    // Validate that step 0 has delay_days = 0
+    if (stepsData[0].delay_days !== 0) {
+        e.preventDefault();
+        alert('The initial email (Step 0) must have 0 delay days.');
+        return;
+    }
+});
+</script>
+{% endblock %}
