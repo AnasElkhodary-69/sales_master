@@ -59,9 +59,6 @@
                             <li><a class="dropdown-item" href="{{ url_for('contacts.leads') }}">
                                 <i class="fas fa-star me-2"></i>Leads
                             </a></li>
-                            <li><a class="dropdown-item" href="{{ url_for('contacts.breach_analysis') }}">
-                                <i class="fas fa-shield-alt me-2"></i>Breach Analysis
-                            </a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="#" onclick="triggerGlobalUpload(); return false;">
                                 <i class="fas fa-upload me-2"></i>Upload Contacts
@@ -82,7 +79,7 @@
                                 <i class="fas fa-check-square me-2"></i>Email Approvals
                             </a></li>
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="/templates">
+                            <li><a class="dropdown-item" href="{{ url_for('templates.templates') }}">
                                 <i class="fas fa-file-alt me-2"></i>Email Templates
                             </a></li>
                         </ul>

@@ -7,7 +7,7 @@ from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app
 from utils.decorators import login_required
 from models.database import (
-    db, Campaign, TemplateVariant, Contact, EmailTemplate, FollowUpSequence,
+    db, Campaign, TemplateVariant, Contact, EmailTemplate, EmailSequenceConfig,
     Email, Response, Settings, ContactCampaignStatus
 )
 

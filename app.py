@@ -8,8 +8,9 @@ from dotenv import load_dotenv
 
 # Import database models
 from models.database import (
-    db, Contact, Campaign, TemplateVariant, Breach, Email, Response,
-    EmailTemplate, FollowUpSequence, Settings, WebhookEvent
+    db, Contact, Campaign, TemplateVariant, Email, Response,
+    EmailTemplate, Settings, WebhookEvent, EmailSequenceConfig,
+    SequenceStep, EmailSequence, ContactCampaignStatus
 )
 
 # Import blueprints
@@ -22,13 +23,9 @@ from routes.analytics import analytics_bp
 from routes.tracking import tracking_bp
 from routes.sequences import sequences_bp
 from routes.templates import templates_bp
-from routes.scan_progress import scan_progress_bp
 from routes.webhooks import webhooks_bp
 from routes.email_trigger import email_trigger_bp
 from routes.enhanced_analytics import enhanced_analytics_bp
-from routes.flawtrack_admin import flawtrack_admin_bp
-from routes.breach_checker import breach_checker_bp
-from routes.ab_testing import ab_testing_bp
 
 # Import service routes
 from services.template_routes import register_template_routes
@@ -50,16 +47,6 @@ def create_app():
         if os.path.exists(env_file):
             load_dotenv(env_file)
             print(f"Loaded environment variables from: {env_file}")
-            
-            # Show FlawTrack API status
-            api_token = os.getenv('FLAWTRACK_API_TOKEN')
-            endpoint = os.getenv('FLAWTRACK_API_ENDPOINT')
-            if api_token and endpoint and not api_token.startswith('your-'):
-                print(f"[OK] FlawTrack API v2.0 configured (token: {api_token[:12]}...)")
-                print(f"    Endpoint: {endpoint}")
-            else:
-                print(f"[!] FlawTrack API v2.0 configuration incomplete")
-            
             loaded = True
             break
     
@@ -104,13 +91,9 @@ def create_app():
     
     # Register API blueprints
     app.register_blueprint(api_bp)                     # /api/*
-    app.register_blueprint(scan_progress_bp)           # /api/scan/*
     app.register_blueprint(webhooks_bp)                # /webhooks/*
     app.register_blueprint(email_trigger_bp)           # /api/trigger-emails
     app.register_blueprint(enhanced_analytics_bp)      # /sequence-analytics, /api/sequence-*
-    app.register_blueprint(flawtrack_admin_bp)         # /admin/flawtrack/*
-    app.register_blueprint(breach_checker_bp)          # /breach-checker
-    app.register_blueprint(ab_testing_bp)              # /ab-testing/*
     
     print("All blueprints registered successfully!")
 
@@ -161,18 +144,6 @@ def create_app():
     except Exception as e:
         print(f"Scheduler initialization warning: {e}")
         print("Auto-enrollment will not work automatically, but can be triggered manually")
-
-    # Initialize FlawTrack API health monitoring
-    try:
-        from services.flawtrack_monitor import start_monitoring
-        monitoring_started = start_monitoring()
-        if monitoring_started:
-            print("FlawTrack API health monitoring started successfully!")
-        else:
-            print("Warning: FlawTrack API health monitoring failed to start")
-    except Exception as e:
-        print(f"FlawTrack monitoring initialization warning: {e}")
-        print("API health monitoring will not be available")
     
     # Add error handlers for better production deployment
     @app.errorhandler(404)

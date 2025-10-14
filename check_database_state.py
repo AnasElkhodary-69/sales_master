@@ -11,7 +11,7 @@ from datetime import datetime
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from app import create_app
-from models.database import db, Contact, Campaign, Email, EmailTemplate, FollowUpSequence
+from models.database import db, Contact, Campaign, Email, EmailTemplate, EmailSequenceConfig
 
 def check_database_state():
     """Check the current state of the database"""
@@ -53,7 +53,7 @@ def check_database_state():
             print(f"    Subject: {template.subject_line}")
 
         # Check sequences
-        sequences = FollowUpSequence.query.all()
+        sequences = EmailSequenceConfig.query.all()
         print(f"\n🔄 FOLLOW-UP SEQUENCES ({len(sequences)}):")
         for sequence in sequences:
             print(f"  - {sequence.name} (ID: {sequence.id})")

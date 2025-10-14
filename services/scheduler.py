@@ -51,8 +51,6 @@ class TaskScheduler:
         last_auto_enrollment = datetime.min
         last_email_processing = datetime.min
         last_reply_detection = datetime.min
-        last_scan_cleanup = datetime.min
-        last_background_scan = datetime.min
         
         while self.running:
             try:
@@ -74,15 +72,8 @@ class TaskScheduler:
                     self._check_for_replies()
                     last_reply_detection = current_time
 
-                # Clean up stuck scans every 10 minutes
-                if current_time - last_scan_cleanup > timedelta(minutes=10):
-                    self._cleanup_stuck_scans()
-                    last_scan_cleanup = current_time
-
-                # Run background scanning every 5 minutes for unassigned contacts
-                if current_time - last_background_scan > timedelta(minutes=5):
-                    self._run_background_scanning()
-                    last_background_scan = current_time
+                # Breach scanning removed - now industry-based system
+                # last_scan_cleanup and last_background_scan no longer needed
                 
                 # Sleep for 1 minute before checking again
                 time.sleep(60)  # 1 minute
@@ -161,67 +152,8 @@ class TaskScheduler:
             logger.error(f"Error getting reply detection interval: {str(e)}")
             return 5  # Default to 5 minutes
 
-    def _cleanup_stuck_scans(self):
-        """Clean up scan records that have been stuck in 'scanning' status for too long"""
-        try:
-            if not self.app or not self.db:
-                logger.error("App or DB not initialized for scan cleanup")
-                return
-
-            with self.app.app_context():
-                from models.database import db, Breach
-
-                # Find scans stuck in 'scanning' for more than 5 minutes
-                stuck_threshold = datetime.utcnow() - timedelta(minutes=5)
-
-                stuck_scans = Breach.query.filter(
-                    Breach.scan_status == 'scanning',
-                    Breach.last_scan_attempt < stuck_threshold
-                ).all()
-
-                if stuck_scans:
-                    logger.info(f"Found {len(stuck_scans)} stuck scans to clean up")
-
-                    for breach in stuck_scans:
-                        breach.scan_status = 'failed'
-                        breach.scan_error = f"Scan timeout after 5+ minutes - automatically reset for retry"
-                        logger.warning(f"Reset stuck scan for domain: {breach.domain}")
-
-                    db.session.commit()
-                    logger.info(f"Cleaned up {len(stuck_scans)} stuck scans")
-
-        except Exception as e:
-            logger.error(f"Error cleaning up stuck scans: {str(e)}")
-
-    def _run_background_scanning(self):
-        """Run background scanning for unassigned contacts"""
-        try:
-            if not self.app or not self.db:
-                logger.error("App or DB not initialized for background scanning")
-                return
-
-            with self.app.app_context():
-                from models.database import db, Contact
-                from services.background_scanner import BackgroundScanner
-
-                # Find contacts that need scanning
-                unassigned_contacts = Contact.query.filter_by(breach_status='unassigned').all()
-
-                if unassigned_contacts:
-                    logger.info(f"Found {len(unassigned_contacts)} unassigned contacts to scan")
-
-                    contact_ids = [contact.id for contact in unassigned_contacts]
-
-                    # Create background scanner and trigger scan
-                    scanner = BackgroundScanner()
-                    job_id = scanner.start_background_scan(contact_ids)
-
-                    logger.info(f"Started background scan job {job_id} for {len(contact_ids)} contacts")
-                else:
-                    logger.debug("No unassigned contacts found for background scanning")
-
-        except Exception as e:
-            logger.error(f"Error running background scanning: {str(e)}")
+    # Breach scanning functions removed - now using industry-based targeting
+    # No longer need _cleanup_stuck_scans or _run_background_scanning
 
 # Global scheduler instance
 scheduler = TaskScheduler()

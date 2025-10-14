@@ -118,45 +118,16 @@
                             <div class="card-body">
                                 <div class="alert alert-info">
                                     <i class="fas fa-info-circle me-2"></i>
-                                    <strong>Smart Assignment:</strong> After uploading, contacts will be scanned for security breaches. 
-                                    Once scanning completes, they'll be automatically assigned to the appropriate campaign based on their breach status.
+                                    <strong>Campaign Assignment (Optional):</strong> You can assign uploaded contacts to a campaign now, or do it later from the contacts page.
                                 </div>
-                                
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <div class="card border-danger">
-                                            <div class="card-header bg-danger text-white">
-                                                <h6 class="mb-0">
-                                                    <i class="fas fa-exclamation-triangle me-2"></i>Breached Contacts
-                                                </h6>
-                                            </div>
-                                            <div class="card-body">
-                                                <label for="breachedCampaign" class="form-label">Campaign for Breached Contacts:</label>
-                                                <select class="form-select" id="breachedCampaign" name="breached_campaign_id">
-                                                    <option value="">Select Campaign (Optional)</option>
-                                                    <!-- Will be populated with campaigns -->
-                                                </select>
-                                                <small class="text-muted">Contacts from domains with security breaches</small>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <div class="card border-success">
-                                            <div class="card-header bg-success text-white">
-                                                <h6 class="mb-0">
-                                                    <i class="fas fa-shield-alt me-2"></i>Secure Contacts
-                                                </h6>
-                                            </div>
-                                            <div class="card-body">
-                                                <label for="secureCampaign" class="form-label">Campaign for Secure Contacts:</label>
-                                                <select class="form-select" id="secureCampaign" name="secure_campaign_id">
-                                                    <option value="">Select Campaign (Optional)</option>
-                                                    <!-- Will be populated with campaigns -->
-                                                </select>
-                                                <small class="text-muted">Contacts from domains with no known breaches</small>
-                                            </div>
-                                        </div>
-                                    </div>
+
+                                <div class="mb-3">
+                                    <label for="defaultCampaign" class="form-label">Assign to Campaign:</label>
+                                    <select class="form-select" id="defaultCampaign" name="campaign_id">
+                                        <option value="">No campaign (assign later)</option>
+                                        <!-- Will be populated with campaigns -->
+                                    </select>
+                                    <small class="text-muted">All uploaded contacts will be added to this campaign</small>
                                 </div>
                             </div>
                         </div>
@@ -201,6 +172,8 @@
                         <li><i class="fas fa-info text-info me-1"></i> title</li>
                         <li><i class="fas fa-info text-info me-1"></i> phone</li>
                         <li><i class="fas fa-info text-info me-1"></i> industry</li>
+                        <li><i class="fas fa-info text-info me-1"></i> business_type</li>
+                        <li><i class="fas fa-info text-info me-1"></i> company_size</li>
                     </ul>
                     
                     <div class="alert alert-warning">
@@ -230,9 +203,9 @@
                     
                     <div class="mt-3">
                         <strong>Sample format:</strong>
-                        <pre class="bg-light p-2 small">email,first_name,last_name,company,title
-john@example.com,John,Doe,Example Corp,IT Manager
-jane@company.com,Jane,Smith,Company Inc,CTO</pre>
+                        <pre class="bg-light p-2 small">email,first_name,last_name,company,title,industry,business_type
+john@example.com,John,Doe,Example Corp,IT Manager,Technology,B2B
+jane@company.com,Jane,Smith,Company Inc,CTO,Finance,Enterprise</pre>
                     </div>
                 </div>
             </div>
@@ -528,6 +501,12 @@ class ContactUploader {
                         contact.company = value;
                     } else if (header.includes('title') || header.includes('position') || header.includes('job')) {
                         contact.title = value;
+                    } else if (header.includes('industry')) {
+                        contact.industry = value;
+                    } else if (header.includes('business') && header.includes('type')) {
+                        contact.business_type = value;
+                    } else if (header.includes('company') && header.includes('size')) {
+                        contact.company_size = value;
                     }
                 }
             });
@@ -627,7 +606,7 @@ class ContactUploader {
     }
     
     loadCampaigns() {
-        // Load active campaigns for the dropdowns
+        // Load active campaigns for the dropdown
         console.log('Loading campaigns...');
         fetch('/campaigns/api/campaigns', {
             credentials: 'same-origin' // Include cookies for authentication
@@ -641,39 +620,31 @@ class ContactUploader {
             })
             .then(campaigns => {
                 console.log('Campaigns loaded:', campaigns);
-                const breachedSelect = document.getElementById('breachedCampaign');
-                const secureSelect = document.getElementById('secureCampaign');
+                const campaignSelect = document.getElementById('defaultCampaign');
 
                 // Clear existing options (except first one)
-                breachedSelect.innerHTML = '<option value="">Select Campaign (Optional)</option>';
-                secureSelect.innerHTML = '<option value="">Select Campaign (Optional)</option>';
+                campaignSelect.innerHTML = '<option value="">No campaign (assign later)</option>';
 
                 if (!campaigns || campaigns.length === 0) {
                     console.warn('No campaigns found');
-                    breachedSelect.innerHTML = '<option value="">No active campaigns found</option>';
-                    secureSelect.innerHTML = '<option value="">No active campaigns found</option>';
+                    campaignSelect.innerHTML = '<option value="">No active campaigns found</option>';
                     return;
                 }
 
                 campaigns.forEach(campaign => {
                     console.log('Processing campaign:', campaign);
                     if (campaign.status === 'active') {
-                        const option1 = new Option(campaign.name, campaign.id);
-                        const option2 = new Option(campaign.name, campaign.id);
-                        breachedSelect.add(option1);
-                        secureSelect.add(option2);
-                        console.log('Added campaign to dropdowns:', campaign.name);
+                        const option = new Option(campaign.name, campaign.id);
+                        campaignSelect.add(option);
+                        console.log('Added campaign to dropdown:', campaign.name);
                     }
                 });
             })
             .catch(error => {
                 console.error('Error loading campaigns:', error);
                 // Don't let campaign loading errors break the preview functionality
-                const breachedSelect = document.getElementById('breachedCampaign');
-                const secureSelect = document.getElementById('secureCampaign');
-
-                breachedSelect.innerHTML = '<option value="">Campaign loading failed - upload will still work</option>';
-                secureSelect.innerHTML = '<option value="">Campaign loading failed - upload will still work</option>';
+                const campaignSelect = document.getElementById('defaultCampaign');
+                campaignSelect.innerHTML = '<option value="">Campaign loading failed - upload will still work</option>';
 
                 // Preview functionality should still work even if campaigns fail to load
                 console.log('Campaigns failed to load, but preview functionality should still work');
@@ -692,16 +663,11 @@ class ContactUploader {
         console.log('Creating FormData for upload...');
         const formData = new FormData();
         formData.append('file', this.selectedFile);
-        
-        // Add campaign selections
-        const breachedCampaignId = document.getElementById('breachedCampaign').value;
-        const secureCampaignId = document.getElementById('secureCampaign').value;
-        
-        if (breachedCampaignId) {
-            formData.append('breached_campaign_id', breachedCampaignId);
-        }
-        if (secureCampaignId) {
-            formData.append('secure_campaign_id', secureCampaignId);
+
+        // Add campaign selection
+        const campaignId = document.getElementById('defaultCampaign').value;
+        if (campaignId) {
+            formData.append('campaign_id', campaignId);
         }
         
         // Show progress
@@ -796,34 +762,7 @@ class ContactUploader {
                         </div>
                     </div>
             `;
-            
-            // Add breach analysis results if available
-            if (response.scan_results && response.scan_results.domains_to_scan > 0) {
-                resultsHtml += `
-                    <div class="border-top pt-3">
-                        <h6><i class="fas fa-shield-alt me-2"></i>Breach Scanning Started</h6>
-                        <div class="row text-center">
-                            <div class="col-md-4">
-                                <strong>${response.summary.domains_found}</strong><br>
-                                <small>Domains Found</small>
-                            </div>
-                            <div class="col-md-4">
-                                <strong class="text-info">${response.scan_results.domains_to_scan}</strong><br>
-                                <small>Scanning in Progress</small>
-                            </div>
-                            <div class="col-md-4">
-                                <strong class="text-success">✓</strong><br>
-                                <small>Background Job Started</small>
-                            </div>
-                        </div>
-                        <div class="alert alert-info mt-2">
-                            <i class="fas fa-info-circle me-2"></i>
-                            FlawTrack breach analysis is running in the background. Results will appear in your contacts list within a few minutes.
-                        </div>
-                    </div>
-                `;
-            }
-            
+
             resultsHtml += '</div>';
             
             if (response.error_details && response.error_details.length > 0) {
@@ -903,16 +842,15 @@ class ContactUploader {
         this.uploadButton.disabled = true;
         this.uploadButton.style.display = 'none';
         
-        // Clear campaign selections
-        document.getElementById('breachedCampaign').value = '';
-        document.getElementById('secureCampaign').value = '';
+        // Clear campaign selection
+        document.getElementById('defaultCampaign').value = '';
     }
     
     downloadSample() {
-        const csvContent = `email,first_name,last_name,company,title,phone,industry
-john.doe@techcorp.com,John,Doe,TechCorp Inc,IT Manager,(555) 123-4567,Technology
-jane.smith@example.com,Jane,Smith,Example Ltd,CTO,(555) 987-6543,Software
-mike.wilson@startup.io,Mike,Wilson,Startup.io,Developer,(555) 555-0123,Technology`;
+        const csvContent = `email,first_name,last_name,company,title,phone,industry,business_type,company_size
+john.doe@techcorp.com,John,Doe,TechCorp Inc,IT Manager,(555) 123-4567,Technology,B2B,51-200
+jane.smith@example.com,Jane,Smith,Example Ltd,CTO,(555) 987-6543,Finance,Enterprise,201-1000
+mike.wilson@startup.io,Mike,Wilson,Startup.io,Developer,(555) 555-0123,Technology,Startup,1-10`;
         
         const blob = new Blob([csvContent], { type: 'text/csv' });
         const url = window.URL.createObjectURL(blob);
@@ -959,11 +897,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Test if campaigns load after a short delay
     setTimeout(() => {
-        console.log('Testing campaign dropdowns...');
-        const breachedSelect = document.getElementById('breachedCampaign');
-        const secureSelect = document.getElementById('secureCampaign');
-        console.log('Breached campaign options:', breachedSelect.options.length);
-        console.log('Secure campaign options:', secureSelect.options.length);
+        console.log('Testing campaign dropdown...');
+        const campaignSelect = document.getElementById('defaultCampaign');
+        console.log('Campaign options:', campaignSelect.options.length);
     }, 2000);
 });
 </script>

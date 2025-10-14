@@ -90,16 +90,17 @@
                             </div>
                         </div>
 
-                        <div class="row mb-3">
+                        <!-- Campaign Target field temporarily hidden -->
+                        <div class="row mb-3" style="display: none;">
                             <div class="col-md-6">
-                                <label for="breach_status" class="form-label">Target Audience *</label>
-                                <select class="form-select" id="breach_status" name="breach_status" required>
-                                    <option value="breached" {{ 'selected' if template and template.risk_level == 'breached' else '' }}>🔴 Breached Companies</option>
-                                    <option value="not_breached" {{ 'selected' if template and template.risk_level == 'not_breached' else '' }}>🟢 Not Breached Companies</option>
-                                    <option value="unknown" {{ 'selected' if template and template.risk_level == 'unknown' else '' }}>⚪ Unknown Status</option>
-                                    <option value="all" {{ 'selected' if template and template.risk_level == 'all' else '' }}>📧 All Companies</option>
+                                <label for="breach_status" class="form-label">Campaign Target</label>
+                                <select class="form-select" id="breach_status" name="breach_status">
+                                    <option value="proactive" {{ 'selected' if template and template.risk_level == 'proactive' else 'selected' }}>Proactive Outreach</option>
                                 </select>
                             </div>
+                        </div>
+
+                        <div class="row mb-3">
                             <div class="col-md-6">
                                 <label class="form-label">Calculated Delay</label>
                                 <div class="form-control-plaintext" id="delay_preview">
@@ -186,30 +187,26 @@
                         <div class="mb-3">
                             <span class="variable-tag" data-variable="first_name">{first_name}</span>
                             <span class="variable-tag" data-variable="last_name">{last_name}</span>
+                            <span class="variable-tag" data-variable="name">{name}</span>
+                            <span class="variable-tag" data-variable="email">{email}</span>
+                        </div>
+
+                        <h6 class="text-success mb-2">Company Information</h6>
+                        <div class="mb-3">
                             <span class="variable-tag" data-variable="company">{company}</span>
                             <span class="variable-tag" data-variable="domain">{domain}</span>
                             <span class="variable-tag" data-variable="title">{title}</span>
                             <span class="variable-tag" data-variable="industry">{industry}</span>
                         </div>
 
-                        <h6 class="text-danger mb-2">Breach Information</h6>
-                        <div class="mb-3">
-                            <span class="variable-tag" data-variable="breach_name">{breach_name}</span>
-                            <span class="variable-tag" data-variable="breach_year">{breach_year}</span>
-                            <span class="variable-tag" data-variable="breach_date">{breach_date}</span>
-                            <span class="variable-tag" data-variable="records_affected">{records_affected}</span>
-                            <span class="variable-tag" data-variable="risk_score">{risk_score}</span>
-                            <span class="variable-tag" data-variable="severity">{severity}</span>
-                            <span class="variable-tag" data-variable="breach_sample">{breach_sample}</span>
-                        </div>
-
                         <h6 class="text-info mb-2">Sample Values</h6>
                         <small class="text-muted">
                             • {first_name} → John<br>
+                            • {last_name} → Smith<br>
+                            • {name} → John Smith<br>
                             • {company} → Acme Corp<br>
-                            • {breach_name} → Acme Data Breach<br>
-                            • {records_affected} → 50,000<br>
-                            • {breach_sample} → Sample credentials list<br>
+                            • {industry} → Healthcare<br>
+                            • {title} → IT Director<br>
                         </small>
                     </div>
                 </div>
@@ -277,17 +274,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const sampleData = {
         'first_name': 'John',
         'last_name': 'Smith',
+        'name': 'John Smith',
+        'email': 'john.smith@acmecorp.com',
         'company': 'Acme Corp',
         'domain': 'acmecorp.com',
         'title': 'IT Director',
-        'industry': 'Technology',
-        'breach_name': 'Acme Corp Data Breach',
-        'breach_year': '2023',
-        'breach_date': 'March 15, 2023',
-        'records_affected': '50,000',
-        'risk_score': '7.8',
-        'severity': 'High',
-        'breach_sample': 'Sample exposed credentials:\n• jo***h@acmecorp.com (LinkedIn)'
+        'industry': 'Healthcare'
     };
     
     // Update preview function

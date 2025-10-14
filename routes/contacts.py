@@ -746,18 +746,6 @@ def upload_csv():
             'validation_errors': 0
         }
 
-        # Load cached breach data for all domains at once (single query)
-        from models.database import Breach
-        all_domains = set(row['domain'] for row in new_emails_data if row['domain'])
-        cached_breaches = {}
-        if all_domains:
-            breaches = Breach.query.filter(
-                Breach.domain.in_(all_domains),
-                Breach.scan_status == 'completed'
-            ).all()
-            cached_breaches = {b.domain: b.breach_status for b in breaches if b.breach_status}
-            current_app.logger.info(f"Loaded {len(cached_breaches)} cached domain breach statuses")
-
         # STEP 4: Validate and process only non-duplicate contacts
         rows_to_process = []
 
@@ -795,30 +783,16 @@ def upload_csv():
                 # No validator available, count as validation error but continue
                 validation_stats['validation_errors'] += 1
 
-            # Check if domain has already been scanned - use cached breach status
-            if breach_status == 'unassigned' and domain and domain in cached_breaches:
-                breach_status = cached_breaches[domain]
-                current_app.logger.info(f"Using cached breach status for {email}: {breach_status} (domain: {domain} previously scanned)")
-
             # Prepare contact data
             contact_data = {
                 'email': email,
                 'domain': domain,
-                'breach_status': breach_status,
-                'risk_score': 0.0,
                 'created_at': datetime.utcnow(),
                 'is_active': True
             }
 
-            # Add validation data if available
-            if validation_result:
-                contact_data.update({
-                    'email_validation_status': validation_result['status'],
-                    'email_validation_score': validation_result['score'],
-                    'email_validation_method': validation_result['validation_method'],
-                    'is_disposable': validation_result.get('is_disposable', False),
-                    'is_role_based': validation_result.get('is_role_based', False)
-                })
+            # Note: Email validation data is collected but not stored in Contact model
+            # Validation is used only for filtering risky/invalid emails during upload
 
             # Extract optional fields efficiently
             for key, value in row.items():
@@ -886,41 +860,10 @@ def upload_csv():
                     continue
         
         contacts_created = len(new_contact_ids)  # Use actual inserted contacts, not attempted
-        
-        # 4. Start background scanning if we have new contacts
+
+        # Background scanning removed - FlawTrack/breach detection no longer used
         scan_job_id = None
         unique_domains = set(c.domain for c in new_contacts if c.domain)
-        
-        if new_contact_ids and unique_domains:
-            try:
-                from services.background_scanner import start_contact_scan
-
-                # Only scan contacts marked as 'unassigned' - skip risky/bounced contacts
-                # Query the database for contacts that were just inserted and have unassigned status
-                scannable_contacts = Contact.query.filter(
-                    Contact.id.in_(new_contact_ids),
-                    Contact.breach_status == 'unassigned'
-                ).all()
-
-                scannable_contact_ids = [contact.id for contact in scannable_contacts]
-
-                current_app.logger.info(f"Debug: Found {len(scannable_contact_ids)} scannable contacts out of {len(new_contact_ids)} total new contacts")
-
-                if scannable_contact_ids:
-                    # Create campaign preferences
-                    campaign_preferences = {}
-                    if breached_campaign_id:
-                        campaign_preferences['breached_campaign_id'] = int(breached_campaign_id)
-                    if secure_campaign_id:
-                        campaign_preferences['secure_campaign_id'] = int(secure_campaign_id)
-
-                    scan_job_id = start_contact_scan(scannable_contact_ids, campaign_preferences)
-                    current_app.logger.info(f"Started background scan job {scan_job_id} for {len(scannable_contact_ids)} contacts (skipped {len(new_contact_ids) - len(scannable_contact_ids)} risky/bounced contacts)")
-                else:
-                    current_app.logger.info(f"No contacts to scan - all {len(new_contact_ids)} contacts are risky/bounced")
-                
-            except Exception as e:
-                current_app.logger.warning(f"Failed to start background scan: {str(e)}")
         
         # 5. Return success response
         message_parts = []
@@ -935,12 +878,6 @@ def upload_csv():
         total_validated = validation_stats['valid_emails'] + validation_stats['risky_emails'] + validation_stats['invalid_emails']
         if total_validated > 0:
             message_parts.append(f"📧 Email validation: {validation_stats['valid_emails']} valid, {validation_stats['risky_emails']} risky, {validation_stats['invalid_emails']} invalid")
-
-        if len(unique_domains) > 0:
-            # Only mention scanning for valid emails (unassigned status)
-            domains_to_scan = len([d for d in unique_domains if any(c.breach_status == 'unassigned' for c in new_contacts if c.domain == d)])
-            if domains_to_scan > 0:
-                message_parts.append(f"🔍 Breach scanning started for {domains_to_scan} domain{'s' if domains_to_scan != 1 else ''}")
 
         success_message = " | ".join(message_parts) if message_parts else "No changes made"
         
@@ -964,9 +901,8 @@ def upload_csv():
             },
             'scan_results': {
                 'domains_to_scan': len(unique_domains),
-                'scan_job_id': scan_job_id,
-                'scanning_in_background': scan_job_id is not None,
-                'note': 'Only valid emails (breach_status: unassigned) will be scanned by FlawTrack'
+                'scan_job_id': None,
+                'scanning_in_background': False
             },
             'error_details': error_rows[:10] if error_rows else []  # Show first 10 errors
         })

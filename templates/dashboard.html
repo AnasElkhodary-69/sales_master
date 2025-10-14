@@ -341,57 +341,6 @@
     </div>
 </div>
 
-<!-- FlawTrack API Status Section -->
-<div class="row mb-4">
-    <div class="col-md-4 col-sm-6 mb-3">
-        <a href="/admin/flawtrack" class="text-decoration-none">
-            <div class="card border-0 shadow-sm h-100 clickable-card" id="flawtrack-status-card" style="transition: transform 0.2s ease, box-shadow 0.2s ease;">
-                <div class="card-body text-white" id="flawtrack-card-body" style="background: linear-gradient(135deg, #6c757d 0%, #495057 100%); box-shadow: 0 10px 30px rgba(108, 117, 125, 0.3);">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div class="flex-grow-1">
-                            <div class="d-flex align-items-center mb-2">
-                                <i class="fas fa-shield-alt me-2" id="flawtrack-icon"></i>
-                                <h6 class="mb-0 fw-light">FlawTrack API</h6>
-                            </div>
-                            <h4 class="mb-1 fw-bold" id="flawtrack-status">Checking...</h4>
-                            <small class="opacity-75" id="flawtrack-details">
-                                <i class="fas fa-spinner fa-spin me-1"></i>Loading status
-                            </small>
-                            <div class="mt-2" id="flawtrack-metrics" style="display: none;">
-                                <div class="row text-xs">
-                                    <div class="col-4">
-                                        <div class="text-center">
-                                            <div class="fw-bold" id="response-time-mini">--</div>
-                                            <small class="opacity-75">Response</small>
-                                        </div>
-                                    </div>
-                                    <div class="col-4">
-                                        <div class="text-center">
-                                            <div class="fw-bold" id="availability-mini">--</div>
-                                            <small class="opacity-75">Uptime</small>
-                                        </div>
-                                    </div>
-                                    <div class="col-4">
-                                        <div class="text-center">
-                                            <div class="fw-bold" id="api-version-mini">--</div>
-                                            <small class="opacity-75">Version</small>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="opacity-20">
-                            <i class="fas fa-server fa-2x"></i>
-                        </div>
-                    </div>
-                </div>
-                <div class="card-footer bg-transparent border-0 text-white-50">
-                    <small><i class="fas fa-cog me-1"></i>Click to manage FlawTrack</small>
-                </div>
-            </div>
-        </a>
-    </div>
-</div>
 
 <!-- Quick Actions -->
 <div class="row mb-4">
@@ -430,13 +379,13 @@
                         </a>
                     </div>
                     <div class="col-lg-3 col-md-6">
-                        <a href="/breach-checker" class="btn btn-outline-warning w-100 h-100 d-flex flex-column justify-content-center text-decoration-none" style="min-height: 100px;">
+                        <a href="{{ url_for('campaigns.index') }}" class="btn btn-outline-warning w-100 h-100 d-flex flex-column justify-content-center text-decoration-none" style="min-height: 100px;">
                             <div class="mb-2">
-                                <i class="fas fa-search fa-2x text-warning"></i>
+                                <i class="fas fa-bullhorn fa-2x text-warning"></i>
                             </div>
                             <div>
-                                <div class="fw-semibold">Breach Checker</div>
-                                <small class="text-muted">Check email/domain breaches</small>
+                                <div class="fw-semibold">Manage Campaigns</div>
+                                <small class="text-muted">View all campaigns</small>
                             </div>
                         </a>
                     </div>
@@ -571,13 +520,7 @@
             </div>
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center mb-2">
-                    <span>FlawTrack API</span>
-                    <span class="badge bg-success">
-                        <i class="fas fa-check me-1"></i>Online
-                    </span>
-                </div>
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <span>AWS SES</span>
+                    <span>Email Service (Brevo)</span>
                     <span class="badge bg-success">
                         <i class="fas fa-check me-1"></i>Ready
                     </span>
@@ -779,167 +722,6 @@ document.addEventListener('DOMContentLoaded', function() {
             return new bootstrap.Tooltip(tooltipTriggerEl);
         });
     }
-
-    // Initialize FlawTrack status monitoring
-    initializeFlawTrackStatus();
 });
-
-// FlawTrack API Status Functions
-function initializeFlawTrackStatus() {
-    // Load status on page load
-    refreshFlawTrackStatus();
-
-    // Set up periodic status updates (every 5 minutes)
-    setInterval(refreshFlawTrackStatus, 5 * 60 * 1000);
-}
-
-function refreshFlawTrackStatus() {
-    // Show loading state
-    updateFlawTrackUI('loading', {
-        status: 'Checking...',
-        message: 'Loading status',
-        response_time_ms: 0,
-        api_version: '--'
-    });
-
-    fetch('/api/flawtrack/status?refresh=true')
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                updateFlawTrackUI(data.status.healthy ? 'healthy' : 'unhealthy', data.status);
-                updateFlawTrackDetails(data.status);
-
-                // Also load availability stats
-                loadAvailabilityStats();
-            } else {
-                updateFlawTrackUI('error', {
-                    status: 'Error',
-                    message: data.error,
-                    response_time_ms: 0,
-                    api_version: 'unknown'
-                });
-            }
-        })
-        .catch(error => {
-            console.error('FlawTrack status check failed:', error);
-            updateFlawTrackUI('error', {
-                status: 'Connection Failed',
-                message: 'Unable to check API status',
-                response_time_ms: 0,
-                api_version: 'unknown'
-            });
-        });
-}
-
-function updateFlawTrackUI(status, data) {
-    const cardBody = document.getElementById('flawtrack-card-body');
-    const statusEl = document.getElementById('flawtrack-status');
-    const detailsEl = document.getElementById('flawtrack-details');
-    const iconEl = document.getElementById('flawtrack-icon');
-    const metricsEl = document.getElementById('flawtrack-metrics');
-
-    // Update status text
-    statusEl.textContent = data.status;
-    detailsEl.innerHTML = `<i class="fas fa-info-circle me-1"></i>${data.message}`;
-
-    // Update styling based on status
-    switch (status) {
-        case 'healthy':
-            cardBody.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
-            cardBody.style.boxShadow = '0 10px 30px rgba(16, 185, 129, 0.3)';
-            iconEl.className = 'fas fa-check-circle me-2';
-            // Show metrics when healthy
-            metricsEl.style.display = 'block';
-            break;
-
-        case 'unhealthy':
-            cardBody.style.background = 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)';
-            cardBody.style.boxShadow = '0 10px 30px rgba(239, 68, 68, 0.3)';
-            iconEl.className = 'fas fa-exclamation-triangle me-2';
-            metricsEl.style.display = 'none';
-            break;
-
-        case 'loading':
-            cardBody.style.background = 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)';
-            cardBody.style.boxShadow = '0 10px 30px rgba(107, 114, 128, 0.3)';
-            iconEl.className = 'fas fa-spinner fa-spin me-2';
-            detailsEl.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Loading status';
-            metricsEl.style.display = 'none';
-            break;
-
-        case 'error':
-        default:
-            cardBody.style.background = 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)';
-            cardBody.style.boxShadow = '0 10px 30px rgba(249, 115, 22, 0.3)';
-            iconEl.className = 'fas fa-times-circle me-2';
-            metricsEl.style.display = 'none';
-            break;
-    }
-}
-
-function updateFlawTrackDetails(status) {
-    // Update mini metrics in the card
-    const responseTimeMini = document.getElementById('response-time-mini');
-    const apiVersionMini = document.getElementById('api-version-mini');
-
-    responseTimeMini.textContent = status.response_time_ms > 0 ? `${status.response_time_ms}ms` : '--';
-    apiVersionMini.textContent = status.api_version || '--';
-}
-
-function loadAvailabilityStats() {
-    fetch('/api/flawtrack/availability-stats?hours=24')
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                const availabilityMini = document.getElementById('availability-mini');
-                availabilityMini.textContent = `${data.stats.availability_percentage}%`;
-            }
-        })
-        .catch(error => {
-            console.error('Failed to load availability stats:', error);
-        });
-}
-
-function testFlawTrackConnection() {
-    const button = document.querySelector('button[onclick="testFlawTrackConnection()"]');
-    const originalText = button.innerHTML;
-
-    // Show loading state
-    button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Testing...';
-    button.disabled = true;
-
-    fetch('/api/flawtrack/test-connection', { method: 'POST' })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                const testResult = data.test_result;
-                let message = `Health Check: ${testResult.health_check.healthy ? 'PASS' : 'FAIL'}`;
-
-                if (testResult.api_test) {
-                    message += `\nAPI Test: ${testResult.api_test.success ? 'PASS' : 'FAIL'}`;
-                    if (testResult.api_test.success) {
-                        message += `\nResponse Time: ${testResult.api_test.response_time_ms}ms`;
-                        message += `\nRecords Found: ${testResult.api_test.record_count}`;
-                    }
-                }
-
-                alert('FlawTrack Connection Test Results:\n\n' + message);
-            } else {
-                alert('Connection test failed:\n' + data.error);
-            }
-        })
-        .catch(error => {
-            console.error('Connection test failed:', error);
-            alert('Connection test failed: ' + error.message);
-        })
-        .finally(() => {
-            // Restore button
-            button.innerHTML = originalText;
-            button.disabled = false;
-
-            // Refresh status after test
-            refreshFlawTrackStatus();
-        });
-}
 </script>
 {% endblock %}

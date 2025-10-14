@@ -284,10 +284,10 @@ def handle_bounce_event(contact, data):
             should_stop = True
         else:
             # For soft bounces, check the campaign's stop_on_bounce setting
-            from models.database import Campaign, FollowUpSequence
+            from models.database import Campaign, EmailSequenceConfig
             campaign = Campaign.query.get(status.campaign_id)
             if campaign and campaign.sequence_id:
-                sequence = FollowUpSequence.query.get(campaign.sequence_id)
+                sequence = EmailSequenceConfig.query.get(campaign.sequence_id)
                 if sequence:
                     should_stop = getattr(sequence, 'stop_on_bounce', True)
 
@@ -328,10 +328,10 @@ def handle_bounce_event(contact, data):
             should_stop = True
         else:
             # Check the campaign's stop_on_bounce setting
-            from models.database import Campaign, FollowUpSequence
+            from models.database import Campaign, EmailSequenceConfig
             campaign = Campaign.query.get(seq.campaign_id)
             if campaign and campaign.sequence_id:
-                sequence = FollowUpSequence.query.get(campaign.sequence_id)
+                sequence = EmailSequenceConfig.query.get(campaign.sequence_id)
                 if sequence:
                     should_stop = getattr(sequence, 'stop_on_bounce', True)
 

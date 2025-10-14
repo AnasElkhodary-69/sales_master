@@ -212,20 +212,12 @@
                     {% if templates %}
                     <div class="row" id="templates-container">
                         {% for template in templates %}
-                        <div class="col-lg-6 col-xl-4 mb-4 template-item" data-breach-status="{{ template.risk_level }}">
-                            <div class="card template-card {{ template.risk_level }} h-100">
+                        <div class="col-lg-6 col-xl-4 mb-4 template-item">
+                            <div class="card template-card h-100">
                                 <div class="card-header d-flex justify-content-between align-items-start">
                                     <div>
                                         <h6 class="mb-1">{{ template.name }}</h6>
                                         <div class="d-flex gap-2">
-                                            <span class="badge bg-{{ 'danger' if template.risk_level == 'breached' else 'success' if template.risk_level == 'not_breached' else 'info' if template.risk_level == 'unknown' else 'secondary' }} risk-badge">
-                                                {% if template.risk_level == 'breached' %}🔴 Breached Companies
-                                                {% elif template.risk_level == 'not_breached' %}🟢 Not Breached Companies  
-                                                {% elif template.risk_level == 'unknown' %}⚪ Unknown Status
-                                                {% elif template.risk_level == 'all' %}📧 All Companies
-                                                {% else %}{{ template.risk_level.replace('_', ' ').title() }}
-                                                {% endif %}
-                                            </span>
                                             <span class="badge bg-info risk-badge">
                                                 {{ template.template_type.replace('_', ' ').title() }}
                                             </span>
@@ -326,14 +318,6 @@
                                 <div class="card-header d-flex justify-content-between align-items-start">
                                     <div>
                                         <h6 class="mb-1">{{ sequence.name }}</h6>
-                                        <span class="badge bg-{{ 'danger' if sequence.risk_level == 'breached' else 'success' if sequence.risk_level == 'not_breached' else 'info' if sequence.risk_level == 'unknown' else 'secondary' }} risk-badge">
-                                            {% if sequence.risk_level == 'breached' %}🔴 Breached Companies
-                                            {% elif sequence.risk_level == 'not_breached' %}🟢 Not Breached Companies  
-                                            {% elif sequence.risk_level == 'unknown' %}⚪ Unknown Status
-                                            {% elif sequence.risk_level == 'all' %}📧 All Companies
-                                            {% else %}{{ sequence.risk_level.replace('_', ' ').title() }}
-                                            {% endif %}
-                                        </span>
                                     </div>
                                     <div class="dropdown">
                                         <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown">
@@ -489,6 +473,28 @@
         </div>
     </div>
 </div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center pt-0">
+                <div class="mb-3">
+                    <i class="fas fa-exclamation-circle text-danger" style="font-size: 4rem;"></i>
+                </div>
+                <h5 class="mb-3" id="deleteModalTitle">Delete this item?</h5>
+                <p class="text-muted mb-0" id="deleteModalMessage">This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer border-0 justify-content-center">
+                <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger px-4" id="confirmDeleteBtn">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -551,67 +557,87 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Modern AJAX deletion functions
 function deleteTemplate(templateId, templateName) {
-    if (!confirm(`Are you sure you want to delete template "${templateName}"? This action cannot be undone.`)) {
-        return;
-    }
+    // Set modal content
+    document.getElementById('deleteModalTitle').textContent = `Delete "${templateName}"?`;
+    document.getElementById('deleteModalMessage').textContent = 'This will permanently remove this template from your account.';
 
-    // Show loading state
-    showToast('Deleting template...', 'info', 2000);
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
+    modal.show();
 
-    fetch(`/templates/${templateId}/delete`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showToast(`✅ Template "${templateName}" deleted successfully!`, 'success', 4000);
-            // Remove the template card from the page
-            setTimeout(() => {
-                location.reload();
-            }, 1000);
-        } else {
-            showToast(`❌ Failed to delete template: ${data.error}`, 'error', 5000);
-        }
-    })
-    .catch(error => {
-        console.error('Delete error:', error);
-        showToast('❌ Failed to delete template. Please try again.', 'error', 5000);
-    });
+    // Handle confirm button click
+    const confirmBtn = document.getElementById('confirmDeleteBtn');
+    confirmBtn.onclick = function() {
+        modal.hide();
+
+        // Show loading state
+        showToast('Deleting template...', 'info', 2000);
+
+        fetch(`/templates/${templateId}/delete`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast(`✅ Template "${templateName}" deleted successfully!`, 'success', 4000);
+                // Remove the template card from the page
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+            } else {
+                showToast(`❌ Failed to delete template: ${data.error}`, 'error', 5000);
+            }
+        })
+        .catch(error => {
+            console.error('Delete error:', error);
+            showToast('❌ Failed to delete template. Please try again.', 'error', 5000);
+        });
+    };
 }
 
 function deleteSequence(sequenceId, sequenceName) {
-    if (!confirm(`Are you sure you want to delete sequence "${sequenceName}"? This action cannot be undone.`)) {
-        return;
-    }
+    // Set modal content
+    document.getElementById('deleteModalTitle').textContent = `Delete "${sequenceName}"?`;
+    document.getElementById('deleteModalMessage').textContent = 'This will permanently remove this sequence from your account.';
 
-    // Show loading state
-    showToast('Deleting sequence...', 'info', 2000);
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
+    modal.show();
 
-    fetch(`/sequences/delete/${sequenceId}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showToast(`✅ Sequence "${sequenceName}" deleted successfully!`, 'success', 4000);
-            // Remove the sequence card from the page
-            setTimeout(() => {
-                location.reload();
-            }, 1000);
-        } else {
-            showToast(`❌ Failed to delete sequence: ${data.error}`, 'error', 5000);
-        }
-    })
-    .catch(error => {
-        console.error('Delete error:', error);
-        showToast('❌ Failed to delete sequence. Please try again.', 'error', 5000);
-    });
+    // Handle confirm button click
+    const confirmBtn = document.getElementById('confirmDeleteBtn');
+    confirmBtn.onclick = function() {
+        modal.hide();
+
+        // Show loading state
+        showToast('Deleting sequence...', 'info', 2000);
+
+        fetch(`/sequences/delete/${sequenceId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast(`✅ Sequence "${sequenceName}" deleted successfully!`, 'success', 4000);
+                // Remove the sequence card from the page
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+            } else {
+                showToast(`❌ Failed to delete sequence: ${data.error}`, 'error', 5000);
+            }
+        })
+        .catch(error => {
+            console.error('Delete error:', error);
+            showToast('❌ Failed to delete sequence. Please try again.', 'error', 5000);
+        });
+    };
 }
 </script>
 {% endblock %}

@@ -374,7 +374,7 @@ function updatePreview() {
     let previewContent = content;
     
     Object.keys(sampleData).forEach(key => {
-        const variable = `{{${key}}}`;
+        const variable = '{{' + key + '}}';
         previewSubject = previewSubject.replace(new RegExp(variable, 'g'), sampleData[key]);
         previewContent = previewContent.replace(new RegExp(variable, 'g'), sampleData[key]);
     });
@@ -395,10 +395,10 @@ function updatePreview() {
 }
 
 function updateCharCount(field, value, limit) {
-    const counter = document.getElementById(`${field}-counter`);
+    const counter = document.getElementById(field + '-counter');
     const length = value.length;
-    
-    counter.textContent = `${length}/${limit} characters`;
+
+    counter.textContent = length + '/' + limit + ' characters';
     
     if (length > limit * 0.9) {
         counter.className = 'char-counter danger';

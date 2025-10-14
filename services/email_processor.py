@@ -87,7 +87,7 @@ def process_email_queue() -> Dict:
                 # Check if contact email has bounced and if sequence should stop on bounce
                 if contact.email_status == 'bounced':
                     # Get the campaign's template to check stop_on_bounce setting
-                    from models.database import EmailTemplate, FollowUpSequence, ContactCampaignStatus
+                    from models.database import EmailTemplate, EmailSequenceConfig, ContactCampaignStatus
                     template = EmailTemplate.query.get(campaign.template_id) if campaign.template_id else None
 
                     # Check if we should stop on bounce (default: True if setting not found)
@@ -95,7 +95,7 @@ def process_email_queue() -> Dict:
                     if template and hasattr(template, 'sequence'):
                         should_stop_on_bounce = getattr(template.sequence, 'stop_on_bounce', True)
                     elif campaign.sequence_id:
-                        sequence = FollowUpSequence.query.get(campaign.sequence_id)
+                        sequence = EmailSequenceConfig.query.get(campaign.sequence_id)
                         if sequence:
                             should_stop_on_bounce = getattr(sequence, 'stop_on_bounce', True)
 

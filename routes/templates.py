@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for
-from models.database import db, EmailTemplate, FollowUpSequence, Settings
+from models.database import db, EmailTemplate, EmailSequenceConfig, Settings
 from datetime import datetime
 import json
 import os
@@ -59,8 +59,8 @@ def format_breach_data_for_template(breach_data):
 @templates_bp.route('/')
 def templates():
     """Template management page"""
-    templates = EmailTemplate.query.filter_by(active=True).all()
-    sequences = FollowUpSequence.query.filter_by(active=True).all()
+    templates = EmailTemplate.query.filter_by(is_active=True).all()
+    sequences = EmailSequenceConfig.query.filter_by(is_active=True).all()
     return render_template('templates_management.html',
                          templates=templates,
                          sequences=sequences)
@@ -77,9 +77,7 @@ def create_template():
             template = EmailTemplate(
                 name=request.form['name'],
                 template_type=request.form['template_type'],
-                risk_level=request.form['breach_status'],  # Map breach_status to risk_level for backward compatibility
                 sequence_step=sequence_step,  # Convert 1-based UI to 0-based sequence
-                breach_template_type=request.form.get('breach_template_type', 'proactive'),
                 subject_line=request.form['subject_line'],
                 email_body=request.form['email_body'],
                 is_active=True,
@@ -114,9 +112,7 @@ def edit_template(template_id):
             
             template.name = request.form['name']
             template.template_type = request.form['template_type']
-            template.risk_level = request.form['breach_status']
             template.sequence_step = sequence_step
-            template.breach_template_type = request.form.get('breach_template_type', 'proactive')
             template.subject_line = request.form['subject_line']
             template.email_body = request.form['email_body']
             template.delay_amount = int(request.form.get('delay_amount', 0))
@@ -219,7 +215,7 @@ def test_preview():
 @templates_bp.route('/testing')
 def testing_dashboard():
     """Template testing dashboard"""
-    templates = EmailTemplate.query.filter_by(active=True).all()
+    templates = EmailTemplate.query.filter_by(is_active=True).all()
     from models.database import Campaign
     campaigns = Campaign.query.all()
 
@@ -477,7 +473,7 @@ def delete_template(template_id):
             })
 
         # Soft delete by setting active to False
-        template.active = False
+        template.is_active = False
         template.updated_at = datetime.utcnow()
         db.session.commit()
 
@@ -500,7 +496,7 @@ def get_template_api(template_id):
 @templates_bp.route('/api/list')
 def list_templates_api():
     """List all templates as JSON"""
-    templates = EmailTemplate.query.filter_by(active=True).all()
+    templates = EmailTemplate.query.filter_by(is_active=True).all()
     return jsonify([template.to_dict() for template in templates])
 
 @templates_bp.route('/api/<int:template_id>/delete', methods=['POST'])
@@ -521,7 +517,7 @@ def delete_template_api(template_id):
             })
 
         # Soft delete by setting active to False
-        template.active = False
+        template.is_active = False
         template.updated_at = datetime.utcnow()
         db.session.commit()
 
@@ -539,7 +535,7 @@ def delete_template_api(template_id):
 def delete_followup_sequence(sequence_id):
     """Delete followup sequence"""
     try:
-        sequence = FollowUpSequence.query.get_or_404(sequence_id)
+        sequence = EmailSequenceConfig.query.get_or_404(sequence_id)
         sequence_name = sequence.name
 
         # Check if sequence is being used in any campaigns
@@ -553,7 +549,7 @@ def delete_followup_sequence(sequence_id):
             })
 
         # Soft delete by setting active to False
-        sequence.active = False
+        sequence.is_active = False
         sequence.updated_at = datetime.utcnow()
         db.session.commit()
 

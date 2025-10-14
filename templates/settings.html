@@ -326,88 +326,6 @@
             </div>
         </div>
 
-        <!-- FlawTrack API Configuration -->
-        <div class="col-md-12 mb-4">
-            <div class="card settings-card">
-                <div class="card-header">
-                    <h5 class="mb-0">
-                        <i class="fas fa-shield-alt me-2"></i>FlawTrack API Configuration
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <form method="POST" action="{{ url_for('dashboard.settings') }}">
-                        <input type="hidden" name="config_type" value="flawtrack">
-                        
-                        <div class="row">
-                            <div class="col-lg-6">
-                                <h6><i class="fas fa-bug me-2"></i>Breach Detection API</h6>
-                                
-                                <div class="mb-3">
-                                    <label class="form-label"><i class="fas fa-search me-2"></i>API Provider</label>
-                                    <div class="form-control-plaintext">
-                                        <strong>FlawTrack API</strong>
-                                        <small class="text-muted d-block">Real-time breach data for contact assessment</small>
-                                    </div>
-                                </div>
-                                
-                                <div class="mb-3">
-                                    <label for="flawtrack_api_key" class="form-label">FlawTrack API Key</label>
-                                    <input type="password" class="form-control" id="flawtrack_api_key" name="flawtrack_api_key" 
-                                           value="{{ flawtrack_config.get('flawtrack_api_key', '') }}" 
-                                           placeholder="Enter your FlawTrack API key">
-                                    <div class="form-text">
-                                        <small>Your FlawTrack API key for breach data queries</small>
-                                    </div>
-                                </div>
-                                
-                                <div class="mb-3">
-                                    <label for="flawtrack_endpoint" class="form-label">API Endpoint</label>
-                                    <input type="url" class="form-control" id="flawtrack_endpoint" name="flawtrack_endpoint" 
-                                           value="{{ flawtrack_config.get('flawtrack_endpoint', '') }}" 
-                                           placeholder="https://api.flawtrack.com/v1/search">
-                                </div>
-                            </div>
-                            
-                            <div class="col-lg-6">
-                                <h6><i class="fas fa-info-circle me-2"></i>API Information</h6>
-                                
-                                <div class="alert alert-info">
-                                    <h6><i class="fas fa-shield-alt me-2"></i>FlawTrack API Setup</h6>
-                                    <ul class="mb-0">
-                                        <li>Register for a FlawTrack API account</li>
-                                        <li>Get your API key from the dashboard</li>
-                                        <li>Configure the correct API endpoint URL</li>
-                                        <li>Used to check if contact domains have known breaches</li>
-                                    </ul>
-                                </div>
-                                
-                                <div class="mt-3">
-                                    <h6><i class="fas fa-chart-line me-2"></i>Usage</h6>
-                                    <div class="alert alert-secondary">
-                                        <small>
-                                            FlawTrack API automatically checks contact domains when they're added to campaigns. 
-                                            Breach data helps select appropriate email templates (breach response vs. proactive security).
-                                        </small>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <hr>
-                        
-                        <div class="d-flex gap-2">
-                            <button type="submit" class="btn btn-success">
-                                <i class="fas fa-save me-1"></i>Save FlawTrack Configuration
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary" onclick="testFlawTrackConnection()">
-                                <i class="fas fa-bug me-1"></i>Test API Connection
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-
         <!-- IMAP Reply Detection Configuration -->
         <div class="col-md-12 mb-4">
             <div class="card settings-card">
@@ -702,43 +620,6 @@ function testConnection() {
     .catch(error => {
         console.error('Error:', error);
         alert('❌ Network error occurred while testing connection.');
-    })
-    .finally(() => {
-        // Restore button state
-        btn.disabled = false;
-        btn.innerHTML = originalText;
-    });
-}
-
-function testFlawTrackConnection() {
-    const btn = event.target;
-    const originalText = btn.innerHTML;
-    
-    // Gather form data
-    const formData = new FormData();
-    formData.append('config_type', 'test_flawtrack');
-    formData.append('flawtrack_api_key', document.getElementById('flawtrack_api_key').value);
-    formData.append('flawtrack_endpoint', document.getElementById('flawtrack_endpoint').value);
-    
-    // Show loading state
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Testing...';
-    
-    fetch('{{ url_for("dashboard.settings") }}', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert('✅ FlawTrack connection successful! API is working correctly.');
-        } else {
-            alert('❌ FlawTrack connection failed: ' + (data.error || 'Unknown error'));
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('❌ Network error occurred while testing FlawTrack connection.');
     })
     .finally(() => {
         // Restore button state

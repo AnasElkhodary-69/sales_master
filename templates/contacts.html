@@ -11,7 +11,7 @@
                     <i class="fas fa-users me-2"></i>Contact Management
                 </h1>
                 <div class="d-flex align-items-center gap-2">
-                    <span class="csv-help-icon" data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true" 
+                    <span class="csv-help-icon" data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true"
                           title="<strong>CSV Upload Instructions:</strong><br/>
                                  <em>Required Column:</em><br/>
                                  • <strong>email</strong> - Contact email address<br/><br/>
@@ -21,7 +21,9 @@
                                  • <strong>company</strong> - Company name<br/>
                                  • <strong>title</strong> - Job title/role<br/>
                                  • <strong>phone</strong> - Phone number<br/>
-                                 • <strong>industry</strong> - Industry sector<br/><br/>
+                                 • <strong>industry</strong> - Industry sector<br/>
+                                 • <strong>business_type</strong> - B2B, B2C, Enterprise, SMB<br/>
+                                 • <strong>company_size</strong> - Company size range<br/><br/>
                                  <em>Flexible naming:</em> We support many column name variations<br/>
                                  (e.g., 'Name', 'Full Name', 'Email Address', 'Role', etc.)">
                         <i class="fas fa-question-circle text-muted"></i>
@@ -39,21 +41,11 @@
                         <li><a class="dropdown-item" href="#" id="exportContacts">
                             <i class="fas fa-download me-1"></i>Export All Contacts
                         </a></li>
+                        <li><a class="dropdown-item" href="#" id="bulkAssignCampaign">
+                            <i class="fas fa-bullhorn me-1"></i>Bulk Assign to Campaign
+                        </a></li>
                         <li><a class="dropdown-item" href="#" id="bulkDelete">
                             <i class="fas fa-trash me-1"></i>Bulk Delete
-                        </a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="#" id="bulkBreached">
-                            <i class="fas fa-exclamation-triangle me-1 text-danger"></i>Mark as Breached
-                        </a></li>
-                        <li><a class="dropdown-item" href="#" id="bulkNotBreached">
-                            <i class="fas fa-shield-alt me-1 text-success"></i>Mark as Secure
-                        </a></li>
-                        <li><a class="dropdown-item" href="#" id="bulkUnknown">
-                            <i class="fas fa-question me-1 text-warning"></i>Mark as Unknown
-                        </a></li>
-                        <li><a class="dropdown-item" href="#" id="bulkUnassigned">
-                            <i class="fas fa-redo me-1 text-info"></i>Mark as Unassigned
                         </a></li>
                         <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item" href="#" id="refreshList">
@@ -138,42 +130,38 @@
                     <label class="btn btn-outline-danger" for="blocked">🚫 Blocked</label>
                 </div>
 
-                <!-- Status Filter Dropdown -->
+                <!-- Industry Filter Dropdown -->
                 <div class="dropdown">
-                    <button class="btn btn-outline-primary dropdown-toggle" type="button" id="statusFilterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                        <i class="fas fa-filter me-1"></i>
-                        {% if request.args.get('status') %}
-                            {% set status = request.args.get('status') %}
-                            {% if status == 'breached' %}🔴 Breached
-                            {% elif status == 'not_breached' %}🟢 Secure
-                            {% elif status == 'risky' %}🟡 Risky
-                            {% elif status == 'bounced' %}⚫ Bounced
-                            {% elif status == 'unassigned' %}🔵 Scanning
-                            {% else %}Status
-                            {% endif %}
+                    <button class="btn btn-outline-primary dropdown-toggle" type="button" id="industryFilterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-industry me-1"></i>
+                        {% if request.args.get('industry') %}
+                            {{ request.args.get('industry') }}
                         {% else %}
-                            Contact Status
+                            All Industries
                         {% endif %}
                     </button>
-                    <ul class="dropdown-menu" aria-labelledby="statusFilterDropdown">
-                        <li><a class="dropdown-item {{ 'active' if not request.args.get('status') else '' }}" href="#" onclick="filterByStatus('')">
-                            <i class="fas fa-list me-2"></i>All Statuses
+                    <ul class="dropdown-menu" aria-labelledby="industryFilterDropdown">
+                        <li><a class="dropdown-item {{ 'active' if not request.args.get('industry') else '' }}" href="#" onclick="filterByIndustry('')">
+                            <i class="fas fa-list me-2"></i>All Industries
                         </a></li>
                         <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item {{ 'active' if request.args.get('status') == 'breached' else '' }}" href="#" onclick="filterByStatus('breached')">
-                            <span class="badge bg-danger me-2">🔴</span>Breached
+                        <li><a class="dropdown-item" href="#" onclick="filterByIndustry('Healthcare')">
+                            <i class="fas fa-heartbeat me-2 text-danger"></i>Healthcare
                         </a></li>
-                        <li><a class="dropdown-item {{ 'active' if request.args.get('status') == 'not_breached' else '' }}" href="#" onclick="filterByStatus('not_breached')">
-                            <span class="badge bg-success me-2">🟢</span>Secure
+                        <li><a class="dropdown-item" href="#" onclick="filterByIndustry('Finance')">
+                            <i class="fas fa-dollar-sign me-2 text-success"></i>Finance
                         </a></li>
-                        <li><a class="dropdown-item {{ 'active' if request.args.get('status') == 'risky' else '' }}" href="#" onclick="filterByStatus('risky')">
-                            <span class="badge bg-warning me-2">🟡</span>Risky
+                        <li><a class="dropdown-item" href="#" onclick="filterByIndustry('Technology')">
+                            <i class="fas fa-laptop-code me-2 text-primary"></i>Technology
                         </a></li>
-                        <li><a class="dropdown-item {{ 'active' if request.args.get('status') == 'bounced' else '' }}" href="#" onclick="filterByStatus('bounced')">
-                            <span class="badge bg-dark me-2">⚫</span>Bounced
+                        <li><a class="dropdown-item" href="#" onclick="filterByIndustry('Retail')">
+                            <i class="fas fa-shopping-cart me-2 text-warning"></i>Retail
                         </a></li>
-                        <li><a class="dropdown-item {{ 'active' if request.args.get('status') == 'unassigned' else '' }}" href="#" onclick="filterByStatus('unassigned')">
-                            <span class="badge bg-info me-2">🔵</span>Scanning
+                        <li><a class="dropdown-item" href="#" onclick="filterByIndustry('Manufacturing')">
+                            <i class="fas fa-industry me-2 text-secondary"></i>Manufacturing
+                        </a></li>
+                        <li><a class="dropdown-item" href="#" onclick="filterByIndustry('Education')">
+                            <i class="fas fa-graduation-cap me-2 text-info"></i>Education
                         </a></li>
                     </ul>
                 </div>
@@ -206,8 +194,7 @@
                                         <th>Contact</th>
                                         <th>Company</th>
                                         <th>Title</th>
-                                        <th>Domain</th>
-                                        <th>Contact Status</th>
+                                        <th>Industry / Business Type</th>
                                         <th>Emails Sent</th>
                                         <th>Campaigns</th>
                                         <th>
@@ -267,68 +254,38 @@
                                                 {% endif %}
                                             </td>
                                             <td>
-                                                <span class="badge bg-light text-dark">{{ contact.domain }}</span>
-                                            </td>
-                                            <td class="text-center">
-                                                {% set scan_status = contact.get_domain_scan_status() %}
-                                                
-                                                <!-- Breach Status Badge -->
-                                                {% if contact.breach_status == 'breached' %}
-                                                    <span class="badge bg-danger" title="Security breach detected">
-                                                        <i class="fas fa-exclamation-triangle me-1"></i>🔴 Breached
-                                                    </span>
-                                                {% elif contact.breach_status == 'not_breached' %}
-                                                    <span class="badge bg-success" title="No breaches found">
-                                                        <i class="fas fa-shield-check me-1"></i>🟢 Secure
-                                                    </span>
-                                                {% elif contact.breach_status == 'unassigned' %}
-                                                    <span class="badge bg-info" title="Scanning in progress">
-                                                        <i class="fas fa-spinner fa-spin me-1"></i>📋 Unassigned
-                                                    </span>
-                                                {% elif contact.breach_status == 'risky' %}
-                                                    <span class="badge bg-warning" title="Risky email - not scanned">
-                                                        <i class="fas fa-exclamation me-1"></i>⚠️ Risky
-                                                    </span>
-                                                {% elif contact.breach_status == 'bounced' %}
-                                                    <span class="badge bg-dark" title="Invalid email address">
-                                                        <i class="fas fa-ban me-1"></i>🚫 Bounced
-                                                    </span>
-                                                {% elif contact.email_status == 'blocked' %}
-                                                    <span class="badge bg-danger" title="Email blocked by recipient">
-                                                        <i class="fas fa-shield-alt me-1"></i>🚫 Blocked
-                                                    </span>
+                                                {% if contact.industry %}
+                                                    <div>
+                                                        <span class="badge bg-primary">
+                                                            <i class="fas fa-industry me-1"></i>{{ contact.industry }}
+                                                        </span>
+                                                    </div>
                                                 {% else %}
-                                                    <span class="badge bg-secondary" title="Breach status unknown">
-                                                        <i class="fas fa-question-circle me-1"></i>⚪ Unknown
-                                                    </span>
+                                                    <span class="text-muted">-</span>
                                                 {% endif %}
-                                                
-                                                <br><small class="mt-1">
-                                                    <!-- FlawTrack Scanning Status -->
-                                                    {% if scan_status.status == 'scanning' %}
-                                                        <span class="text-info" title="Domain scan in progress">
-                                                            <i class="fas fa-spinner fa-spin me-1"></i>Scanning...
-                                                        </span>
-                                                    {% elif scan_status.status == 'completed' %}
-                                                        <span class="text-success" title="Domain scan completed">
-                                                            <i class="fas fa-check me-1"></i>Scan completed
-                                                        </span>
-                                                    {% elif scan_status.status == 'failed' %}
-                                                        <span class="text-warning" title="{{ scan_status.error or 'Scan failed, will retry' }}">
-                                                            <i class="fas fa-exclamation-triangle me-1"></i>Retry ({{ scan_status.attempts }}/3)
-                                                        </span>
-                                                    {% else %}
-                                                        <span class="text-muted" title="Domain not scanned yet">
-                                                            <i class="fas fa-clock me-1"></i>Not scanned
-                                                        </span>
-                                                    {% endif %}
-                                                </small>
+
+                                                {% if contact.business_type %}
+                                                    <div class="mt-1">
+                                                        <small class="badge bg-info">{{ contact.business_type }}</small>
+                                                    </div>
+                                                {% endif %}
+
+                                                {% if contact.company_size %}
+                                                    <div class="mt-1">
+                                                        <small class="text-muted">
+                                                            <i class="fas fa-users fa-xs me-1"></i>{{ contact.company_size }}
+                                                        </small>
+                                                    </div>
+                                                {% endif %}
                                             </td>
                                             <td class="text-center">
                                                 <span class="badge bg-primary">{{ contact.email_count or 0 }}</span>
                                             </td>
                                             <td class="text-center">
-                                                <span class="badge bg-info">{{ contact.campaign_count or 0 }}</span>
+                                                <span class="badge bg-info" style="cursor: pointer;"
+                                                      onclick="showContactCampaigns({{ contact.id }})">
+                                                    {{ contact.campaign_count or 0 }}
+                                                </span>
                                             </td>
                                             <td>
                                                 <small>{{ contact.created_at.strftime('%m/%d/%Y') if contact.created_at else 'Unknown' }}</small>
@@ -344,18 +301,13 @@
                                             </td>
                                             <td>
                                                 <div class="btn-group btn-group-sm">
-                                                    <button type="button" class="btn btn-outline-primary" 
-                                                            onclick="editContact({{ contact.id }})" 
+                                                    <button type="button" class="btn btn-outline-primary"
+                                                            onclick="editContact({{ contact.id }})"
                                                             title="Edit Contact">
                                                         <i class="fas fa-edit"></i>
                                                     </button>
-                                                    <button type="button" class="btn btn-outline-info" 
-                                                            onclick="viewBreachInfo('{{ contact.domain }}')" 
-                                                            title="Check Breaches">
-                                                        <i class="fas fa-shield-alt"></i>
-                                                    </button>
-                                                    <button type="button" class="btn btn-outline-danger" 
-                                                            onclick="deleteContact({{ contact.id }})" 
+                                                    <button type="button" class="btn btn-outline-danger"
+                                                            onclick="deleteContact({{ contact.id }})"
                                                             title="Delete Contact">
                                                         <i class="fas fa-trash"></i>
                                                     </button>
@@ -491,8 +443,8 @@
                     <div class="alert alert-info">
                         <h6><i class="fas fa-info-circle me-2"></i>CSV Format Requirements</h6>
                         <p class="mb-2"><strong>Required column:</strong> email</p>
-                        <p class="mb-2"><strong>Optional columns:</strong> first_name, last_name, company, title, phone, industry</p>
-                        <p class="mb-0"><strong>Example:</strong> email,first_name,last_name,company</p>
+                        <p class="mb-2"><strong>Optional columns:</strong> first_name, last_name, company, title, phone, industry, business_type, company_size</p>
+                        <p class="mb-0"><strong>Example:</strong> email,first_name,last_name,company,industry</p>
                     </div>
                 </div>
             </div>
@@ -548,54 +500,84 @@
                         <input type="text" class="form-control" id="editTitle">
                     </div>
                     
+                    <div class="mb-3">
+                        <label for="editPhone" class="form-label">Phone</label>
+                        <input type="text" class="form-control" id="editPhone">
+                    </div>
+
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="editPhone" class="form-label">Phone</label>
-                                <input type="text" class="form-control" id="editPhone">
+                                <label for="editIndustry" class="form-label">Industry</label>
+                                <select class="form-select" id="editIndustry">
+                                    <option value="">Not specified</option>
+                                    <option value="Healthcare">Healthcare</option>
+                                    <option value="Finance">Finance</option>
+                                    <option value="Technology">Technology</option>
+                                    <option value="Retail">Retail</option>
+                                    <option value="Manufacturing">Manufacturing</option>
+                                    <option value="Education">Education</option>
+                                    <option value="Real Estate">Real Estate</option>
+                                    <option value="Legal">Legal</option>
+                                    <option value="Other">Other</option>
+                                </select>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="editIndustry" class="form-label">Industry</label>
-                                <input type="text" class="form-control" id="editIndustry">
+                                <label for="editBusinessType" class="form-label">Business Type</label>
+                                <select class="form-select" id="editBusinessType">
+                                    <option value="">Not specified</option>
+                                    <option value="B2B">B2B</option>
+                                    <option value="B2C">B2C</option>
+                                    <option value="Enterprise">Enterprise</option>
+                                    <option value="SMB">SMB</option>
+                                    <option value="Startup">Startup</option>
+                                </select>
                             </div>
                         </div>
                     </div>
-                    
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="editCompanySize" class="form-label">Company Size</label>
+                                <select class="form-select" id="editCompanySize">
+                                    <option value="">Not specified</option>
+                                    <option value="1-10">1-10 employees</option>
+                                    <option value="11-50">11-50 employees</option>
+                                    <option value="51-200">51-200 employees</option>
+                                    <option value="201-1000">201-1000 employees</option>
+                                    <option value="1000+">1000+ employees</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="editStatus" class="form-label">Status</label>
+                                <select class="form-select" id="editStatus">
+                                    <option value="active">Active</option>
+                                    <option value="inactive">Inactive</option>
+                                    <option value="unsubscribed">Unsubscribed</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="mb-3">
-                        <label for="editStatus" class="form-label">Status</label>
-                        <select class="form-select" id="editStatus">
-                            <option value="active">Active</option>
-                            <option value="inactive">Inactive</option>
-                            <option value="unsubscribed">Unsubscribed</option>
+                        <label for="editCampaign" class="form-label">
+                            <i class="fas fa-bullhorn me-1"></i>Assign to Campaign (Optional)
+                        </label>
+                        <select class="form-select" id="editCampaign">
+                            <option value="">-- No Campaign Assignment --</option>
                         </select>
+                        <small class="form-text text-muted">Select a campaign to assign this contact to</small>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary" id="saveContactBtn">Save Changes</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Breach Info Modal -->
-<div class="modal fade" id="breachInfoModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Security Breach Information</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body" id="breachInfoContent">
-                <div class="text-center">
-                    <div class="spinner-border" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                    <p>Loading breach information...</p>
-                </div>
             </div>
         </div>
     </div>
@@ -637,6 +619,64 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-danger" id="confirmActionBtn">Confirm</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Contact Campaigns Modal -->
+<div class="modal fade" id="contactCampaignsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-bullhorn me-2"></i>Campaigns
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="contactCampaignsContent">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Campaign Assignment Modal -->
+<div class="modal fade" id="bulkCampaignModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-bullhorn me-2"></i>Assign Contacts to Campaign
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Select a campaign to assign <strong id="bulkContactCount">0</strong> selected contact(s) to:</p>
+
+                <div class="mb-3">
+                    <label for="bulkCampaignSelect" class="form-label">Campaign</label>
+                    <select class="form-select" id="bulkCampaignSelect">
+                        <option value="">-- Select Campaign --</option>
+                    </select>
+                </div>
+
+                <div class="alert alert-info">
+                    <small><i class="fas fa-info-circle me-1"></i>Contacts will be added to the selected campaign and will start receiving emails based on the campaign's schedule.</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirmBulkAssignBtn">Assign to Campaign</button>
             </div>
         </div>
     </div>
@@ -722,8 +762,10 @@ function editContact(contactId) {
             document.getElementById('editTitle').value = contact.title || '';
             document.getElementById('editPhone').value = contact.phone || '';
             document.getElementById('editIndustry').value = contact.industry || '';
+            document.getElementById('editBusinessType').value = contact.business_type || '';
+            document.getElementById('editCompanySize').value = contact.company_size || '';
             document.getElementById('editStatus').value = contact.status || 'active';
-            
+
             new bootstrap.Modal(document.getElementById('editContactModal')).show();
         })
         .catch(error => {
@@ -773,143 +815,6 @@ function deleteContact(contactId) {
             console.error('Error deleting contact:', error);
         });
     });
-}
-
-function viewBreachInfo(domain, contactEmail = null) {
-    const modal = new bootstrap.Modal(document.getElementById('breachInfoModal'));
-    const modalTitle = document.querySelector('#breachInfoModal .modal-title');
-    
-    // Update modal title based on context
-    if (contactEmail) {
-        modalTitle.textContent = `Security Information - ${domain}`;
-    } else {
-        modalTitle.textContent = `Domain Security Information - ${domain}`;
-    }
-    
-    modal.show();
-    
-    // Fetch breach information and scanning status
-    Promise.all([
-        fetch(`/api/breach-lookup/${domain}`).then(r => r.json()),
-        fetch(`/api/domain-scan-status/${domain}`).then(r => r.json()).catch(() => ({}))
-    ])
-        .then(([breachData, scanData]) => {
-            let content = '';
-            
-            // Check actual breach status vs scan status
-            if (breachData.error || breachData.status === 'secure') {
-                // Domain is secure/not breached
-                content = `
-                    <div class="alert alert-success">
-                        <h6><i class="fas fa-shield-check me-2"></i>Security Status: Clean</h6>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <strong>Domain:</strong> ${domain}<br>
-                                <strong>Status:</strong> 
-                                <span class="badge bg-success fs-6">🟢 NOT BREACHED</span><br>
-                                <strong>Contacts:</strong> ${breachData.contacts_affected || 'N/A'}
-                            </div>
-                            <div class="col-md-6">
-                                <p class="mb-1 small">No security breaches found for this domain.</p>
-                                <p class="mb-0 small text-success">✅ This domain appears to be secure based on our analysis.</p>
-                            </div>
-                        </div>
-                        ${scanData.status ? `
-                        <div class="mt-2 pt-2 border-top">
-                            <small class="text-muted">
-                                <strong>Scan Status:</strong> ${getScanStatusBadge(scanData.status)} 
-                                ${scanData.last_updated ? `• Last scanned: ${new Date(scanData.last_updated).toLocaleDateString()}` : ''}
-                            </small>
-                        </div>
-                        ` : ''}
-                    </div>
-                `;
-            } else {
-                // Domain has breaches
-                const breachDataForDisplay = breachData.breach_data || [];
-                const sampleRecords = Array.isArray(breachDataForDisplay) ? breachDataForDisplay.slice(0, 3) : [];
-                
-                content = `
-                    <div class="alert alert-danger">
-                        <h6><i class="fas fa-exclamation-triangle me-2"></i>Security Breach Detected</h6>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <strong>Domain:</strong> ${breachData.domain}<br>
-                                <strong>Status:</strong> 
-                                <span class="badge bg-danger fs-6">🔴 BREACHED</span><br>
-                                <strong>Records Found:</strong> ${breachData.records_affected || 'Unknown'}<br>
-                                <strong>Year:</strong> ${breachData.breach_year || 'Recent'}
-                            </div>
-                            <div class="col-md-6">
-                                <strong>Contacts Affected:</strong> ${breachData.contacts_affected || 'N/A'}<br>
-                                <strong>Data Types:</strong> ${breachData.data_types || 'Credentials, Email addresses'}<br>
-                                <p class="mb-0 small text-danger mt-1">⚠️ Credential breach detected in security databases.</p>
-                            </div>
-                        </div>
-                        
-                        ${sampleRecords.length > 0 ? `
-                        <div class="mt-3">
-                            <h6>Sample Breach Records Found:</h6>
-                            <div class="row">
-                                ${sampleRecords.map(record => `
-                                <div class="col-md-4 mb-2">
-                                    <div class="card border-danger">
-                                        <div class="card-body p-2">
-                                            <small>
-                                                <strong>Service:</strong> ${record.service_name || 'Unknown'}<br>
-                                                <strong>Email:</strong> ${record.identifier || 'Hidden'}<br>
-                                                <strong>Found:</strong> ${record.created_at ? new Date(record.created_at).toLocaleDateString() : 'Recent'}
-                                            </small>
-                                        </div>
-                                    </div>
-                                </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                        ` : ''}
-                        
-                        ${scanData.status ? `
-                        <div class="mt-2 pt-2 border-top">
-                            <small class="text-muted">
-                                <strong>Scan Status:</strong> ${getScanStatusBadge(scanData.status)} 
-                                ${scanData.last_updated ? `• Last scanned: ${new Date(scanData.last_updated).toLocaleDateString()}` : ''}
-                            </small>
-                        </div>
-                        ` : ''}
-                        
-                        <div class="mt-3">
-                            <h6>Email Campaign Suggestions:</h6>
-                            <ul class="list-unstyled">
-                                <li><i class="fas fa-check text-success me-2"></i>Use breach-specific email template</li>
-                                <li><i class="fas fa-check text-success me-2"></i>Mention security improvements and consultation</li>
-                                <li><i class="fas fa-check text-success me-2"></i>Reference specific breach data for credibility</li>
-                            </ul>
-                        </div>
-                    </div>
-                `;
-            }
-            
-            document.getElementById('breachInfoContent').innerHTML = content;
-        })
-        .catch(error => {
-            document.getElementById('breachInfoContent').innerHTML = `
-                <div class="alert alert-danger">
-                    <h6><i class="fas fa-exclamation-triangle me-2"></i>Error</h6>
-                    <p>Failed to load breach information for ${domain}</p>
-                </div>
-            `;
-        });
-}
-
-// Helper function to get scan status badge
-function getScanStatusBadge(status) {
-    const badges = {
-        'not_scanned': '<span class="badge bg-secondary">Not scanned</span>',
-        'scanning': '<span class="badge bg-info">Scanning...</span>',
-        'completed': '<span class="badge bg-success">Completed</span>',
-        'failed': '<span class="badge bg-warning">Failed</span>'
-    };
-    return badges[status] || '<span class="badge bg-secondary">Unknown</span>';
 }
 
 // Checkbox management with null checks
@@ -971,6 +876,8 @@ const saveContactBtn = document.getElementById('saveContactBtn');
 if (saveContactBtn) {
     saveContactBtn.addEventListener('click', function() {
         const contactId = document.getElementById('editContactId')?.value;
+        const campaignId = document.getElementById('editCampaign')?.value || '';
+
         const formData = {
             email: document.getElementById('editEmail')?.value || '',
             first_name: document.getElementById('editFirstName')?.value || '',
@@ -979,7 +886,10 @@ if (saveContactBtn) {
             title: document.getElementById('editTitle')?.value || '',
             phone: document.getElementById('editPhone')?.value || '',
             industry: document.getElementById('editIndustry')?.value || '',
-            status: document.getElementById('editStatus')?.value || 'active'
+            business_type: document.getElementById('editBusinessType')?.value || '',
+            company_size: document.getElementById('editCompanySize')?.value || '',
+            status: document.getElementById('editStatus')?.value || 'active',
+            campaign_id: campaignId
         };
         
         if (contactId) {
@@ -1072,82 +982,6 @@ if (bulkDeleteBtn) {
                 console.error('Error:', error);
             });
         });
-    });
-}
-
-// Bulk breach status update handlers
-function handleBulkBreachStatusUpdate(status, statusName) {
-    const selected = document.querySelectorAll('.contact-checkbox:checked');
-    if (selected.length === 0) {
-        showError('Please select contacts to update.');
-        return;
-    }
-    
-    const contactIds = Array.from(selected).map(cb => parseInt(cb.value));
-    const message = `Are you sure you want to mark ${selected.length} contact${selected.length > 1 ? 's' : ''} as ${statusName}?`;
-
-    showConfirm(message, function() {
-        fetch('/api/contacts/bulk-update-breach-status', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                contact_ids: contactIds,
-                breach_status: status
-            })
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            if (data.success) {
-                showSuccess(data.message || `Successfully updated ${data.updated_count || 0} contacts`);
-                setTimeout(() => location.reload(), 2000);
-            } else {
-                showError(data.error || 'Failed to update breach status');
-            }
-        })
-        .catch(error => {
-            showError('Failed to update breach status. Please try again.');
-            console.error('Error:', error);
-        });
-    });
-}
-
-// Bulk breach status buttons with null checks
-const bulkBreachedBtn = document.getElementById('bulkBreached');
-if (bulkBreachedBtn) {
-    bulkBreachedBtn.addEventListener('click', function(e) {
-        e.preventDefault();
-        handleBulkBreachStatusUpdate('breached', 'Breached');
-    });
-}
-
-const bulkNotBreachedBtn = document.getElementById('bulkNotBreached');
-if (bulkNotBreachedBtn) {
-    bulkNotBreachedBtn.addEventListener('click', function(e) {
-        e.preventDefault();
-        handleBulkBreachStatusUpdate('not_breached', 'Secure');
-    });
-}
-
-const bulkUnknownBtn = document.getElementById('bulkUnknown');
-if (bulkUnknownBtn) {
-    bulkUnknownBtn.addEventListener('click', function(e) {
-        e.preventDefault();
-        handleBulkBreachStatusUpdate('unknown', 'Unknown');
-    });
-}
-
-const bulkUnassignedBtn = document.getElementById('bulkUnassigned');
-if (bulkUnassignedBtn) {
-    bulkUnassignedBtn.addEventListener('click', function(e) {
-        e.preventDefault();
-        handleBulkBreachStatusUpdate('unassigned', 'Unassigned (will be re-scanned)');
     });
 }
 
@@ -1486,11 +1320,216 @@ function showUploadError(message) {
     `;
 }
 
+// Campaign Management Functions
+function loadCampaigns() {
+    // Load campaigns for dropdowns
+    fetch('/api/campaigns')
+        .then(response => response.json())
+        .then(campaigns => {
+            if (campaigns && campaigns.length > 0) {
+                // Populate edit contact campaign dropdown
+                const editCampaignSelect = document.getElementById('editCampaign');
+                if (editCampaignSelect) {
+                    editCampaignSelect.innerHTML = '<option value="">-- No Campaign Assignment --</option>';
+                    campaigns.forEach(campaign => {
+                        if (campaign.status === 'active') {
+                            editCampaignSelect.innerHTML += `<option value="${campaign.id}">${campaign.name}</option>`;
+                        }
+                    });
+                }
+
+                // Populate bulk assignment dropdown
+                const bulkCampaignSelect = document.getElementById('bulkCampaignSelect');
+                if (bulkCampaignSelect) {
+                    bulkCampaignSelect.innerHTML = '<option value="">-- Select Campaign --</option>';
+                    campaigns.forEach(campaign => {
+                        if (campaign.status === 'active') {
+                            bulkCampaignSelect.innerHTML += `<option value="${campaign.id}">${campaign.name}</option>`;
+                        }
+                    });
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error loading campaigns:', error);
+        });
+}
+
+function showContactCampaigns(contactId) {
+    // Show modal with loading state
+    const modal = new bootstrap.Modal(document.getElementById('contactCampaignsModal'));
+    modal.show();
+
+    // Reset content
+    document.getElementById('contactCampaignsContent').innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    `;
+
+    // Fetch contact's campaigns
+    fetch(`/api/contacts/${contactId}/campaigns`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.campaigns) {
+                let html = '';
+
+                if (data.campaigns.length === 0) {
+                    html = `
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-inbox fs-1 mb-3"></i>
+                            <p>This contact is not assigned to any campaigns yet.</p>
+                        </div>
+                    `;
+                } else {
+                    html = `
+                        <div class="list-group">
+                    `;
+
+                    data.campaigns.forEach(campaign => {
+                        const statusBadge = campaign.status === 'active'
+                            ? '<span class="badge bg-success">Active</span>'
+                            : '<span class="badge bg-secondary">Paused</span>';
+
+                        const enrollmentStatus = campaign.enrollment_status || 'active';
+                        const enrollmentBadge = enrollmentStatus === 'active'
+                            ? '<span class="badge bg-primary">Enrolled</span>'
+                            : '<span class="badge bg-warning">Paused</span>';
+
+                        html += `
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-1">${campaign.name}</h6>
+                                        <small class="text-muted">
+                                            Enrolled: ${campaign.enrolled_at ? new Date(campaign.enrolled_at).toLocaleDateString() : 'N/A'}
+                                        </small>
+                                    </div>
+                                    <div>
+                                        ${statusBadge}
+                                        ${enrollmentBadge}
+                                    </div>
+                                </div>
+                                ${campaign.last_email_sent ? `
+                                    <div class="mt-2">
+                                        <small class="text-muted">
+                                            <i class="fas fa-envelope me-1"></i>Last email: ${new Date(campaign.last_email_sent).toLocaleDateString()}
+                                        </small>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `;
+                    });
+
+                    html += '</div>';
+                }
+
+                document.getElementById('contactCampaignsContent').innerHTML = html;
+            } else {
+                throw new Error(data.message || 'Failed to load campaigns');
+            }
+        })
+        .catch(error => {
+            document.getElementById('contactCampaignsContent').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    Failed to load campaigns. Please try again.
+                </div>
+            `;
+            console.error('Error loading contact campaigns:', error);
+        });
+}
+
+// Bulk Campaign Assignment
+const bulkAssignCampaignBtn = document.getElementById('bulkAssignCampaign');
+if (bulkAssignCampaignBtn) {
+    bulkAssignCampaignBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+
+        const selected = document.querySelectorAll('.contact-checkbox:checked');
+        if (selected.length === 0) {
+            showError('Please select contacts to assign to a campaign.');
+            return;
+        }
+
+        // Update contact count in modal
+        document.getElementById('bulkContactCount').textContent = selected.length;
+
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('bulkCampaignModal'));
+        modal.show();
+    });
+}
+
+const confirmBulkAssignBtn = document.getElementById('confirmBulkAssignBtn');
+if (confirmBulkAssignBtn) {
+    confirmBulkAssignBtn.addEventListener('click', function() {
+        const campaignId = document.getElementById('bulkCampaignSelect').value;
+
+        if (!campaignId) {
+            showError('Please select a campaign.');
+            return;
+        }
+
+        const selected = document.querySelectorAll('.contact-checkbox:checked');
+        const contactIds = Array.from(selected).map(cb => parseInt(cb.value));
+
+        // Disable button during request
+        confirmBulkAssignBtn.disabled = true;
+        confirmBulkAssignBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Assigning...';
+
+        fetch('/api/contacts/bulk-assign-campaign', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                contact_ids: contactIds,
+                campaign_id: parseInt(campaignId)
+            })
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                // Close modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('bulkCampaignModal'));
+                modal.hide();
+
+                // Show success message
+                showSuccess(`Successfully assigned ${result.assigned_count} contact(s) to campaign!`);
+
+                // Reset selection
+                const masterCheckbox = document.getElementById('masterCheckbox');
+                if (masterCheckbox) masterCheckbox.checked = false;
+                document.querySelectorAll('.contact-checkbox').forEach(cb => cb.checked = false);
+
+                // Reload page to update campaign counts
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
+            } else {
+                showError('Error assigning contacts: ' + (result.message || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            showError('Failed to assign contacts to campaign. Please try again.');
+            console.error('Error:', error);
+        })
+        .finally(() => {
+            confirmBulkAssignBtn.disabled = false;
+            confirmBulkAssignBtn.innerHTML = 'Assign to Campaign';
+        });
+    });
+}
+
 // Initialize bulk actions and tooltips on page load
 document.addEventListener('DOMContentLoaded', function() {
     updateBulkActions();
     updateMasterCheckbox();
-    
+    loadCampaigns(); // Load campaigns for dropdowns
+
     // Initialize Bootstrap tooltips
     const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
     const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
@@ -1519,15 +1558,15 @@ function sortByDate() {
     window.location.href = currentUrl.toString();
 }
 
-// Status filter function
-function filterByStatus(status) {
+// Industry filter function
+function filterByIndustry(industry) {
     const currentUrl = new URL(window.location.href);
 
-    // Update the status parameter
-    if (status === '' || status === 'all') {
-        currentUrl.searchParams.delete('status');
+    // Update the industry parameter
+    if (industry === '' || industry === 'all') {
+        currentUrl.searchParams.delete('industry');
     } else {
-        currentUrl.searchParams.set('status', status);
+        currentUrl.searchParams.set('industry', industry);
     }
 
     // Reset to page 1 when changing filters

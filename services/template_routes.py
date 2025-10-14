@@ -1,5 +1,5 @@
 from flask import render_template, request, jsonify, flash, redirect, url_for
-from models.database import db, EmailTemplate, FollowUpSequence, Settings
+from models.database import db, EmailTemplate, EmailSequenceConfig, Settings
 from datetime import datetime
 import json
 
@@ -9,7 +9,7 @@ def register_template_routes(app):
     def templates():
         """Template management page"""
         templates = EmailTemplate.query.filter_by(active=True).all()
-        sequences = FollowUpSequence.query.filter_by(active=True).all()
+        sequences = EmailSequenceConfig.query.filter_by(is_active=True).all()
         return render_template('templates_management.html',
                              templates=templates,
                              sequences=sequences)
@@ -26,7 +26,6 @@ def register_template_routes(app):
                 template = EmailTemplate(
                     name=request.form['name'],
                     template_type=request.form['template_type'],
-                    risk_level=request.form['breach_status'],  # Map breach_status to risk_level for backward compatibility
                     sequence_step=sequence_step,  # Convert 1-based UI to 0-based sequence
                     delay_days=int(request.form.get('delay_days', 0)),  # Legacy field
                     delay_amount=int(request.form.get('delay_amount', 0)),  # New flexible delay
@@ -61,7 +60,6 @@ def register_template_routes(app):
                 
                 template.name = request.form['name']
                 template.template_type = request.form['template_type']
-                template.risk_level = request.form['breach_status']  # Map breach_status to risk_level for backward compatibility
                 template.sequence_step = sequence_step  # Convert 1-based UI to 0-based sequence
                 template.delay_days = int(request.form.get('delay_days', 0))  # Legacy field
                 template.delay_amount = int(request.form.get('delay_amount', 0))  # New flexible delay
@@ -136,7 +134,7 @@ def register_template_routes(app):
                     print(f"Invalid max_follow_ups value: '{max_follow_ups_value}', using default 5")
                     max_follow_ups = 5
                 
-                sequence = FollowUpSequence(
+                sequence = EmailSequenceConfig(
                     name=request.form['name'],
                     risk_level=request.form['breach_status'],  # Map breach_status to risk_level for backward compatibility
                     description=request.form.get('description', ''),
@@ -173,7 +171,7 @@ def register_template_routes(app):
     @app.route('/sequences/edit/<int:sequence_id>', methods=['GET', 'POST'])
     def edit_sequence(sequence_id):
         """Edit existing follow-up sequence"""
-        sequence = FollowUpSequence.query.get_or_404(sequence_id)
+        sequence = EmailSequenceConfig.query.get_or_404(sequence_id)
         
         if request.method == 'POST':
             try:
@@ -205,7 +203,7 @@ def register_template_routes(app):
     def delete_sequence(sequence_id):
         """Delete follow-up sequence"""
         try:
-            sequence = FollowUpSequence.query.get_or_404(sequence_id)
+            sequence = EmailSequenceConfig.query.get_or_404(sequence_id)
             sequence_name = sequence.name
 
             db.session.delete(sequence)

@@ -173,21 +173,6 @@ def settings():
                 print(f"Email config update error: {e}")
                 flash('Error updating email configuration. Please try again.', 'error')
                 
-        elif config_type == 'flawtrack':
-            # Handle FlawTrack API configuration
-            try:
-                flawtrack_api_key = request.form.get('flawtrack_api_key', '').strip()
-                flawtrack_endpoint = request.form.get('flawtrack_endpoint', '').strip()
-                
-                # Save FlawTrack configuration
-                Settings.set_setting('flawtrack_api_key', flawtrack_api_key, 'FlawTrack API key')
-                Settings.set_setting('flawtrack_endpoint', flawtrack_endpoint, 'FlawTrack API endpoint')
-                
-                flash('FlawTrack API configuration updated successfully!', 'success')
-            except Exception as e:
-                print(f"FlawTrack config update error: {e}")
-                flash('Error updating FlawTrack configuration. Please try again.', 'error')
-
         elif config_type == 'imap_reply':
             # Handle IMAP Reply Detection configuration
             try:
@@ -250,29 +235,6 @@ def settings():
                 print(f"IMAP connection test error: {e}")
                 return jsonify({'success': False, 'error': str(e)})
 
-        elif config_type == 'test_flawtrack':
-            # Handle FlawTrack connection test
-            try:
-                flawtrack_api_key = request.form.get('flawtrack_api_key', '').strip()
-                flawtrack_endpoint = request.form.get('flawtrack_endpoint', '').strip()
-                
-                if not flawtrack_api_key or not flawtrack_endpoint:
-                    return jsonify({'success': False, 'error': 'FlawTrack API key and endpoint are required'})
-                
-                # Test FlawTrack API connection
-                from services.flawtrack_api import FlawTrackAPI
-                flawtrack = FlawTrackAPI(flawtrack_api_key, flawtrack_endpoint)
-                test_result = flawtrack.get_breach_data('example.com')
-                
-                if test_result is not None:
-                    return jsonify({'success': True, 'message': 'FlawTrack API connection successful!'})
-                else:
-                    return jsonify({'success': False, 'error': 'FlawTrack API connection failed - check credentials'})
-                
-            except Exception as e:
-                print(f"FlawTrack connection test error: {e}")
-                return jsonify({'success': False, 'error': str(e)})
-                
         elif config_type == 'webhook':
             # Handle webhook configuration
             try:
@@ -392,12 +354,6 @@ def settings():
             'sender_email': Settings.get_setting('sender_email', ''),
             'sender_name': Settings.get_setting('sender_name', 'SalesBreachPro Team')
         }
-        
-        # Get FlawTrack configuration
-        flawtrack_config = {
-            'flawtrack_api_key': Settings.get_setting('flawtrack_api_key', ''),
-            'flawtrack_endpoint': Settings.get_setting('flawtrack_endpoint', '')
-        }
 
         # Get webhook configuration
         webhook_config = {
@@ -430,7 +386,6 @@ def settings():
                              email_signature=current_signature_html,
                              email_signature_plain=current_signature_plain,
                              email_config=email_config,
-                             flawtrack_config=flawtrack_config,
                              webhook_config=webhook_config,
                              imap_config=imap_config,
                              existing_webhooks=existing_webhooks)
@@ -443,10 +398,6 @@ def settings():
                                  'brevo_api_key': '',
                                  'sender_email': '',
                                  'sender_name': 'SalesBreachPro Team'
-                             },
-                             flawtrack_config={
-                                 'flawtrack_api_key': '',
-                                 'flawtrack_endpoint': ''
                              },
                              webhook_config={
                                  'webhook_url': 'http://localhost:5000/webhooks/brevo',
@@ -595,22 +546,31 @@ def api_stats():
         }
         
         # Get industry breakdown
-        industry_stats = db.session.query(
-            Contact.industry, 
-            db.func.count(Contact.id).label('count')
-        ).group_by(Contact.industry).all()
-        
-        for industry, count in industry_stats:
-            advanced_stats['industry_breakdown'][industry or 'Unknown'] = count
-        
-        # Get risk level distribution
-        risk_stats = db.session.query(
-            Contact.breach_status, 
-            db.func.count(Contact.id).label('count')
-        ).group_by(Contact.breach_status).all()
-        
-        for risk, count in risk_stats:
-            advanced_stats['risk_level_distribution'][risk or 'unknown'] = count
+        try:
+            industry_stats = db.session.query(
+                Contact.industry,
+                db.func.count(Contact.id).label('count')
+            ).group_by(Contact.industry).all()
+
+            for industry, count in industry_stats:
+                advanced_stats['industry_breakdown'][industry or 'Unknown'] = count
+        except Exception as e:
+            print(f"Industry stats error: {e}")
+            advanced_stats['industry_breakdown'] = {}
+
+        # Business type distribution (replacing risk level)
+        try:
+            business_stats = db.session.query(
+                Contact.business_type,
+                db.func.count(Contact.id).label('count')
+            ).group_by(Contact.business_type).all()
+
+            for business_type, count in business_stats:
+                advanced_stats['business_type_distribution'] = advanced_stats.get('business_type_distribution', {})
+                advanced_stats['business_type_distribution'][business_type or 'Unknown'] = count
+        except Exception as e:
+            print(f"Business type stats error: {e}")
+            advanced_stats['business_type_distribution'] = {}
         
         # Get enhanced webhook-based analytics
         try:
@@ -679,15 +639,8 @@ def api_webhook_dashboard_stats():
 def analytics():
     """Advanced analytics dashboard"""
     try:
-        # Get automation analytics
-        automation_stats = {}
-        try:
-            from services.breach_email_automation import create_breach_automation_service
-            automation_service = create_breach_automation_service()
-            automation_stats = automation_service.get_automation_analytics(days=30)
-        except Exception as e:
-            print(f"Error getting automation analytics: {e}")
-            automation_stats = {'automation_metrics': {}}
+        # Basic automation stats (breach automation removed)
+        automation_stats = {'automation_metrics': {}}
         
         # Get campaign performance over time
         campaigns = Campaign.query.filter(
@@ -745,13 +698,8 @@ def automation_status():
         except Exception:
             status['brevo_service'] = 'error'
         
-        # Test automation service
-        try:
-            from services.breach_email_automation import create_breach_automation_service
-            automation_service = create_breach_automation_service()
-            status['automation_service'] = 'active'
-        except Exception:
-            status['automation_service'] = 'error'
+        # Automation service status (breach automation removed)
+        status['automation_service'] = 'removed'
         
         # Test auto-enrollment
         try:

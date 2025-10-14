@@ -10,7 +10,7 @@ import random
 from datetime import datetime
 from flask import Blueprint, jsonify, request, Response
 from utils.decorators import login_required
-from models.database import db, Contact, Campaign, Email, Response as EmailResponse, EmailTemplate, Breach
+from models.database import db, Contact, Campaign, Email, Response as EmailResponse, EmailTemplate
 
 # Create API blueprint
 api_bp = Blueprint('api', __name__, url_prefix='/api')
@@ -71,7 +71,7 @@ def update_contact(contact_id):
         if 'first_name' in data:
             contact.first_name = data['first_name']
         if 'last_name' in data:
-            contact.last_name = data['last_name'] 
+            contact.last_name = data['last_name']
         if 'company' in data:
             contact.company = data['company']
         if 'title' in data:
@@ -80,11 +80,40 @@ def update_contact(contact_id):
             contact.phone = data['phone']
         if 'industry' in data:
             contact.industry = data['industry']
+        if 'business_type' in data:
+            contact.business_type = data['business_type']
+        if 'company_size' in data:
+            contact.company_size = data['company_size']
         if 'status' in data:
             contact.status = data['status']
             # Sync is_active field with status field
             contact.is_active = data['status'] == 'active'
-        
+
+        # Handle campaign assignment
+        if 'campaign_id' in data and data['campaign_id']:
+            try:
+                campaign_id = int(data['campaign_id'])
+                campaign = Campaign.query.get(campaign_id)
+                if campaign:
+                    from models.database import ContactCampaignStatus
+                    # Check if already enrolled
+                    existing_enrollment = ContactCampaignStatus.query.filter_by(
+                        contact_id=contact.id,
+                        campaign_id=campaign_id
+                    ).first()
+
+                    if not existing_enrollment:
+                        # Enroll contact in campaign
+                        enrollment = ContactCampaignStatus(
+                            contact_id=contact.id,
+                            campaign_id=campaign_id,
+                            status='active',
+                            enrolled_at=datetime.utcnow()
+                        )
+                        db.session.add(enrollment)
+            except (ValueError, TypeError):
+                pass  # Invalid campaign_id, skip
+
         db.session.commit()
         return jsonify({'success': True, 'contact': contact.to_dict()})
     except Exception as e:
@@ -719,7 +748,7 @@ def breach_domains():
     try:
         # Try to get real domain data from database first
         try:
-            from models.database import Contact, Breach
+            from models.database import Contact
             
             # Get breach data only for domains that have contacts
             domains_with_contacts = db.session.query(Contact.domain).filter(Contact.domain.isnot(None)).distinct().all()
@@ -1102,204 +1131,150 @@ def get_campaign_analytics(campaign_id):
         }), 500
 
 
-# FlawTrack API Health Monitoring Endpoints
+@api_bp.route('/campaigns', methods=['GET'])
+@login_required
+def get_campaigns():
+    """Get all active campaigns for dropdowns and selections"""
+    try:
+        campaigns = Campaign.query.filter_by(status='active').all()
+
+        campaigns_list = []
+        for campaign in campaigns:
+            campaigns_list.append({
+                'id': campaign.id,
+                'name': campaign.name,
+                'status': campaign.status,
+                'created_at': campaign.created_at.isoformat() if campaign.created_at else None
+            })
+
+        return jsonify(campaigns_list)
+    except Exception as e:
+        print(f"Error getting campaigns: {e}")
+        return jsonify({'error': 'Error getting campaigns'}), 500
+
+
+@api_bp.route('/contacts/<int:contact_id>/campaigns', methods=['GET'])
+@login_required
+def get_contact_campaigns(contact_id):
+    """Get all campaigns that a contact is enrolled in"""
+    try:
+        contact = Contact.query.get(contact_id)
+        if not contact:
+            return jsonify({'success': False, 'error': 'Contact not found'}), 404
+
+        from models.database import ContactCampaignStatus
+
+        # Get all campaign enrollments for this contact
+        enrollments = ContactCampaignStatus.query.filter_by(contact_id=contact_id).all()
+
+        campaigns_list = []
+        for enrollment in enrollments:
+            campaign = Campaign.query.get(enrollment.campaign_id)
+            if campaign:
+                # Get last email sent to this contact in this campaign
+                last_email = Email.query.filter_by(
+                    contact_id=contact_id,
+                    campaign_id=campaign.id
+                ).order_by(Email.sent_at.desc()).first()
+
+                campaigns_list.append({
+                    'id': campaign.id,
+                    'name': campaign.name,
+                    'status': campaign.status,
+                    'enrollment_status': enrollment.status,
+                    'enrolled_at': enrollment.enrolled_at.isoformat() if enrollment.enrolled_at else None,
+                    'last_email_sent': last_email.sent_at.isoformat() if last_email and last_email.sent_at else None
+                })
+
+        return jsonify({
+            'success': True,
+            'campaigns': campaigns_list,
+            'contact_email': contact.email
+        })
+    except Exception as e:
+        print(f"Error getting contact campaigns: {e}")
+        return jsonify({'success': False, 'error': 'Error getting contact campaigns'}), 500
+
+
+@api_bp.route('/contacts/bulk-assign-campaign', methods=['POST'])
+@login_required
+def bulk_assign_campaign():
+    """Bulk assign multiple contacts to a campaign"""
+    try:
+        data = request.get_json()
+        contact_ids = data.get('contact_ids', [])
+        campaign_id = data.get('campaign_id')
+
+        if not contact_ids:
+            return jsonify({'success': False, 'message': 'No contacts selected'}), 400
+
+        if not campaign_id:
+            return jsonify({'success': False, 'message': 'No campaign selected'}), 400
+
+        # Verify campaign exists
+        campaign = Campaign.query.get(campaign_id)
+        if not campaign:
+            return jsonify({'success': False, 'message': 'Campaign not found'}), 404
+
+        from models.database import ContactCampaignStatus
+
+        assigned_count = 0
+        skipped_count = 0
+
+        for contact_id in contact_ids:
+            try:
+                # Check if contact exists
+                contact = Contact.query.get(contact_id)
+                if not contact:
+                    skipped_count += 1
+                    continue
+
+                # Check if already enrolled
+                existing_enrollment = ContactCampaignStatus.query.filter_by(
+                    contact_id=contact_id,
+                    campaign_id=campaign_id
+                ).first()
+
+                if existing_enrollment:
+                    skipped_count += 1
+                    continue
+
+                # Create new enrollment
+                enrollment = ContactCampaignStatus(
+                    contact_id=contact_id,
+                    campaign_id=campaign_id,
+                    status='active',
+                    enrolled_at=datetime.utcnow()
+                )
+                db.session.add(enrollment)
+                assigned_count += 1
+
+            except Exception as e:
+                print(f"Error assigning contact {contact_id} to campaign: {e}")
+                skipped_count += 1
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'assigned_count': assigned_count,
+            'skipped_count': skipped_count,
+            'message': f'Successfully assigned {assigned_count} contact(s) to campaign. {skipped_count} already enrolled or invalid.'
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error bulk assigning campaign: {e}")
+        return jsonify({'success': False, 'message': 'Error assigning contacts to campaign'}), 500
+
+
+# FlawTrack API Health Monitoring Endpoints (REMOVED - Breach scanning discontinued)
 @api_bp.route('/flawtrack/status', methods=['GET'])
 @login_required
 def flawtrack_status():
-    """Get current FlawTrack API health status"""
-    try:
-        from services.flawtrack_monitor import get_health_status, perform_health_check
-        from utils.flawtrack_config import get_api_config
+    """FlawTrack feature has been removed"""
+    return jsonify({
+        'success': False,
+        'error': 'FlawTrack breach scanning feature has been removed. System now uses industry-based targeting.'
+    }), 404
 
-        # Force a fresh health check if requested
-        if request.args.get('refresh') == 'true':
-            status = perform_health_check()
-        else:
-            status = get_health_status()
-
-        if not status:
-            return jsonify({
-                'success': False,
-                'error': 'Health status not available'
-            }), 503
-
-        config = get_api_config()
-
-        return jsonify({
-            'success': True,
-            'status': {
-                'healthy': status.healthy,
-                'status': status.status,
-                'message': status.message,
-                'response_time_ms': status.response_time_ms,
-                'api_version': status.api_version,
-                'timestamp': status.timestamp.isoformat(),
-                'service_info': status.service_info
-            },
-            'config': {
-                'version': config['version'],
-                'endpoint': config['endpoint'],
-                'scanning_enabled': config['scanning_enabled'],
-                'supports_health_check': config['has_health_check']
-            }
-        })
-
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
-@api_bp.route('/flawtrack/health-history', methods=['GET'])
-@login_required
-def flawtrack_health_history():
-    """Get FlawTrack API health history"""
-    try:
-        from services.flawtrack_monitor import get_monitor
-
-        hours = int(request.args.get('hours', 24))
-        monitor = get_monitor()
-        history = monitor.get_status_history(hours)
-
-        history_data = []
-        for status in history:
-            history_data.append({
-                'timestamp': status.timestamp.isoformat(),
-                'healthy': status.healthy,
-                'status': status.status,
-                'message': status.message,
-                'response_time_ms': status.response_time_ms,
-                'api_version': status.api_version
-            })
-
-        return jsonify({
-            'success': True,
-            'history': history_data,
-            'hours_requested': hours,
-            'total_checks': len(history_data)
-        })
-
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
-@api_bp.route('/flawtrack/availability-stats', methods=['GET'])
-@login_required
-def flawtrack_availability_stats():
-    """Get FlawTrack API availability statistics"""
-    try:
-        from services.flawtrack_monitor import get_monitor
-
-        hours = int(request.args.get('hours', 24))
-        monitor = get_monitor()
-        stats = monitor.get_availability_stats(hours)
-
-        # Convert datetime objects to ISO format
-        if stats['last_healthy']:
-            stats['last_healthy'] = stats['last_healthy'].isoformat()
-        if stats['last_unhealthy']:
-            stats['last_unhealthy'] = stats['last_unhealthy'].isoformat()
-
-        return jsonify({
-            'success': True,
-            'stats': stats,
-            'hours_analyzed': hours
-        })
-
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
-@api_bp.route('/flawtrack/config', methods=['GET'])
-@login_required
-def flawtrack_config():
-    """Get FlawTrack API configuration details"""
-    try:
-        from utils.flawtrack_config import get_api_config, validate_configuration
-        from services.flawtrack_monitor import get_monitor
-
-        config = get_api_config()
-        validation = validate_configuration()
-        monitor = get_monitor()
-        monitor_info = monitor.get_monitoring_info()
-
-        return jsonify({
-            'success': True,
-            'config': config,
-            'validation': validation,
-            'monitoring': monitor_info
-        })
-
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
-@api_bp.route('/flawtrack/test-connection', methods=['POST'])
-@login_required
-def flawtrack_test_connection():
-    """Test FlawTrack API connection manually"""
-    try:
-        from services.flawtrack_monitor import perform_health_check
-        from utils.flawtrack_config import get_flawtrack_api
-
-        # Perform comprehensive connection test
-        health_status = perform_health_check()
-
-        # Try a simple query if health check passes
-        test_result = {
-            'health_check': {
-                'healthy': health_status.healthy,
-                'status': health_status.status,
-                'message': health_status.message,
-                'response_time_ms': health_status.response_time_ms,
-                'api_version': health_status.api_version,
-                'service_info': health_status.service_info
-            }
-        }
-
-        # If health check passes, try a real API call
-        if health_status.healthy:
-            try:
-                api = get_flawtrack_api()
-                if api:
-                    # Test with a known domain
-                    start_time = time.time()
-                    test_data = api.get_breach_data('test.com')  # Use test domain
-                    query_time = int((time.time() - start_time) * 1000)
-
-                    test_result['api_test'] = {
-                        'success': test_data is not None,
-                        'response_time_ms': query_time,
-                        'data_received': isinstance(test_data, list),
-                        'record_count': len(test_data) if isinstance(test_data, list) else 0
-                    }
-
-                    # Get API info
-                    test_result['api_info'] = api.get_api_info()
-            except Exception as api_error:
-                test_result['api_test'] = {
-                    'success': False,
-                    'error': str(api_error)
-                }
-
-        return jsonify({
-            'success': True,
-            'test_result': test_result,
-            'timestamp': datetime.utcnow().isoformat()
-        })
-
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
