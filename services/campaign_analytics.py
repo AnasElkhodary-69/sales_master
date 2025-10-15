@@ -116,7 +116,9 @@ class CampaignAnalytics:
                 'settings': {
                     'daily_limit': campaign.daily_limit,
                     'auto_enroll': campaign.auto_enroll,
-                    'target_risk_levels': campaign.target_risk_levels,
+                    'target_industries': campaign.target_industries if hasattr(campaign, 'target_industries') else [],
+                    'target_business_types': campaign.target_business_types if hasattr(campaign, 'target_business_types') else [],
+                    'target_company_sizes': campaign.target_company_sizes if hasattr(campaign, 'target_company_sizes') else [],
                     'template_id': campaign.template_id
                 }
             }

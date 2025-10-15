@@ -147,11 +147,9 @@ def new_campaign():
     try:
         # Get contact statistics using breach_status
         total_contacts = Contact.query.count()
-        breached_contacts = Contact.query.filter(Contact.breach_status == 'breached').count()
-        secure_contacts = Contact.query.filter(Contact.breach_status == 'not_breached').count()
-        unknown_contacts = Contact.query.filter(
-            (Contact.breach_status == 'unknown') | (Contact.breach_status.is_(None))
-        ).count()
+        breached_contacts = 0  # breach_status field removed
+        secure_contacts = 0  # breach_status field removed
+        unknown_contacts = Contact.query.count()  # Show all contacts
         
         contact_stats = {
             'total_contacts': total_contacts,
@@ -185,13 +183,13 @@ def new_campaign():
                     selected_variant_id = request.form.get('selected_variant_id')
                     print(f"Single campaign: template_id={template_id}, selected_variant_id={selected_variant_id}")
                 elif campaign_type == 'sequence':
-                    # For sequences, use the first template (sequence_step = 0) of the target risk level
+                    # For sequences, use the first template (sequence_step = 0) of the matching category
                     sequence_id = request.form.get('sequence_id')
-                    
-                    # Find the initial template for this risk level
+
+                    # Find the initial template for this category/template_type
                     initial_template = EmailTemplate.query.filter(
                         EmailTemplate.sequence_step == 0,
-                        EmailTemplate.risk_level.in_(target_risk_levels)
+                        EmailTemplate.is_active == True
                     ).first()
                     
                     if initial_template:
@@ -211,7 +209,7 @@ def new_campaign():
                 
                 # Auto-enrollment settings
                 auto_enroll = 'auto_enroll' in request.form
-                auto_enroll_breach_status = request.form.get('auto_enroll_breach_status') if auto_enroll else None
+                # auto_enroll_breach_status removed - now uses industry targeting
                 
                 # Email approval workflow settings
                 approval_mode = request.form.get('approval_mode', 'automatic')
@@ -228,7 +226,7 @@ def new_campaign():
                     daily_limit=int(request.form.get('daily_limit', 50)),
                     status='active',  # Set to active when launched
                     auto_enroll=auto_enroll,
-                    auto_enroll_breach_status=auto_enroll_breach_status,
+                    # Breach-based enrollment removed,
                     # Email approval workflow fields
                     requires_approval=requires_approval,
                     approval_mode=approval_mode
@@ -277,7 +275,7 @@ def new_campaign():
             templates = EmailTemplate.query.filter_by(active=True).all()
             print(f"DEBUG: Successfully fetched {len(templates)} active templates")
             for template in templates:
-                print(f"DEBUG: Template: {template.name} (risk: {template.risk_level}, breach_type: {getattr(template, 'breach_template_type', 'None')}, step: {template.sequence_step})")
+                print(f"DEBUG: Template: {template.name} (risk: {template.category}, breach_type: {getattr(template, 'breach_template_type', 'None')}, step: {template.sequence_step})")
         except Exception as e:
             print(f"DEBUG: Error fetching templates: {e}")
             import traceback
@@ -291,7 +289,7 @@ def new_campaign():
         # Group templates by risk_level (e.g., 'breached', 'unknown') 
         # Each risk level becomes its own sequence
         for template in templates:
-            template_type = template.risk_level or template.breach_template_type or 'unknown'
+            template_type = template.category or template.template_type or 'unknown'
             if template_type not in template_groups:
                 template_groups[template_type] = []
             template_groups[template_type].append(template)
@@ -397,11 +395,9 @@ def new_campaign():
         # Still calculate contact stats even if other parts fail
         try:
             total_contacts = Contact.query.count()
-            breached_contacts = Contact.query.filter(Contact.breach_status == 'breached').count()
-            secure_contacts = Contact.query.filter(Contact.breach_status == 'not_breached').count()
-            unknown_contacts = Contact.query.filter(
-                (Contact.breach_status == 'unknown') | (Contact.breach_status.is_(None))
-            ).count()
+            breached_contacts = 0  # breach_status field removed
+            secure_contacts = 0  # breach_status field removed
+            unknown_contacts = Contact.query.count()  # Show all contacts
             
             contact_stats = {
                 'total_contacts': total_contacts,
@@ -570,7 +566,7 @@ def view_campaign(campaign_id):
                 'emails_replied': emails_replied or 0,
                 'last_email_sent': last_email_sent,
                 'next_email_date': next_email_date if sequence_status == "Active" else None,
-                'breach_status': contact.breach_status or 'unknown',
+                'industry': contact.industry or 'Unknown',
                 'status_obj': status
             })
         
@@ -648,7 +644,7 @@ def edit_campaign(campaign_id):
             
             # Auto-enrollment settings
             campaign.auto_enroll = 'auto_enroll' in request.form
-            campaign.auto_enroll_breach_status = request.form.get('auto_enroll_breach_status') if campaign.auto_enroll else None
+            # auto_enroll_breach_status removed
 
             # Email approval workflow settings
             approval_mode = request.form.get('approval_mode', 'automatic')
@@ -661,11 +657,9 @@ def edit_campaign(campaign_id):
         
         # Get contact statistics using breach_status
         total_contacts = Contact.query.count()
-        breached_contacts = Contact.query.filter(Contact.breach_status == 'breached').count()
-        secure_contacts = Contact.query.filter(Contact.breach_status == 'not_breached').count()
-        unknown_contacts = Contact.query.filter(
-            (Contact.breach_status == 'unknown') | (Contact.breach_status.is_(None))
-        ).count()
+        breached_contacts = 0  # breach_status field removed
+        secure_contacts = 0  # breach_status field removed
+        unknown_contacts = Contact.query.count()  # Show all contacts
         
         contact_stats = {
             'total_contacts': total_contacts,
@@ -752,7 +746,7 @@ def duplicate_campaign(campaign_id):
             daily_limit=original_campaign.daily_limit,
             status='draft',  # New campaigns start as draft
             auto_enroll=original_campaign.auto_enroll,
-            auto_enroll_breach_status=original_campaign.auto_enroll_breach_status
+            # Breach targeting removed
         )
         
         db.session.add(new_campaign)
@@ -786,7 +780,7 @@ def export_campaign_results(campaign_id):
         writer = csv.writer(output)
         
         # Write headers
-        writer.writerow(['Contact Email', 'Company', 'Risk Score', 'Email Status', 'Response Count'])
+        writer.writerow(['Contact Email', 'Company', 'Industry', 'Email Status', 'Response Count'])
         
         # Write data
         for contact in contacts:
@@ -796,7 +790,7 @@ def export_campaign_results(campaign_id):
             writer.writerow([
                 contact.email,
                 contact.company or '',
-                contact.risk_score or 0,
+                contact.industry or 'Unknown',
                 contact_emails[0].status if contact_emails else 'none',
                 len(contact_responses)
             ])
@@ -846,7 +840,7 @@ def export_campaign_contacts(campaign_id):
         # Write headers
         writer.writerow([
             'Email', 'First Name', 'Last Name', 'Company', 'Title', 'Industry',
-            'Breach Status', 'Risk Score', 'Added Date', 'Current Step', 'Sequence Status',
+            'Business Type', 'Company Size', 'Added Date', 'Current Step', 'Sequence Status',
             'Emails Sent', 'Last Email Sent', 'Last Contacted', 'Replied', 'Reply Date', 'Unsubscribed'
         ])
 
@@ -868,8 +862,8 @@ def export_campaign_contacts(campaign_id):
                 contact.company or '',
                 contact.title or '',
                 contact.industry or '',
-                contact.breach_status or '',
-                contact.risk_score or 0,
+                contact.business_type or '',  # replaced breach_status
+                contact.company_size or '',  # additional industry targeting field
                 campaign_status.created_at.strftime('%Y-%m-%d %H:%M:%S') if campaign_status and campaign_status.created_at else '',
                 campaign_status.current_sequence_step if campaign_status else 0,
                 'Completed' if campaign_status and campaign_status.sequence_completed_at else 'Active',
@@ -1227,7 +1221,7 @@ def get_available_contacts(campaign_id):
                 'first_name': contact.first_name or '',
                 'last_name': contact.last_name or '',
                 'company': contact.company or '',
-                'breach_status': contact.breach_status or 'unknown'
+                'industry': contact.industry or 'Unknown'
             })
         
         return jsonify({

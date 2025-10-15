@@ -20,7 +20,21 @@ class EmailSequenceService:
     
     def __init__(self):
         logger.info("Email Sequence Service initialized")
-    
+
+    def _determine_template_type(self, contact: Contact, campaign: Campaign) -> str:
+        """Determine template type based on contact industry and campaign targeting"""
+        # Use contact's industry if it matches campaign's target industries
+        if campaign.target_industries and contact.industry:
+            if contact.industry in campaign.target_industries:
+                return contact.industry
+
+        # Use campaign's template_type if set
+        if campaign.template_type:
+            return campaign.template_type
+
+        # Default to 'general' template type
+        return 'general'
+
     def _calculate_delay_timedelta(self, delay_amount: int, delay_unit: str) -> timedelta:
         """Convert delay amount and unit to timedelta object"""
         if not delay_amount or delay_amount <= 0:
@@ -75,16 +89,16 @@ class EmailSequenceService:
             'unit': 'days'
         }
     
-    def enroll_contact_in_campaign(self, contact_id: int, campaign_id: int, 
-                                 force_breach_check: bool = True) -> Dict:
+    def enroll_contact_in_campaign(self, contact_id: int, campaign_id: int,
+                                 force_breach_check: bool = False) -> Dict:
         """
         Main entry point: Enroll contact and start their sequence
-        
+
         Args:
             contact_id: ID of contact to enroll
             campaign_id: ID of campaign to enroll in
-            force_breach_check: Whether to check FlawTrack for breach status
-            
+            force_breach_check: DEPRECATED - No longer used (kept for backward compatibility)
+
         Returns:
             Dict with enrollment results and scheduled emails count
         """
@@ -111,26 +125,22 @@ class EmailSequenceService:
                     'error': f'Contact {contact.email} already enrolled in campaign {campaign.name}'
                 }
             
-            # Step 1: Check FlawTrack for breach status
-            breach_status = self.check_contact_breach_status(contact, force_breach_check)
-            
+            # Step 1: Determine template type based on contact industry (replaced breach checking)
+            template_type = self._determine_template_type(contact, campaign)
+
             # Step 2: Create contact campaign status record
             contact_status = ContactCampaignStatus(
                 contact_id=contact_id,
                 campaign_id=campaign_id,
-                breach_status=breach_status['status'],
                 current_sequence_step=0,
-                flawtrack_checked_at=datetime.utcnow(),
-                breach_data=breach_status.get('data')
+                enrolled_at=datetime.utcnow()
             )
             db.session.add(contact_status)
             db.session.flush()
-            
+
             # Step 3: Schedule email sequence (scheduler will handle sending all emails)
-            # Use contact's breach_status directly to match template risk_level
-            risk_level = breach_status['status']  # 'breached', 'unknown', or 'not_breached'
             scheduled_emails = self.schedule_email_sequence(
-                contact_id, campaign_id, risk_level
+                contact_id, campaign_id, template_type
             )
             
             # Note: All emails (including immediate ones) are handled by the scheduler
@@ -147,8 +157,7 @@ class EmailSequenceService:
                 'success': True,
                 'contact_id': contact_id,
                 'campaign_id': campaign_id,
-                'breach_status': breach_status['status'],
-                'template_type': risk_level,
+                'template_type': template_type,
                 'emails_scheduled': len(scheduled_emails),
                 'sequence_source': 'Template-based sequence'
             }
@@ -163,137 +172,54 @@ class EmailSequenceService:
     
     def check_contact_breach_status(self, contact: Contact, force_check: bool = True) -> Dict:
         """
-        Check if contact's domain/email appears in breaches via FlawTrack
-        
+        DEPRECATED: Breach checking has been removed in favor of industry-based targeting.
+        This method is kept for backward compatibility but returns a stub response.
+
         Args:
             contact: Contact object to check
-            force_check: Whether to force FlawTrack API call
-            
+            force_check: Whether to force FlawTrack API call (ignored)
+
         Returns:
-            Dict with breach status and data
+            Dict with stub data indicating breach checking is disabled
         """
-        try:
-            # If force_check is False and we have recent data, use cached result
-            if not force_check and contact.breach_status:
-                return {
-                    'status': contact.breach_status,
-                    'data': {'cached': True, 'source': 'existing_contact_data'}
-                }
-            
-            # Try to use FlawTrack service if available
-            try:
-                from services.flawtrack_api import FlawTrackAPI
-                from models.database import Settings
-                
-                # Get FlawTrack API credentials from settings
-                api_key = Settings.get_setting('flawtrack_api_key', '')
-                endpoint = Settings.get_setting('flawtrack_endpoint', '')
-                
-                if not api_key or not endpoint:
-                    logger.warning("FlawTrack API not configured - add API key and endpoint in settings")
-                    return {
-                        'status': contact.breach_status or 'unknown',
-                        'data': {'source': 'flawtrack_not_configured'}
-                    }
-                
-                flawtrack = FlawTrackAPI(api_key, endpoint)
-                domain = contact.domain or contact.email.split('@')[1]
-                
-                # Check domain for breaches
-                breach_data = flawtrack.get_breach_data(domain)
-                
-                if breach_data:
-                    # Process breach data and calculate risk
-                    risk_score = flawtrack.calculate_risk_score(breach_data)
-                    processed_data = flawtrack.process_breach_data(domain, breach_data, risk_score)
-                    
-                    # Cache the breach data
-                    flawtrack.cache_breach_data(domain, processed_data)
-                    
-                    # Determine status based on risk score
-                    if risk_score >= 6.0:
-                        status = 'breached'
-                    elif risk_score >= 3.0:
-                        status = 'at_risk'
-                    else:
-                        status = 'breached'  # Any breach is considered breached
-                    
-                    return {
-                        'status': status,
-                        'data': {
-                            'breach_data': processed_data,
-                            'risk_score': risk_score,
-                            'source': 'flawtrack_api',
-                            'domain': domain
-                        }
-                    }
-                else:
-                    return {
-                        'status': 'unknown',
-                        'data': {'source': 'no_data_available'}
-                    }
-                    
-            except ImportError:
-                logger.warning("FlawTrack API not available, using contact's existing breach status")
-            except Exception as e:
-                logger.warning(f"FlawTrack API error: {str(e)}, using contact's existing breach status")
-            
-            # Fallback to contact's existing breach status
-            fallback_status = contact.breach_status or 'unknown'
-            
-            # Map existing status to new system
-            if fallback_status in ['high', 'medium']:
-                return {
-                    'status': 'breached',
-                    'data': {'source': 'existing_contact_status', 'original': fallback_status}
-                }
-            elif fallback_status == 'low':
-                return {
-                    'status': 'clean', 
-                    'data': {'source': 'existing_contact_status', 'original': fallback_status}
-                }
-            else:
-                return {
-                    'status': 'unknown',
-                    'data': {'source': 'no_data_available'}
-                }
-                
-        except Exception as e:
-            logger.error(f"Error checking breach status for {contact.email}: {str(e)}")
-            return {
-                'status': 'unknown',
-                'data': {'error': str(e)}
+        logger.info(f"Breach checking is deprecated - system now uses industry-based targeting for {contact.email}")
+        return {
+            'status': 'not_applicable',
+            'data': {
+                'source': 'breach_checking_deprecated',
+                'message': 'System now uses industry-based targeting instead of breach checking'
             }
+        }
     
-    def schedule_email_sequence(self, contact_id: int, campaign_id: int, 
-                              risk_level: str) -> List[Dict]:
+    def schedule_email_sequence(self, contact_id: int, campaign_id: int,
+                              template_type: str) -> List[Dict]:
         """
         Schedule all emails in the sequence for a contact
-        
+
         Args:
             contact_id: Contact ID
-            campaign_id: Campaign ID  
-            risk_level: Contact's risk level ('breached', 'unknown', 'not_breached')
-            
+            campaign_id: Campaign ID
+            template_type: Template type based on contact's industry/campaign targeting
+
         Returns:
             List of scheduled email records
         """
         try:
             campaign = Campaign.query.get(campaign_id)
-            
-            # Get templates for this campaign sequence (based on risk_level)
-            # Find templates that match the contact's risk_level and are active
+
+            # Get templates for this campaign sequence (based on template_type/industry)
+            # Find templates that match the contact's industry and are active
             # Order by sequence_step to ensure correct template selection during sending
             templates = EmailTemplate.query.filter_by(
                 active=True,
-                risk_level=risk_level  # 'breached', 'unknown', or 'not_breached'
+                target_industry=template_type  # Industry-based template targeting
             ).order_by(EmailTemplate.sequence_step).all()
-            
-            # If no templates found for specific risk_level, try generic templates
+
+            # If no templates found for specific industry, try general templates
             if not templates:
                 templates = EmailTemplate.query.filter_by(
                     active=True,
-                    risk_level='generic'
+                    category='general'  # General templates that work for any industry
                 ).order_by(EmailTemplate.sequence_step).all()
             
             # If still no templates, try any active templates
@@ -303,7 +229,7 @@ class EmailSequenceService:
                 ).order_by(EmailTemplate.sequence_step).all()
             
             if not templates:
-                logger.error(f"No active email templates found for risk level '{risk_level}'")
+                logger.error(f"No active email templates found for industry '{template_type}'")
                 return []
             
             # CRITICAL UNIQUENESS CHECK: Prevent duplicate sequences per contact-campaign
@@ -366,7 +292,7 @@ class EmailSequenceService:
                     contact_id=contact_id,
                     campaign_id=campaign_id,
                     sequence_step=i,  # Step number based on template order
-                    template_type=risk_level,  # Store risk_level in template_type field for compatibility
+                    template_type=template_type,  # Store industry/template type for template selection
                     scheduled_date=scheduled_date,
                     scheduled_datetime=scheduled_datetime,  # Store precise datetime for flexible delays
                     status='scheduled'
@@ -389,7 +315,7 @@ class EmailSequenceService:
                     'delay_days': template.delay_days,  # Legacy field
                     'delay_amount': delay_info['amount'],
                     'delay_unit': delay_info['unit'],
-                    'template_type': risk_level
+                    'template_type': template_type
                 })
                 
                 # Update last_scheduled for next iteration
@@ -667,119 +593,74 @@ class EmailSequenceService:
             logger.error(f"Error sending scheduled email {sequence_id}: {str(e)}")
             return {'success': False, 'error': str(e)}
     
-    def get_template_for_sequence(self, risk_level: str, sequence_step: int,
+    def get_template_for_sequence(self, template_type: str, sequence_step: int,
                                  campaign_id: int = None) -> Optional[EmailTemplate]:
-        """Get appropriate template for sequence step and risk level"""
+        """Get appropriate template for sequence step and industry/template type"""
         try:
-            # Try to find exact match using risk_level
+            # Try to find exact match using target_industry
             template = EmailTemplate.query.filter_by(
-                risk_level=risk_level,
+                target_industry=template_type,
                 sequence_step=sequence_step,
                 active=True
             ).first()
-            
+
             if template:
                 return template
-            
-            # Fallback: try generic templates
-                
+
+            # Fallback: try general category templates
+
             template = EmailTemplate.query.filter_by(
-                risk_level='generic',
+                category='general',
                 sequence_step=sequence_step,
                 active=True
             ).first()
-            
+
             return template
-            
+
         except Exception as e:
             logger.error(f"Error getting template: {str(e)}")
             return None
     
-    def render_template_with_contact_data(self, template: EmailTemplate, 
+    def render_template_with_contact_data(self, template: EmailTemplate,
                                         contact: Contact, sequence: EmailSequence) -> Dict:
-        """Render template with contact and breach data"""
+        """Render template with contact data (industry-based targeting)"""
         try:
-            # Get contact campaign status for breach data
-            contact_status = ContactCampaignStatus.query.filter_by(
-                contact_id=contact.id,
-                campaign_id=sequence.campaign_id
-            ).first()
-            
-            # Prepare template variables
+            # Prepare template variables with contact and industry data
             template_vars = {
                 'first_name': contact.first_name or 'there',
                 'last_name': contact.last_name or '',
                 'company': contact.company or 'Your Organization',
                 'industry': contact.industry or 'your industry',
+                'business_type': contact.business_type or 'your business',
+                'company_size': contact.company_size or '',
                 'email': contact.email,
+                'domain': contact.domain or contact.email.split('@')[1] if '@' in contact.email else 'your domain',
+                'title': contact.title or ''
             }
-            
-            # Add breach-specific variables if available
-            if contact_status and contact_status.breach_data:
-                breach_info = contact_status.breach_data
-                
-                # Get breach data from FlawTrack results
-                if 'breach_data' in breach_info:
-                    breach_data = breach_info['breach_data']
-                    
-                    # Get breach samples using FlawTrack API
-                    try:
-                        from services.flawtrack_api import FlawTrackAPI
-                        import os
-                        
-                        # Get FlawTrack API instance
-                        api_key = os.environ.get('FLAWTRACK_API_TOKEN', '')
-                        endpoint = os.environ.get('FLAWTRACK_API_ENDPOINT', '')
-                        
-                        if api_key and endpoint:
-                            flawtrack = FlawTrackAPI(api_key, endpoint)
-                            breach_summary = flawtrack.get_breach_summary_for_email(contact.domain or breach_info.get('domain', ''))
-                            breach_sample = breach_summary.get('template_vars', {}).get('breach_sample', 'Contact us for specific breach details')
-                        else:
-                            breach_sample = 'Contact us for specific breach details'
-                            
-                    except Exception as e:
-                        logger.error(f"Error getting breach samples: {str(e)}")
-                        breach_sample = 'Contact us for specific breach details'
-                    
-                    template_vars.update({
-                        'breach_name': breach_data.get('breach_name', 'Recent Security Incident'),
-                        'breach_year': str(breach_data.get('breach_year', 'Recently')),
-                        'risk_score': str(breach_info.get('risk_score', 0)),
-                        'records_affected': breach_data.get('records_affected', 'Multiple'),
-                        'data_types': breach_data.get('data_types', 'Personal and business data'),
-                        'domain': breach_info.get('domain', contact.domain or 'your domain'),
-                        'breach_sample': breach_sample
-                    })
-                
-                # Set risk level based on template type
-                if sequence.template_type == 'breached':
-                    template_vars['risk_level'] = 'HIGH'
-                else:
-                    template_vars['risk_level'] = 'MEDIUM'
-            
+
+
             # Render subject and body
             subject = template.subject_line or template.subject or ''
             body = template.email_body or template.content or ''
-            
+
             # Replace variables
             for var, value in template_vars.items():
                 subject = subject.replace('{' + var + '}', str(value))
                 body = body.replace('{' + var + '}', str(value))
-            
+
             return {
                 'subject': subject,
                 'body': body,
                 'html_body': template.email_body_html or body.replace('\\n', '<br>'),
                 'template_vars': template_vars
             }
-            
+
         except Exception as e:
             logger.error(f"Error rendering template: {str(e)}")
             return {
-                'subject': f'Security consultation for {contact.company}',
-                'body': f'Hi {contact.first_name}, we have an important security message for {contact.company}.',
-                'html_body': f'Hi {contact.first_name}, we have an important security message for {contact.company}.'
+                'subject': f'Business consultation for {contact.company or "your company"}',
+                'body': f'Hi {contact.first_name or "there"}, we have an important message for {contact.company or "your company"}.',
+                'html_body': f'Hi {contact.first_name or "there"}, we have an important message for {contact.company or "your company"}.'
             }
     
     def send_via_brevo(self, contact: Contact, rendered: Dict, campaign: Campaign) -> Dict:
@@ -884,26 +765,26 @@ class EmailSequenceService:
                 contact_id=contact_id,
                 campaign_id=campaign_id
             ).first()
-            
+
             if not contact_status:
                 return {'enrolled': False}
-            
+
             # Get all sequences for this contact/campaign
             sequences = EmailSequence.query.filter_by(
                 contact_id=contact_id,
                 campaign_id=campaign_id
             ).order_by(EmailSequence.sequence_step).all()
-            
+
             return {
                 'enrolled': True,
                 'current_step': contact_status.current_sequence_step,
-                'breach_status': contact_status.breach_status,
+                'enrolled_at': contact_status.enrolled_at.isoformat() if contact_status.enrolled_at else None,
                 'replied_at': contact_status.replied_at.isoformat() if contact_status.replied_at else None,
                 'sequence_completed': contact_status.sequence_completed_at is not None,
                 'total_sequences': len(sequences),
                 'sequences': [seq.to_dict() for seq in sequences]
             }
-            
+
         except Exception as e:
             logger.error(f"Error getting sequence status: {str(e)}")
             return {'enrolled': False, 'error': str(e)}

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ 'Edit' if sequence else 'Create' }} Follow-up Sequence - SalesBreachPro{% endblock %}
+{% block title %}{{ 'Edit' if sequence else 'Create' }} Follow-up Sequence - Sales Master{% endblock %}
 
 {% block extra_head %}
 <style>
@@ -80,12 +80,13 @@
                                        placeholder="e.g., High-Risk Prospect Follow-up">
                             </div>
                             <div class="col-md-4">
-                                <label for="breach_status" class="form-label">Target Audience *</label>
-                                <select class="form-select" id="breach_status" name="breach_status" required>
-                                    <option value="breached" {{ 'selected' if sequence and sequence.risk_level == 'breached' else '' }}>🔴 Breached Companies</option>
-                                    <option value="not_breached" {{ 'selected' if sequence and sequence.risk_level == 'not_breached' else '' }}>🟢 Not Breached Companies</option>
-                                    <option value="unknown" {{ 'selected' if sequence and sequence.risk_level == 'unknown' else '' }}>⚪ Unknown Status</option>
-                                    <option value="all" {{ 'selected' if sequence and sequence.risk_level == 'all' else '' }}>📧 All Companies</option>
+                                <label for="target_industry" class="form-label">Target Industry *</label>
+                                <select class="form-select" id="target_industry" name="target_industry" required>
+                                    <option value="general" {{ 'selected' if sequence and sequence.target_industry == 'general' else '' }}>📧 General</option>
+                                    <option value="technology" {{ 'selected' if sequence and sequence.target_industry == 'technology' else '' }}>💻 Technology</option>
+                                    <option value="finance" {{ 'selected' if sequence and sequence.target_industry == 'finance' else '' }}>💰 Finance</option>
+                                    <option value="healthcare" {{ 'selected' if sequence and sequence.target_industry == 'healthcare' else '' }}>🏥 Healthcare</option>
+                                    <option value="retail" {{ 'selected' if sequence and sequence.target_industry == 'retail' else '' }}>🛒 Retail</option>
                                 </select>
                             </div>
                         </div>
@@ -219,7 +220,7 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const maxFollowUps = document.getElementById('max_follow_ups');
-    const riskLevel = document.getElementById('breach_status');
+    const riskLevel = document.getElementById('target_industry');
     
     // Update sequence flow visualization
     function updateSequenceFlow() {
@@ -236,7 +237,7 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
         
         // Fetch actual templates to get real delay days
-        fetch(`/api/templates?breach_status=${risk}`)
+        fetch(`/api/templates?target_industry=${risk}`)
             .then(response => response.json())
             .then(templates => {
                 // Sort templates by sequence order
@@ -338,25 +339,26 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
         `;
         
-        // Fetch templates that match the risk level
-        fetch(`/api/templates?breach_status=${risk}`)
+        // Fetch templates that match the target industry
+        fetch(`/api/templates?target_industry=${risk}`)
             .then(response => response.json())
             .then(templates => {
                 let templatesHtml = '';
                 
                 if (templates.length === 0) {
-                    const riskDisplayName = risk === 'breached' ? '🔴 Breached Companies' :
-                                          risk === 'not_breached' ? '🟢 Not Breached Companies' :
-                                          risk === 'unknown' ? '⚪ Unknown Status' :
-                                          risk === 'all' ? '📧 All Companies' : risk;
-                    
+                    const industryDisplayName = risk === 'technology' ? '💻 Technology' :
+                                               risk === 'finance' ? '💰 Finance' :
+                                               risk === 'healthcare' ? '🏥 Healthcare' :
+                                               risk === 'retail' ? '🛒 Retail' :
+                                               risk === 'general' ? '📧 General' : risk;
+
                     templatesHtml = `
                         <div class="alert alert-info small">
                             <i class="fas fa-info-circle me-1"></i>
-                            No templates found for <strong>${riskDisplayName}</strong>.
+                            No templates found for <strong>${industryDisplayName}</strong>.
                         </div>
                         <div class="d-grid">
-                            <a href="/templates/create?breach_status=${risk}&template_type=follow_up" class="btn btn-sm btn-outline-primary">
+                            <a href="/templates/create?target_industry=${risk}&template_type=follow_up" class="btn btn-sm btn-outline-primary">
                                 <i class="fas fa-plus me-1"></i>Create Template
                             </a>
                         </div>
@@ -370,17 +372,19 @@ document.addEventListener('DOMContentLoaded', function() {
                             '<span class="badge bg-success">Active</span>' : 
                             '<span class="badge bg-secondary">Inactive</span>';
                         
-                        // Get breach status display with emoji
-                        const breachStatusDisplay = template.risk_level === 'breached' ? '🔴 Breached Companies' :
-                                                   template.risk_level === 'not_breached' ? '🟢 Not Breached Companies' :
-                                                   template.risk_level === 'unknown' ? '⚪ Unknown Status' :
-                                                   template.risk_level === 'all' ? '📧 All Companies' :
-                                                   template.risk_level.replace('_', ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-                        
-                        const breachBadgeClass = template.risk_level === 'breached' ? 'bg-danger' :
-                                               template.risk_level === 'not_breached' ? 'bg-success' :
-                                               template.risk_level === 'unknown' ? 'bg-info' :
-                                               'bg-secondary';
+                        // Get industry display with emoji
+                        const industryDisplay = template.target_industry === 'technology' ? '💻 Technology' :
+                                               template.target_industry === 'finance' ? '💰 Finance' :
+                                               template.target_industry === 'healthcare' ? '🏥 Healthcare' :
+                                               template.target_industry === 'retail' ? '🛒 Retail' :
+                                               template.target_industry === 'general' ? '📧 General' :
+                                               (template.target_industry || 'General').replace('_', ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+
+                        const industryBadgeClass = template.target_industry === 'technology' ? 'bg-primary' :
+                                                  template.target_industry === 'finance' ? 'bg-success' :
+                                                  template.target_industry === 'healthcare' ? 'bg-danger' :
+                                                  template.target_industry === 'retail' ? 'bg-warning' :
+                                                  'bg-secondary';
                         
                         templatesHtml += `
                             <div class="border rounded p-2 mb-2 small">
@@ -390,7 +394,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 </div>
                                 <div class="mb-1">
                                     <span class="badge ${badgeClass}">${template.template_type}</span>
-                                    <span class="badge ${breachBadgeClass} text-white">${breachStatusDisplay}</span>
+                                    <span class="badge ${industryBadgeClass} text-white">${industryDisplay}</span>
                                 </div>
                                 <div class="text-muted mb-2">${template.subject_line}</div>
                                 <div class="d-flex justify-content-between align-items-center">
@@ -431,7 +435,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     templatesHtml += `
                         <div class="d-grid mt-3">
-                            <a href="/templates/create?breach_status=${risk}&template_type=follow_up" class="btn btn-sm btn-outline-primary">
+                            <a href="/templates/create?target_industry=${risk}&template_type=follow_up" class="btn btn-sm btn-outline-primary">
                                 <i class="fas fa-plus me-1"></i>Create New Template
                             </a>
                         </div>

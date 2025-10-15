@@ -125,6 +125,9 @@ class Campaign(db.Model):
     name = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text)
 
+    # Client relationship (for multi-tenant SaaS)
+    client_id = db.Column(db.Integer, db.ForeignKey('clients.id'), nullable=True)
+
     # Industry-based targeting (replaces breach/risk targeting)
     target_industries = db.Column(db.JSON)  # ["Healthcare", "Finance", "Retail"]
     target_business_types = db.Column(db.JSON)  # ["B2B", "Enterprise"]
@@ -137,7 +140,7 @@ class Campaign(db.Model):
     active = db.Column(db.Boolean, default=True)
     daily_limit = db.Column(db.Integer, default=50)
 
-    # Sender information
+    # Sender information (will be populated from Client when client_id is set)
     sender_email = db.Column(db.String(255))
     sender_name = db.Column(db.String(255))
 
@@ -450,6 +453,75 @@ class Settings(db.Model):
         return setting
 
 
+class Client(db.Model):
+    """Client model for managing multiple clients in the SaaS platform"""
+    __tablename__ = 'clients'
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Company Information
+    company_name = db.Column(db.String(255), nullable=False, unique=True)
+    domain = db.Column(db.String(255))
+    industry = db.Column(db.String(100))
+
+    # Sender Configuration (for campaigns)
+    sender_email = db.Column(db.String(255), nullable=False, unique=True)
+    sender_name = db.Column(db.String(255), nullable=False)
+    reply_to_email = db.Column(db.String(255))
+
+    # Email Provider Settings
+    brevo_api_key = db.Column(db.String(255))
+    brevo_sender_id = db.Column(db.String(100))
+
+    # Client Status
+    is_active = db.Column(db.Boolean, default=True)
+    subscription_tier = db.Column(db.String(50), default='basic')  # basic, pro, enterprise
+    monthly_email_limit = db.Column(db.Integer, default=1000)
+    emails_sent_this_month = db.Column(db.Integer, default=0)
+
+    # Metadata
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    notes = db.Column(db.Text)
+
+    # Relationships
+    campaigns = db.relationship('Campaign', backref='client', lazy='dynamic')
+
+    def __repr__(self):
+        return f'<Client {self.company_name} - {self.sender_email}>'
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'company_name': self.company_name,
+            'domain': self.domain,
+            'industry': self.industry,
+            'sender_email': self.sender_email,
+            'sender_name': self.sender_name,
+            'reply_to_email': self.reply_to_email,
+            'is_active': self.is_active,
+            'subscription_tier': self.subscription_tier,
+            'monthly_email_limit': self.monthly_email_limit,
+            'emails_sent_this_month': self.emails_sent_this_month,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'notes': self.notes,
+            'campaign_count': self.campaigns.count()
+        }
+
+    @property
+    def emails_remaining(self):
+        """Calculate remaining emails for the month"""
+        return max(0, self.monthly_email_limit - self.emails_sent_this_month)
+
+    @property
+    def usage_percentage(self):
+        """Calculate email usage percentage"""
+        if self.monthly_email_limit == 0:
+            return 0
+        return round((self.emails_sent_this_month / self.monthly_email_limit) * 100, 2)
+
+
 # Sequence Management Models (Simplified)
 
 class EmailSequenceConfig(db.Model):
@@ -459,9 +531,24 @@ class EmailSequenceConfig(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text)
+
+    # Sequence behavior settings
+    max_follow_ups = db.Column(db.Integer, default=5)
+    stop_on_reply = db.Column(db.Boolean, default=True)
+    stop_on_bounce = db.Column(db.Boolean, default=True)
+
+    # Target industry (replaces risk_level/breach_status)
+    target_industry = db.Column(db.String(100), default='general')
+
+    # Metadata
     is_active = db.Column(db.Boolean, default=True)
+    created_by = db.Column(db.String(100), default='System')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Performance metrics
+    usage_count = db.Column(db.Integer, default=0)
+    completion_rate = db.Column(db.Float, default=0.0)
 
     steps = db.relationship('SequenceStep', backref='sequence_config', lazy='dynamic', cascade='all, delete-orphan')
     campaigns = db.relationship('Campaign', backref='sequence_config_ref', lazy='dynamic')
@@ -474,7 +561,14 @@ class EmailSequenceConfig(db.Model):
             'id': self.id,
             'name': self.name,
             'description': self.description,
+            'max_follow_ups': self.max_follow_ups,
+            'stop_on_reply': self.stop_on_reply,
+            'stop_on_bounce': self.stop_on_bounce,
+            'target_industry': self.target_industry,
             'is_active': self.is_active,
+            'usage_count': self.usage_count,
+            'completion_rate': self.completion_rate,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
             'steps': [step.to_dict() for step in self.steps.order_by(SequenceStep.step_number)]
         }
 

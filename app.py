@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 # Import database models
 from models.database import (
-    db, Contact, Campaign, TemplateVariant, Email, Response,
+    db, Contact, Campaign, Client, TemplateVariant, Email, Response,
     EmailTemplate, Settings, WebhookEvent, EmailSequenceConfig,
     SequenceStep, EmailSequence, ContactCampaignStatus
 )
@@ -18,6 +18,7 @@ from routes.auth import auth_bp
 from routes.dashboard import dashboard_bp
 from routes.campaigns import campaigns_bp
 from routes.contacts import contacts_bp
+from routes.clients import clients_bp
 from routes.api import api_bp
 from routes.analytics import analytics_bp
 from routes.tracking import tracking_bp
@@ -84,6 +85,7 @@ def create_app():
     app.register_blueprint(dashboard_bp)               # No prefix - /dashboard, /settings
     app.register_blueprint(campaigns_bp)               # /campaigns/*
     app.register_blueprint(contacts_bp)                # /contacts/*
+    app.register_blueprint(clients_bp)                 # /clients/*
     app.register_blueprint(templates_bp)               # /templates/*
     app.register_blueprint(sequences_bp)               # /admin/sequences/*
     app.register_blueprint(analytics_bp)               # /analytics/*

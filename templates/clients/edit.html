@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Client - Sales Master{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2><i class="fas fa-edit me-2"></i>Edit Client</h2>
+                    <p class="text-muted mb-0">Update client information for {{ client.company_name }}</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('clients.list_clients') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-1"></i>Back to Clients
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <form method="POST">
+        <div class="row">
+            <!-- Main Form -->
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-building me-2"></i>Company Information</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="company_name" class="form-label">Company Name *</label>
+                                <input type="text" class="form-control" id="company_name" name="company_name" value="{{ client.company_name }}" required>
+                                <div class="form-text">The legal name of the client company</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="domain" class="form-label">Domain</label>
+                                <input type="text" class="form-control" id="domain" name="domain" value="{{ client.domain or '' }}" placeholder="example.com">
+                                <div class="form-text">Company website domain (optional)</div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="industry" class="form-label">Industry</label>
+                                <select class="form-select" id="industry" name="industry">
+                                    <option value="general" {{ 'selected' if client.industry == 'general' else '' }}>General</option>
+                                    <option value="technology" {{ 'selected' if client.industry == 'technology' else '' }}>Technology</option>
+                                    <option value="finance" {{ 'selected' if client.industry == 'finance' else '' }}>Finance</option>
+                                    <option value="healthcare" {{ 'selected' if client.industry == 'healthcare' else '' }}>Healthcare</option>
+                                    <option value="retail" {{ 'selected' if client.industry == 'retail' else '' }}>Retail</option>
+                                    <option value="education" {{ 'selected' if client.industry == 'education' else '' }}>Education</option>
+                                    <option value="manufacturing" {{ 'selected' if client.industry == 'manufacturing' else '' }}>Manufacturing</option>
+                                    <option value="consulting" {{ 'selected' if client.industry == 'consulting' else '' }}>Consulting</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="subscription_tier" class="form-label">Subscription Tier</label>
+                                <select class="form-select" id="subscription_tier" name="subscription_tier">
+                                    <option value="basic" {{ 'selected' if client.subscription_tier == 'basic' else '' }}>Basic</option>
+                                    <option value="pro" {{ 'selected' if client.subscription_tier == 'pro' else '' }}>Pro</option>
+                                    <option value="enterprise" {{ 'selected' if client.subscription_tier == 'enterprise' else '' }}>Enterprise</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Client Status</label>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="is_active" name="is_active" {{ 'checked' if client.is_active else '' }}>
+                                    <label class="form-check-label" for="is_active">
+                                        Active (can create campaigns)
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-envelope me-2"></i>Sender Configuration</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="sender_email" class="form-label">Sender Email *</label>
+                                <input type="email" class="form-control" id="sender_email" name="sender_email" value="{{ client.sender_email }}" required>
+                                <div class="form-text">Email address to send campaigns from</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="sender_name" class="form-label">Sender Name *</label>
+                                <input type="text" class="form-control" id="sender_name" name="sender_name" value="{{ client.sender_name }}" required>
+                                <div class="form-text">Display name for sent emails</div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="reply_to_email" class="form-label">Reply-To Email</label>
+                                <input type="email" class="form-control" id="reply_to_email" name="reply_to_email" value="{{ client.reply_to_email or '' }}">
+                                <div class="form-text">Where replies will be sent (defaults to sender email)</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="monthly_email_limit" class="form-label">Monthly Email Limit</label>
+                                <input type="number" class="form-control" id="monthly_email_limit" name="monthly_email_limit" value="{{ client.monthly_email_limit }}" min="0">
+                                <div class="form-text">Maximum emails per month</div>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-info">
+                            <strong>Current Usage:</strong> {{ client.emails_sent_this_month }} / {{ client.monthly_email_limit }} emails sent this month
+                            ({{ "%.1f"|format(client.usage_percentage) }}%)
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-key me-2"></i>Email Provider Settings (Optional)</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="brevo_api_key" class="form-label">Brevo API Key</label>
+                                <input type="password" class="form-control" id="brevo_api_key" name="brevo_api_key" value="{{ client.brevo_api_key or '' }}" placeholder="Leave blank to keep existing">
+                                <div class="form-text">Client-specific Brevo API key (optional)</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="brevo_sender_id" class="form-label">Brevo Sender ID</label>
+                                <input type="text" class="form-control" id="brevo_sender_id" name="brevo_sender_id" value="{{ client.brevo_sender_id or '' }}">
+                                <div class="form-text">Brevo sender identifier (optional)</div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="notes" class="form-label">Notes</label>
+                            <textarea class="form-control" id="notes" name="notes" rows="3" placeholder="Additional notes about this client...">{{ client.notes or '' }}</textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="col-lg-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Client Details</h5>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>Client ID:</strong> {{ client.id }}</p>
+                        <p><strong>Created:</strong> {{ client.created_at.strftime('%b %d, %Y at %I:%M %p') if client.created_at }}</p>
+                        <p><strong>Last Updated:</strong> {{ client.updated_at.strftime('%b %d, %Y at %I:%M %p') if client.updated_at }}</p>
+                        <hr>
+                        <p><strong>Active Campaigns:</strong> {{ client.campaigns.count() }}</p>
+                        <p><strong>Status:</strong>
+                            {% if client.is_active %}
+                            <span class="badge bg-success">Active</span>
+                            {% else %}
+                            <span class="badge bg-danger">Inactive</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Email Usage</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-center mb-2">
+                            <strong>{{ client.emails_sent_this_month }}</strong> of <strong>{{ client.monthly_email_limit }}</strong>
+                        </p>
+                        <div class="progress mb-2" style="height: 25px;">
+                            <div class="progress-bar {{ 'bg-danger' if client.usage_percentage > 90 else 'bg-warning' if client.usage_percentage > 75 else 'bg-success' }}"
+                                 role="progressbar"
+                                 style="width: {{ client.usage_percentage }}%">
+                                {{ "%.1f"|format(client.usage_percentage) }}%
+                            </div>
+                        </div>
+                        <p class="text-muted small mb-0">
+                            <strong>{{ client.emails_remaining }}</strong> emails remaining
+                        </p>
+                    </div>
+                </div>
+
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-save me-2"></i>Actions</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i>Update Client
+                            </button>
+                            <a href="{{ url_for('clients.view_client', client_id=client.id) }}" class="btn btn-outline-info">
+                                <i class="fas fa-eye me-1"></i>View Details
+                            </a>
+                            <a href="{{ url_for('clients.list_clients') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>Cancel
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}

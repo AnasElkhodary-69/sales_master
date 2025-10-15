@@ -459,23 +459,30 @@ def save_template_editor(template_id):
 def delete_template(template_id):
     """Delete email template"""
     try:
+        print(f"==== DELETE_TEMPLATE CALLED at routes/templates.py line 458 ====")
+        print(f"==== Attempting to DELETE template ID {template_id} ====")
         template = EmailTemplate.query.get_or_404(template_id)
         template_name = template.name
+        print(f"==== Found template: {template_name} ====")
 
         # Check if template is being used in any emails
         from models.database import Email
         emails_using_template = Email.query.filter_by(template_id=template_id).count()
+        print(f"==== Emails using template: {emails_using_template} ====")
 
         if emails_using_template > 0:
+            print(f"==== Cannot delete - template in use ====")
             return jsonify({
                 'success': False,
                 'error': f'Cannot delete template "{template_name}" - it is being used by {emails_using_template} email(s)'
             })
 
-        # Soft delete by setting active to False
-        template.is_active = False
-        template.updated_at = datetime.utcnow()
+        # Actual delete (not soft delete)
+        print(f"==== Calling db.session.delete() for ACTUAL DELETE ====")
+        db.session.delete(template)
+        print(f"==== Calling db.session.commit() ====")
         db.session.commit()
+        print(f"==== Template {template_id} DELETED successfully ====")
 
         return jsonify({
             'success': True,
@@ -503,8 +510,11 @@ def list_templates_api():
 def delete_template_api(template_id):
     """Delete email template via API (returns JSON)"""
     try:
+        print(f"!!!!! API DELETE CALLED at routes/templates.py line 509 !!!!!")
+        print(f"!!!!! This is the SOFT DELETE function !!!!!")
         template = EmailTemplate.query.get_or_404(template_id)
         template_name = template.name
+        print(f"!!!!! Found template: {template_name} !!!!!")
 
         # Check if template is being used in any emails
         from models.database import Email
@@ -516,10 +526,11 @@ def delete_template_api(template_id):
                 'error': f'Cannot delete template "{template_name}" - it is being used by {emails_using_template} email(s)'
             })
 
-        # Soft delete by setting active to False
-        template.is_active = False
-        template.updated_at = datetime.utcnow()
+        # CHANGE TO ACTUAL DELETE INSTEAD OF SOFT DELETE
+        print(f"!!!!! Doing ACTUAL DELETE (not soft delete) !!!!!")
+        db.session.delete(template)
         db.session.commit()
+        print(f"!!!!! Template {template_id} DELETED from database !!!!!")
 
         return jsonify({
             'success': True,
@@ -540,7 +551,7 @@ def delete_followup_sequence(sequence_id):
 
         # Check if sequence is being used in any campaigns
         from models.database import Campaign
-        campaigns_using_sequence = Campaign.query.filter_by(template_type=sequence.risk_level).count()
+        campaigns_using_sequence = Campaign.query.filter_by(sequence_id=sequence_id).count()
 
         if campaigns_using_sequence > 0:
             return jsonify({

@@ -1,0 +1,292 @@
+{% extends "base.html" %}
+
+{% block title %}Clients - Sales Master{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2><i class="fas fa-users me-2"></i>Client Management</h2>
+                    <p class="text-muted mb-0">Manage your SaaS clients and their campaign configurations</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('clients.create_client') }}" class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i>Add New Client
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0">Total Clients</h6>
+                            <h2 class="mb-0">{{ clients|length }}</h2>
+                        </div>
+                        <i class="fas fa-users fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0">Active Clients</h6>
+                            <h2 class="mb-0">{{ clients|selectattr('is_active', 'equalto', true)|list|length }}</h2>
+                        </div>
+                        <i class="fas fa-check-circle fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0">Total Campaigns</h6>
+                            <h2 class="mb-0">{{ clients|sum(attribute='campaign_count') }}</h2>
+                        </div>
+                        <i class="fas fa-envelope fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0">Inactive Clients</h6>
+                            <h2 class="mb-0">{{ clients|selectattr('is_active', 'equalto', false)|list|length }}</h2>
+                        </div>
+                        <i class="fas fa-times-circle fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Clients Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-list me-2"></i>All Clients</h5>
+                </div>
+                <div class="card-body">
+                    {% if clients %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Company Name</th>
+                                    <th>Sender Email</th>
+                                    <th>Sender Name</th>
+                                    <th>Industry</th>
+                                    <th>Subscription</th>
+                                    <th>Campaigns</th>
+                                    <th>Email Limit</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for client in clients %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ client.company_name }}</strong>
+                                        {% if client.domain %}
+                                        <br><small class="text-muted">{{ client.domain }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ client.sender_email }}</td>
+                                    <td>{{ client.sender_name }}</td>
+                                    <td>
+                                        {% if client.industry %}
+                                        <span class="badge bg-secondary">{{ client.industry|capitalize }}</span>
+                                        {% else %}
+                                        <span class="badge bg-light text-dark">Not Set</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if client.subscription_tier == 'enterprise' %}
+                                        <span class="badge bg-primary">Enterprise</span>
+                                        {% elif client.subscription_tier == 'pro' %}
+                                        <span class="badge bg-info">Pro</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">Basic</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-primary">{{ client.campaign_count }}</span>
+                                    </td>
+                                    <td>
+                                        <small>{{ client.emails_sent_this_month }}/{{ client.monthly_email_limit }}</small>
+                                        <div class="progress" style="height: 5px;">
+                                            <div class="progress-bar" role="progressbar"
+                                                 style="width: {{ (client.emails_sent_this_month / client.monthly_email_limit * 100) if client.monthly_email_limit > 0 else 0 }}%">
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if client.is_active %}
+                                        <span class="badge bg-success">Active</span>
+                                        {% else %}
+                                        <span class="badge bg-danger">Inactive</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{{ url_for('clients.view_client', client_id=client.id) }}"
+                                               class="btn btn-outline-info" title="View">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <a href="{{ url_for('clients.edit_client', client_id=client.id) }}"
+                                               class="btn btn-outline-primary" title="Edit">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <button onclick="toggleClient({{ client.id }}, '{{ client.company_name }}')"
+                                                    class="btn btn-outline-warning" title="Toggle Status">
+                                                <i class="fas fa-power-off"></i>
+                                            </button>
+                                            <button onclick="deleteClient({{ client.id }}, '{{ client.company_name }}')"
+                                                    class="btn btn-outline-danger" title="Delete">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-users fa-4x text-muted mb-3"></i>
+                        <h4>No Clients Yet</h4>
+                        <p class="text-muted">Get started by adding your first client to the system.</p>
+                        <a href="{{ url_for('clients.create_client') }}" class="btn btn-primary">
+                            <i class="fas fa-plus me-1"></i>Add First Client
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Confirmation Modal -->
+<div class="modal fade" id="confirmModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="confirmModalTitle">Confirm Action</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="confirmModalBody">
+                Are you sure you want to proceed?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirmModalAction">Confirm</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Modern confirmation modal
+function showConfirmModal(title, message, onConfirm, buttonClass = 'btn-primary') {
+    const modal = new bootstrap.Modal(document.getElementById('confirmModal'));
+    document.getElementById('confirmModalTitle').textContent = title;
+    document.getElementById('confirmModalBody').innerHTML = message;
+
+    const confirmBtn = document.getElementById('confirmModalAction');
+    confirmBtn.className = 'btn ' + buttonClass;
+
+    // Remove old event listeners
+    const newConfirmBtn = confirmBtn.cloneNode(true);
+    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+
+    // Add new event listener
+    newConfirmBtn.addEventListener('click', function() {
+        modal.hide();
+        onConfirm();
+    });
+
+    modal.show();
+}
+
+function toggleClient(clientId, clientName) {
+    showConfirmModal(
+        'Toggle Client Status',
+        `Are you sure you want to toggle the status of <strong>"${clientName}"</strong>?`,
+        function() {
+            fetch(`/clients/toggle/${clientId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    SalesMaster.utils.showAlert(`Client "${clientName}" status updated successfully!`, 'success');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    SalesMaster.utils.showAlert('Error: ' + data.error, 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                SalesMaster.utils.showAlert('An error occurred while toggling the client status.', 'danger');
+            });
+        },
+        'btn-warning'
+    );
+}
+
+function deleteClient(clientId, clientName) {
+    showConfirmModal(
+        'Delete Client',
+        `Are you sure you want to delete <strong>"${clientName}"</strong>?<br><br><span class="text-danger">This action cannot be undone!</span>`,
+        function() {
+            fetch(`/clients/delete/${clientId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    SalesMaster.utils.showAlert(`Client "${clientName}" deleted successfully!`, 'success');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    SalesMaster.utils.showAlert('Error: ' + data.error, 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                SalesMaster.utils.showAlert('An error occurred while deleting the client.', 'danger');
+            });
+        },
+        'btn-danger'
+    );
+}
+</script>
+{% endblock %}

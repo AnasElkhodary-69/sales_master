@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}SalesBreachPro{% endblock %}</title>
+    <title>{% block title %}Sales Master{% endblock %}</title>
     
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -27,9 +27,9 @@
         <div class="container-fluid px-4">
             <!-- Brand -->
             <a class="navbar-brand fw-bold" href="{{ url_for('dashboard.index') }}" style="color: white !important;">
-                <i class="fas fa-shield-alt me-2"></i>
-                <span class="d-none d-sm-inline">SalesBreachPro</span>
-                <span class="d-inline d-sm-none">SBP</span>
+                <i class="fas fa-rocket me-2"></i>
+                <span class="d-none d-sm-inline">Sales Master</span>
+                <span class="d-inline d-sm-none">SM</span>
             </a>
 
             <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
@@ -83,6 +83,14 @@
                                 <i class="fas fa-file-alt me-2"></i>Email Templates
                             </a></li>
                         </ul>
+                    </li>
+
+                    <!-- Client Management -->
+                    <li class="nav-item">
+                        <a class="nav-link px-3" href="{{ url_for('clients.list_clients') }}" title="Client Management">
+                            <i class="fas fa-building me-2"></i>
+                            <span class="d-lg-inline">Clients</span>
+                        </a>
                     </li>
                 </ul>
 
@@ -147,9 +155,9 @@
     <footer class="bg-light mt-5 py-4">
         <div class="container text-center">
             <p class="mb-0 text-muted">
-                &copy; 2025 SalesBreachPro - Internal Sales Tool
+                &copy; 2025 Sales Master - Industry-Targeted Sales Automation
                 <span class="ms-3">
-                    <i class="fas fa-shield-alt me-1"></i>Secure Email Automation
+                    <i class="fas fa-envelope me-1"></i>Smart Email Campaigns
                 </span>
             </p>
         </div>
@@ -265,23 +273,13 @@
                 
                 if (data.success) {
                     let message = `🎉 Upload successful! ${data.imported_count || data.contacts_created} contacts imported.`;
-                    
-                    // Add breach scanning results
-                    if (data.domains_scanned > 0) {
-                        message += `<br><small>🔍 Scanned ${data.domains_scanned} domains for security breaches</small>`;
-                        
-                        if (data.breach_scan_results) {
-                            const results = data.breach_scan_results;
-                            if (results.high_risk_contacts > 0) {
-                                message += `<br><small>⚠️ Found ${results.high_risk_contacts} high-risk contacts</small>`;
-                            }
-                            if (results.medium_risk_contacts > 0) {
-                                message += `<br><small>⚡ Found ${results.medium_risk_contacts} medium-risk contacts</small>`;
-                            }
-                            if (results.secure_contacts > 0) {
-                                message += `<br><small>✅ ${results.secure_contacts} secure contacts</small>`;
-                            }
-                        }
+
+                    // Show industry categorization if available
+                    if (data.industry_stats && Object.keys(data.industry_stats).length > 0) {
+                        const industries = Object.entries(data.industry_stats)
+                            .map(([industry, count]) => `${industry}: ${count}`)
+                            .join(', ');
+                        message += `<br><small>🏭 Industries: ${industries}</small>`;
                     }
                     
                     // Add information about detected fields

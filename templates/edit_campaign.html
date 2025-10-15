@@ -137,62 +137,55 @@
                     <h5 class="section-title">
                         <i class="fas fa-bullseye me-2"></i>Target Audience
                     </h5>
-                    
-                    <p class="text-muted mb-3">Select which contacts to target based on their breach status:</p>
-                    
+
+                    <p class="text-muted mb-3">Select which industries to target for this campaign:</p>
+
                     <div class="row">
-                        <div class="col-md-4">
-                            <label class="risk-level-card {% if 'breached' in campaign.target_risk_levels %}selected{% endif %}" 
-                                   onclick="toggleRiskLevel('breached', this)">
-                                <input type="checkbox" name="target_risk_levels" value="breached" 
-                                       {% if 'breached' in campaign.target_risk_levels %}checked{% endif %} style="display: none;">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <div class="fw-bold">Breached Contacts</div>
-                                        <small class="opacity-75">High priority targets</small>
-                                    </div>
-                                    <div class="text-end">
-                                        <div class="h5 mb-0">{{ contact_stats.breached }}</div>
-                                        <small>contacts</small>
-                                    </div>
-                                </div>
-                            </label>
+                        <div class="col-md-6">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="targetTech" name="target_industries" value="technology"
+                                       {% if campaign.target_industries and 'technology' in campaign.target_industries %}checked{% endif %}>
+                                <label class="form-check-label" for="targetTech">
+                                    <i class="fas fa-laptop-code text-primary"></i> Technology
+                                </label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="targetFinance" name="target_industries" value="finance"
+                                       {% if campaign.target_industries and 'finance' in campaign.target_industries %}checked{% endif %}>
+                                <label class="form-check-label" for="targetFinance">
+                                    <i class="fas fa-chart-line text-success"></i> Finance
+                                </label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="targetHealthcare" name="target_industries" value="healthcare"
+                                       {% if campaign.target_industries and 'healthcare' in campaign.target_industries %}checked{% endif %}>
+                                <label class="form-check-label" for="targetHealthcare">
+                                    <i class="fas fa-heartbeat text-danger"></i> Healthcare
+                                </label>
+                            </div>
                         </div>
-                        
-                        <div class="col-md-4">
-                            <label class="risk-level-card {% if 'not_breached' in campaign.target_risk_levels %}selected{% endif %}" 
-                                   onclick="toggleRiskLevel('not_breached', this)">
-                                <input type="checkbox" name="target_risk_levels" value="not_breached" 
-                                       {% if 'not_breached' in campaign.target_risk_levels %}checked{% endif %} style="display: none;">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <div class="fw-bold">Secure Contacts</div>
-                                        <small class="opacity-75">Proactive outreach</small>
-                                    </div>
-                                    <div class="text-end">
-                                        <div class="h5 mb-0">{{ contact_stats.secure }}</div>
-                                        <small>contacts</small>
-                                    </div>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <div class="col-md-4">
-                            <label class="risk-level-card {% if 'unknown' in campaign.target_risk_levels %}selected{% endif %}" 
-                                   onclick="toggleRiskLevel('unknown', this)">
-                                <input type="checkbox" name="target_risk_levels" value="unknown" 
-                                       {% if 'unknown' in campaign.target_risk_levels %}checked{% endif %} style="display: none;">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <div class="fw-bold">Unknown Status</div>
-                                        <small class="opacity-75">Needs assessment</small>
-                                    </div>
-                                    <div class="text-end">
-                                        <div class="h5 mb-0">{{ contact_stats.unknown }}</div>
-                                        <small>contacts</small>
-                                    </div>
-                                </div>
-                            </label>
+                        <div class="col-md-6">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="targetRetail" name="target_industries" value="retail"
+                                       {% if campaign.target_industries and 'retail' in campaign.target_industries %}checked{% endif %}>
+                                <label class="form-check-label" for="targetRetail">
+                                    <i class="fas fa-shopping-cart text-warning"></i> Retail
+                                </label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="targetManufacturing" name="target_industries" value="manufacturing"
+                                       {% if campaign.target_industries and 'manufacturing' in campaign.target_industries %}checked{% endif %}>
+                                <label class="form-check-label" for="targetManufacturing">
+                                    <i class="fas fa-industry text-secondary"></i> Manufacturing
+                                </label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="targetOther" name="target_industries" value="other"
+                                       {% if campaign.target_industries and 'other' in campaign.target_industries %}checked{% endif %}>
+                                <label class="form-check-label" for="targetOther">
+                                    <i class="fas fa-building text-info"></i> Other
+                                </label>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -202,27 +195,20 @@
                     <h5 class="section-title">
                         <i class="fas fa-sync-alt me-2"></i>Auto-enrollment Settings
                     </h5>
-                    
+
                     <div class="form-check mb-3">
-                        <input class="form-check-input" type="checkbox" id="auto_enroll" name="auto_enroll" 
+                        <input class="form-check-input" type="checkbox" id="auto_enroll" name="auto_enroll"
                                {% if campaign.auto_enroll %}checked{% endif %} onchange="toggleAutoEnrollSettings()">
                         <label class="form-check-label" for="auto_enroll">
                             <strong>Enable Auto-enrollment</strong>
                         </label>
-                        <div class="form-text">Automatically enroll new contacts that match campaign criteria</div>
+                        <div class="form-text">Automatically enroll new contacts that match the selected industries</div>
                     </div>
-                    
+
                     <div id="auto_enroll_settings" style="{% if not campaign.auto_enroll %}display: none;{% endif %}">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <label for="auto_enroll_breach_status" class="form-label">Auto-enroll contacts with status:</label>
-                                <select class="form-control" id="auto_enroll_breach_status" name="auto_enroll_breach_status">
-                                    <option value="">Select status...</option>
-                                    <option value="breached" {% if campaign.auto_enroll_breach_status == 'breached' %}selected{% endif %}>Breached</option>
-                                    <option value="not_breached" {% if campaign.auto_enroll_breach_status == 'not_breached' %}selected{% endif %}>Secure</option>
-                                    <option value="unknown" {% if campaign.auto_enroll_breach_status == 'unknown' %}selected{% endif %}>Unknown</option>
-                                </select>
-                            </div>
+                        <div class="alert alert-info small">
+                            <i class="fas fa-info-circle me-2"></i>
+                            New contacts matching your selected industries will be automatically enrolled in this campaign.
                         </div>
                     </div>
                 </div>
@@ -279,30 +265,15 @@
                     <h5 class="section-title">
                         <i class="fas fa-chart-pie me-2"></i>Contact Statistics
                     </h5>
-                    
+
                     <div class="contact-stat mb-3">
                         <div class="h4 mb-0 text-primary">{{ contact_stats.total_contacts }}</div>
-                        <div class="text-muted">Total Contacts</div>
+                        <div class="text-muted">Total Contacts Available</div>
                     </div>
-                    
-                    <div class="row">
-                        <div class="col-6">
-                            <div class="contact-stat">
-                                <div class="h5 mb-0 text-danger">{{ contact_stats.breached }}</div>
-                                <div class="text-muted small">Breached</div>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="contact-stat">
-                                <div class="h5 mb-0 text-success">{{ contact_stats.secure }}</div>
-                                <div class="text-muted small">Secure</div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="contact-stat mt-2">
-                        <div class="h5 mb-0 text-warning">{{ contact_stats.unknown }}</div>
-                        <div class="text-muted small">Unknown Status</div>
+
+                    <div class="alert alert-info small">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Target specific industries to refine your audience
                     </div>
                 </div>
 
@@ -349,37 +320,14 @@
 
 {% block extra_js %}
 <script>
-function toggleRiskLevel(value, element) {
-    const checkbox = element.querySelector('input[type="checkbox"]');
-    const isChecked = !checkbox.checked;
-    
-    checkbox.checked = isChecked;
-    
-    if (isChecked) {
-        element.classList.add('selected');
-    } else {
-        element.classList.remove('selected');
-    }
-}
-
 function toggleAutoEnrollSettings() {
     const autoEnrollCheckbox = document.getElementById('auto_enroll');
     const settingsDiv = document.getElementById('auto_enroll_settings');
-    const statusSelect = document.getElementById('auto_enroll_breach_status');
-    
+
     if (autoEnrollCheckbox.checked) {
         settingsDiv.style.display = 'block';
-        
-        // Smart default: match the first selected target risk level
-        const selectedRiskLevels = Array.from(document.querySelectorAll('input[name="target_risk_levels"]:checked'))
-            .map(input => input.value);
-        
-        if (selectedRiskLevels.length > 0 && !statusSelect.value) {
-            statusSelect.value = selectedRiskLevels[0];
-        }
     } else {
         settingsDiv.style.display = 'none';
-        statusSelect.value = '';
     }
 }
 
@@ -390,14 +338,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Form submission handling
 document.getElementById('editCampaignForm').addEventListener('submit', function(e) {
-    const selectedRiskLevels = document.querySelectorAll('input[name="target_risk_levels"]:checked');
-    
-    if (selectedRiskLevels.length === 0) {
+    const selectedIndustries = document.querySelectorAll('input[name="target_industries"]:checked');
+
+    if (selectedIndustries.length === 0) {
         e.preventDefault();
-        alert('Please select at least one target audience.');
+        alert('Please select at least one industry to target.');
         return;
     }
-    
+
     // Show saving indicator
     const saveButton = document.querySelector('.btn-save');
     const originalText = saveButton.innerHTML;

@@ -26,8 +26,8 @@ def register_template_routes(app):
                 template = EmailTemplate(
                     name=request.form['name'],
                     template_type=request.form['template_type'],
+                    target_industry=request.form.get('target_industry', 'general'),  # Target industry for filtering
                     sequence_step=sequence_step,  # Convert 1-based UI to 0-based sequence
-                    delay_days=int(request.form.get('delay_days', 0)),  # Legacy field
                     delay_amount=int(request.form.get('delay_amount', 0)),  # New flexible delay
                     delay_unit=request.form.get('delay_unit', 'days'),  # New delay unit
                     subject_line=request.form['subject_line'],
@@ -60,8 +60,8 @@ def register_template_routes(app):
                 
                 template.name = request.form['name']
                 template.template_type = request.form['template_type']
+                template.target_industry = request.form.get('target_industry', 'general')  # Target industry for filtering
                 template.sequence_step = sequence_step  # Convert 1-based UI to 0-based sequence
-                template.delay_days = int(request.form.get('delay_days', 0))  # Legacy field
                 template.delay_amount = int(request.form.get('delay_amount', 0))  # New flexible delay
                 template.delay_unit = request.form.get('delay_unit', 'days')  # New delay unit
                 template.subject_line = request.form['subject_line']
@@ -79,22 +79,44 @@ def register_template_routes(app):
                 
         return render_template('template_editor.html', template=template, action='edit')
     
-    @app.route('/templates/delete/<int:template_id>', methods=['POST'])
+    @app.route('/templates/<int:template_id>/delete', methods=['POST'])
     def delete_template(template_id):
         """Delete email template"""
         try:
+            print(f"DELETE TEMPLATE: Attempting to delete template ID {template_id}")
             template = EmailTemplate.query.get_or_404(template_id)
             template_name = template.name
-            
+            print(f"DELETE TEMPLATE: Found template '{template_name}' (ID: {template.id})")
+
             db.session.delete(template)
+            print(f"DELETE TEMPLATE: Called db.session.delete()")
+
+            db.session.flush()  # Force flush to see if there are any constraint errors
+            print(f"DELETE TEMPLATE: Flushed session")
+
             db.session.commit()
-            
-            flash(f'Template "{template_name}" deleted successfully!', 'success')
-            
+            print(f"DELETE TEMPLATE: Committed successfully")
+
+            # Verify deletion
+            check = EmailTemplate.query.get(template_id)
+            print(f"DELETE TEMPLATE: Post-commit verification - template still exists: {check is not None}")
+            if check:
+                print(f"DELETE TEMPLATE WARNING: Template was NOT deleted from database!")
+
+            return jsonify({
+                'success': True,
+                'message': f'Template "{template_name}" deleted successfully'
+            })
+
         except Exception as e:
-            flash(f'Error deleting template: {str(e)}', 'error')
-            
-        return redirect(url_for('templates'))
+            print(f"DELETE TEMPLATE ERROR: {str(e)}")
+            import traceback
+            print(f"DELETE TEMPLATE TRACEBACK: {traceback.format_exc()}")
+            db.session.rollback()
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            })
     
     @app.route('/templates/toggle/<int:template_id>', methods=['POST'])
     def toggle_template(template_id):
@@ -134,14 +156,16 @@ def register_template_routes(app):
                     print(f"Invalid max_follow_ups value: '{max_follow_ups_value}', using default 5")
                     max_follow_ups = 5
                 
+                # Create sequence with all fields
                 sequence = EmailSequenceConfig(
                     name=request.form['name'],
-                    risk_level=request.form['breach_status'],  # Map breach_status to risk_level for backward compatibility
                     description=request.form.get('description', ''),
                     max_follow_ups=max_follow_ups,
                     stop_on_reply=request.form.get('stop_on_reply') == 'on',
                     stop_on_bounce=request.form.get('stop_on_bounce') == 'on',
-                    created_by=request.form.get('created_by', 'System')
+                    target_industry=request.form.get('target_industry', 'general'),
+                    created_by=request.form.get('created_by', 'System'),
+                    is_active=True
                 )
                 
                 db.session.add(sequence)
@@ -181,12 +205,13 @@ def register_template_routes(app):
                     max_follow_ups_value = '5'
                 max_follow_ups = int(max_follow_ups_value)
                 
+                # Update all sequence fields
                 sequence.name = request.form['name']
-                sequence.risk_level = request.form['breach_status']  # Map breach_status to risk_level for backward compatibility
                 sequence.description = request.form.get('description', '')
                 sequence.max_follow_ups = max_follow_ups
                 sequence.stop_on_reply = request.form.get('stop_on_reply') == 'on'
                 sequence.stop_on_bounce = request.form.get('stop_on_bounce') == 'on'
+                sequence.target_industry = request.form.get('target_industry', 'general')
                 sequence.updated_at = datetime.utcnow()
                 
                 db.session.commit()
@@ -283,28 +308,28 @@ def register_template_routes(app):
         breach_status = request.args.get('breach_status')  # Accept breach_status parameter
         template_type = request.args.get('template_type')
         
-        query = EmailTemplate.query
-        
-        # Use breach_status if provided, otherwise fall back to risk_level
-        filter_value = breach_status or risk_level
-        if filter_value:
-            query = query.filter(EmailTemplate.risk_level == filter_value)
-        
+        query = EmailTemplate.query.filter_by(active=True)
+
+        # Filter by template_type if provided
         if template_type:
             query = query.filter(EmailTemplate.template_type == template_type)
-        
+
+        # Filter by target_industry if breach_status or risk_level is provided (legacy support)
+        filter_value = breach_status or risk_level
+        if filter_value:
+            query = query.filter(EmailTemplate.target_industry == filter_value)
+
         templates = query.all()
-        
+
         template_list = []
         for template in templates:
             template_list.append({
                 'id': template.id,
                 'name': template.name,
                 'template_type': template.template_type,
-                'risk_level': template.risk_level,
+                'category': template.category,  # Replaced risk_level with category
+                'target_industry': template.target_industry,
                 'subject_line': template.subject_line,
-                'sequence_order': template.sequence_order,
-                'delay_days': template.delay_days,
                 'delay_amount': template.delay_amount,
                 'delay_unit': template.delay_unit,
                 'active': template.active,

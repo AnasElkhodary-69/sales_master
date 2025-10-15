@@ -16,16 +16,15 @@ class ContactManager:
         self.duplicate_contacts = []
         self.valid_contacts = []
         
-    def process_csv_file(self, file_path: str, enable_breach_lookup: bool = True, progress_callback=None) -> Dict:
+    def process_csv_file(self, file_path: str, progress_callback=None) -> Dict:
         """
         Process uploaded CSV file and return validation results
-        
+
         Args:
             file_path: Path to CSV file
-            enable_breach_lookup: Whether to perform automatic breach lookups
-        
+
         Returns:
-            Dict with processing results including valid/invalid counts and breach data
+            Dict with processing results including valid/invalid counts
         """
         try:
             # Read CSV file with flexible handling using standard csv library
@@ -113,10 +112,6 @@ class ContactManager:
                 'invalid_contacts': 0,
                 'duplicates_found': 0,
                 'new_contacts_added': 0,
-                'breach_lookups_performed': 0,
-                'high_risk_contacts': 0,
-                'medium_risk_contacts': 0,
-                'low_risk_contacts': 0,
                 'errors': [],
                 'warnings': [],
                 'csv_info': {
@@ -129,24 +124,24 @@ class ContactManager:
                 'imported_count': 0
             }
             
-            # Collect unique domains for batch breach lookup
-            unique_domains = set()
+            # Validate and create contacts
             valid_contacts = []
             total_rows = len(contacts_data)
-            
+
             if progress_callback:
                 progress_callback("Validating contacts...", 20, total_rows=total_rows)
-            
-            # First pass: validate all contacts and collect domains
+
+            # Validate all contacts
             for idx, contact_data in enumerate(contacts_data):
                 try:
                     # Update progress during validation
                     if progress_callback and idx % 10 == 0:
-                        validation_progress = 20 + (idx / total_rows) * 30  # 20-50%
+                        validation_progress = 20 + (idx / total_rows) * 40  # 20-60%
                         progress_callback(f"Validating contact {idx + 1} of {total_rows}...", validation_progress, processed_rows=idx + 1, total_rows=total_rows)
+
                     # Validate and process contact
                     validation_result = self.validate_contact(contact_data, row_number=idx + 1)
-                    
+
                     if validation_result['is_valid']:
                         # Check for duplicates
                         if self.is_duplicate(validation_result['contact_data']['email']):
@@ -154,51 +149,26 @@ class ContactManager:
                             results['warnings'].append(f"Row {idx + 1}: Duplicate email {validation_result['contact_data']['email']}")
                         else:
                             valid_contacts.append((idx + 1, validation_result['contact_data']))
-                            unique_domains.add(validation_result['contact_data']['domain'])
                     else:
                         results['invalid_contacts'] += 1
                         results['errors'].extend([f"Row {idx + 1}: {error}" for error in validation_result['errors']])
-                        
+
                 except Exception as e:
                     results['invalid_contacts'] += 1
                     results['errors'].append(f"Row {idx + 1}: {str(e)}")
-            
-            # Perform batch breach lookup if enabled
-            breach_data = {}
-            if enable_breach_lookup and unique_domains:
-                if progress_callback:
-                    progress_callback("Scanning domains for security breaches...", 50, total_domains=len(unique_domains))
-                breach_data = self.perform_batch_breach_lookup(list(unique_domains), progress_callback)
-                results['breach_lookups_performed'] = len(breach_data)
-            
-            # Second pass: create contacts with breach information
+
+            # Create contacts
             valid_count = len(valid_contacts)
             if progress_callback:
                 progress_callback("Creating contacts...", 70, contacts_created=0, total_contacts=valid_count)
-            
+
             for idx, (row_num, contact_data) in enumerate(valid_contacts):
                 try:
                     # Update progress during contact creation
                     if progress_callback and idx % 5 == 0:
                         creation_progress = 70 + (idx / valid_count) * 25  # 70-95%
                         progress_callback(f"Creating contact {idx + 1} of {valid_count}...", creation_progress, contacts_created=idx, total_contacts=valid_count)
-                    # Get breach information for this domain
-                    domain_breach_info = breach_data.get(contact_data['domain'])
-                    
-                    # Add breach risk information to contact
-                    if domain_breach_info:
-                        risk_score = domain_breach_info.get('risk_score', 0)
-                        breach_status = domain_breach_info.get('breach_status', 'unassigned')
-                        contact_data['risk_score'] = risk_score
-                        contact_data['breach_status'] = breach_status
-                        
-                        if risk_score >= 7:
-                            results['high_risk_contacts'] += 1
-                        elif risk_score >= 4:
-                            results['medium_risk_contacts'] += 1
-                        else:
-                            results['low_risk_contacts'] += 1
-                    
+
                     # Create contact
                     contact = self.create_contact(contact_data)
                     if contact:
@@ -207,35 +177,13 @@ class ContactManager:
                     else:
                         results['invalid_contacts'] += 1
                         results['errors'].append(f"Row {row_num}: Failed to create contact")
-                        
+
                 except Exception as e:
                     results['invalid_contacts'] += 1
                     results['errors'].append(f"Row {row_num}: {str(e)}")
             
             # Commit all changes
             db.session.commit()
-
-            # Trigger auto-enrollment for contacts with final breach status (not 'unassigned')
-            if results['new_contacts_added'] > 0:
-                try:
-                    from services.auto_enrollment import create_auto_enrollment_service
-                    auto_service = create_auto_enrollment_service(db)
-
-                    # Get the newly created contacts with their final breach status
-                    new_contacts = Contact.query.filter(
-                        Contact.breach_status != 'unassigned'
-                    ).order_by(Contact.created_at.desc()).limit(results['new_contacts_added']).all()
-
-                    enrolled_count = 0
-                    for contact in new_contacts:
-                        enrolled_count += auto_service.check_breach_status_campaigns(contact.id)
-
-                    if enrolled_count > 0:
-                        logger.info(f"Auto-enrolled {enrolled_count} new contacts into campaigns based on breach status")
-
-                except Exception as e:
-                    logger.error(f"Error during post-upload auto-enrollment: {str(e)}")
-                    # Don't fail the upload if enrollment fails
 
             # Set imported_count for frontend compatibility
             results['imported_count'] = results['new_contacts_added']
@@ -535,16 +483,16 @@ class ContactManager:
                 title=contact_data.get('title'),
                 phone=contact_data.get('phone'),
                 industry=contact_data.get('industry'),
-                status='active',
-                risk_score=contact_data.get('risk_score', 0.0),
-                breach_status=contact_data.get('breach_status', 'unassigned')
+                business_type=contact_data.get('business_type'),
+                company_size=contact_data.get('company_size'),
+                status='active'
             )
-            
+
             db.session.add(contact)
             # Don't commit here - will be committed in batch
-            
+
             return contact
-            
+
         except Exception as e:
             logger.error(f"Error creating contact: {str(e)}")
             db.session.rollback()
@@ -697,179 +645,3 @@ class ContactManager:
                 'message': f"Error updating contacts: {str(e)}"
             }
     
-    def perform_batch_breach_lookup(self, domains: List[str], progress_callback=None) -> Dict:
-        """
-        Perform batch breach lookup for multiple domains using FlawTrack API
-        
-        Args:
-            domains: List of domain names to lookup
-            
-        Returns:
-            Dict mapping domains to breach information
-        """
-        try:
-            logger.info(f"Performing FlawTrack API breach lookup for {len(domains)} domains")
-            
-            # Import FlawTrack API service
-            from services.flawtrack_api import FlawTrackAPI
-            from models.database import Settings
-            
-            # Get FlawTrack API settings from environment variables
-            import os
-            api_key = os.getenv('FLAWTRACK_API_TOKEN', 'seLP1scW.m1XeMDxyMjsZ3KaIF1XzFG74gJqxwWLW')
-            endpoint = os.getenv('FLAWTRACK_API_ENDPOINT', 'https://app-api.flawtrack.com/leaks/demo/credentials/')
-            
-            # Initialize FlawTrack API
-            flawtrack = FlawTrackAPI(
-                api_key=api_key,
-                endpoint=endpoint
-            )
-            
-            # Use the FlawTrack API batch lookup with proper rate limiting
-            flawtrack_results = flawtrack.batch_domain_lookup(domains, delay=1.0, progress_callback=progress_callback)
-            
-            # Convert FlawTrack results to our expected format
-            breach_results = {}
-            for domain in domains:
-                if domain in flawtrack_results:
-                    flawtrack_data = flawtrack_results[domain]
-                    risk_score = flawtrack_data.get('risk_score', 0.0)
-                    
-                    # Use the breach status from FlawTrack API result
-                    breach_status = flawtrack_data.get('breach_status', 'unknown')
-                    
-                    breach_results[domain] = {
-                        'breach_status': breach_status,
-                        'risk_score': risk_score,
-                        'breach_year': flawtrack_data.get('breach_year'),
-                        'records_affected': flawtrack_data.get('records_affected'),
-                        'breach_name': flawtrack_data.get('breach_name'),
-                        'data_types': flawtrack_data.get('data_types'),
-                        'severity': flawtrack_data.get('severity')
-                    }
-                else:
-                    # No data found - mark as unknown
-                    breach_results[domain] = {
-                        'breach_status': 'unknown', 
-                        'risk_score': 0.0,
-                        'breach_year': None,
-                        'records_affected': None,
-                        'breach_name': 'No breach data found',
-                        'data_types': 'Assessment needed',
-                        'severity': 'unknown'
-                    }
-            
-            logger.info(f"FlawTrack API breach lookup completed for {len(domains)} domains")
-            return breach_results
-            
-        except ImportError as e:
-            logger.warning(f"FlawTrack API not available, falling back to mock data: {str(e)}")
-            return self._get_fallback_breach_data(domains)
-        except Exception as e:
-            logger.error(f"FlawTrack API lookup failed, falling back to mock data: {str(e)}")
-            return self._get_fallback_breach_data(domains)
-    
-    def _get_fallback_breach_data(self, domains: List[str]) -> Dict:
-        """Fallback to mock data if FlawTrack API is unavailable"""
-        logger.info("Using fallback mock breach data")
-        
-        # Known breached domains with real historical breach data
-        known_breached = {
-            'yahoo.com': {'breach_status': 'breached', 'risk_score': 8.5, 'breach_year': 2013, 'records_affected': 3000000000, 'breach_name': 'Yahoo Data Breach', 'data_types': 'Email addresses, Names, Passwords'},
-            'adobe.com': {'breach_status': 'breached', 'risk_score': 7.2, 'breach_year': 2013, 'records_affected': 153000000, 'breach_name': 'Adobe Data Breach', 'data_types': 'Email addresses, Names, Passwords'},
-            'linkedin.com': {'breach_status': 'breached', 'risk_score': 6.8, 'breach_year': 2016, 'records_affected': 164000000, 'breach_name': 'LinkedIn Data Breach', 'data_types': 'Email addresses, Names, Passwords'},
-            'equifax.com': {'breach_status': 'breached', 'risk_score': 9.0, 'breach_year': 2017, 'records_affected': 147000000, 'breach_name': 'Equifax Data Breach', 'data_types': 'SSN, Names, Credit Information'},
-            'marriott.com': {'breach_status': 'breached', 'risk_score': 7.5, 'breach_year': 2018, 'records_affected': 383000000, 'breach_name': 'Marriott Data Breach', 'data_types': 'Email addresses, Names, Passport Numbers'},
-            'facebook.com': {'breach_status': 'breached', 'risk_score': 8.0, 'breach_year': 2019, 'records_affected': 533000000, 'breach_name': 'Facebook Data Leak', 'data_types': 'Email addresses, Names, Phone Numbers'},
-            'twitter.com': {'breach_status': 'breached', 'risk_score': 6.5, 'breach_year': 2022, 'records_affected': 5400000, 'breach_name': 'Twitter Data Breach', 'data_types': 'Email addresses, Names, Phone Numbers'}
-        }
-        
-        # Clean domains (known secure)
-        secure_domains = {
-            'google.com', 'microsoft.com', 'apple.com', 'amazon.com', 'cloudflare.com',
-            'boomsupersonic.com', 'titansofcnc.com', 'aerosapientech.com'
-        }
-        
-        breach_results = {}
-        for domain in domains:
-            domain_lower = domain.lower()
-            if domain_lower in known_breached:
-                breach_results[domain] = known_breached[domain_lower]
-            elif domain_lower in secure_domains:
-                breach_results[domain] = {
-                    'breach_status': 'not_breached', 
-                    'risk_score': 1.0,
-                    'breach_year': None,
-                    'records_affected': None,
-                    'breach_name': 'No breaches found',
-                    'data_types': 'N/A',
-                    'severity': 'low'
-                }
-            else:
-                # Unknown domains default to unknown status
-                breach_results[domain] = {
-                    'breach_status': 'unknown', 
-                    'risk_score': 0.0,
-                    'breach_year': None,
-                    'records_affected': None,
-                    'breach_name': 'Assessment needed',
-                    'data_types': 'Unknown',
-                    'severity': 'unknown'
-                }
-        
-        return breach_results
-    
-    def get_contact_risk_summary(self) -> Dict:
-        """Get summary of contact risk levels based on breach data"""
-        try:
-            # Join contacts with breach data to get risk distribution
-            risk_summary = db.session.query(
-                Breach.severity,
-                db.func.count(Contact.id).label('contact_count')
-            ).join(
-                Contact, Contact.domain == Breach.domain
-            ).group_by(Breach.severity).all()
-            
-            total_with_breach_data = sum(count for _, count in risk_summary)
-            total_contacts = Contact.query.count()
-            
-            summary = {
-                'total_contacts': total_contacts,
-                'contacts_with_breach_data': total_with_breach_data,
-                'contacts_without_breach_data': total_contacts - total_with_breach_data,
-                'risk_distribution': {
-                    'high': 0,
-                    'medium': 0, 
-                    'low': 0
-                }
-            }
-            
-            for severity, count in risk_summary:
-                if severity in summary['risk_distribution']:
-                    summary['risk_distribution'][severity] = count
-            
-            return summary
-            
-        except Exception as e:
-            logger.error(f"Error getting contact risk summary: {str(e)}")
-            return {
-                'total_contacts': 0,
-                'contacts_with_breach_data': 0,
-                'contacts_without_breach_data': 0,
-                'risk_distribution': {'high': 0, 'medium': 0, 'low': 0}
-            }
-    
-    def get_contacts_by_risk_level(self, risk_level: str, limit: int = 50) -> List[Contact]:
-        """Get contacts filtered by risk level"""
-        try:
-            contacts = db.session.query(Contact).join(
-                Breach, Contact.domain == Breach.domain
-            ).filter(
-                Breach.severity == risk_level.lower()
-            ).limit(limit).all()
-            
-            return contacts
-            
-        except Exception as e:
-            logger.error(f"Error getting contacts by risk level: {str(e)}")
-            return []

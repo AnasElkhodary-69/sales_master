@@ -78,20 +78,22 @@ class AutoEnrollmentService:
         # Build query to find eligible contacts
         query_filters = [
             Contact.is_active == True,
-            Contact.breach_status != 'unassigned',  # Skip contacts that haven't been scanned yet
             Contact.blocked_at.is_(None)  # Exclude blocked contacts from auto-enrollment
         ]
-        
+
         # Always check all active contacts (removed timestamp filtering that was preventing enrollment)
         logger.info(f"Campaign '{campaign.name}': checking all active contacts for enrollment eligibility")
-        
-        # Filter by breach status based on campaign settings
-        if campaign.target_risk_levels:
-            # Use target_risk_levels (new way)
-            query_filters.append(Contact.breach_status.in_(campaign.target_risk_levels))
-        elif campaign.auto_enroll_breach_status and campaign.auto_enroll_breach_status != 'all':
-            # Use auto_enroll_breach_status (legacy way)
-            query_filters.append(Contact.breach_status == campaign.auto_enroll_breach_status)
+
+        # Filter by industry/business type based on campaign settings
+        if campaign.target_industries:
+            # Filter by target industries
+            query_filters.append(Contact.industry.in_(campaign.target_industries))
+        if campaign.target_business_types:
+            # Filter by target business types
+            query_filters.append(Contact.business_type.in_(campaign.target_business_types))
+        if campaign.target_company_sizes:
+            # Filter by target company sizes
+            query_filters.append(Contact.company_size.in_(campaign.target_company_sizes))
         
         # Find contacts that aren't already in this campaign
         enrolled_contact_ids = self.db.session.query(ContactCampaignStatus.contact_id).filter(
@@ -196,20 +198,20 @@ class AutoEnrollmentService:
             self.db.session.rollback()
             return False
     
-    def check_breach_status_campaigns(self, contact_id: int) -> int:
+    def check_industry_match_campaigns(self, contact_id: int) -> int:
         """
-        Check if a contact should be auto-enrolled in any campaigns based on their breach status.
-        This is called when a contact's breach status is updated.
+        Check if a contact should be auto-enrolled in any campaigns based on their industry/business profile.
+        This is called when a contact's profile is updated.
         Returns the number of campaigns the contact was enrolled in.
         """
         from models.database import Contact, Campaign
-        
+
         try:
             contact = Contact.query.get(contact_id)
             if not contact:
                 return 0
-            
-            # Find campaigns that auto-enroll contacts with this breach status
+
+            # Find campaigns that auto-enroll contacts
             matching_campaigns = Campaign.query.filter(
                 and_(
                     Campaign.active == True,
@@ -217,89 +219,88 @@ class AutoEnrollmentService:
                     Campaign.status.in_(['active', 'draft'])
                 )
             ).all()
-            
-            # Filter campaigns that match the contact's breach status
+
+            # Filter campaigns that match the contact's industry/business profile
             relevant_campaigns = []
             for campaign in matching_campaigns:
-                # Check if contact matches campaign's target risk levels
-                if (campaign.target_risk_levels and 
-                    contact.breach_status in campaign.target_risk_levels):
+                match = False
+
+                # Check industry match
+                if campaign.target_industries and contact.industry:
+                    if contact.industry in campaign.target_industries:
+                        match = True
+
+                # Check business type match
+                if campaign.target_business_types and contact.business_type:
+                    if contact.business_type in campaign.target_business_types:
+                        match = True
+
+                # Check company size match
+                if campaign.target_company_sizes and contact.company_size:
+                    if contact.company_size in campaign.target_company_sizes:
+                        match = True
+
+                if match:
                     relevant_campaigns.append(campaign)
-                # Or check auto_enroll_breach_status (legacy support)
-                elif (campaign.auto_enroll_breach_status and
-                      (campaign.auto_enroll_breach_status == contact.breach_status or 
-                       campaign.auto_enroll_breach_status == 'all')):
-                    relevant_campaigns.append(campaign)
-            
-            matching_campaigns = relevant_campaigns
-            
+
             enrolled_count = 0
-            for campaign in matching_campaigns:
+            for campaign in relevant_campaigns:
                 if self.enroll_single_contact(contact.id, campaign.id):
                     enrolled_count += 1
-            
-            logger.info(f"Auto-enrolled contact {contact.email} into {enrolled_count} campaigns based on breach status '{contact.breach_status}'")
+
+            logger.info(f"Auto-enrolled contact {contact.email} into {enrolled_count} campaigns based on industry profile")
             return enrolled_count
-            
+
         except Exception as e:
-            logger.error(f"Error checking breach status campaigns for contact {contact_id}: {str(e)}")
+            logger.error(f"Error checking industry match campaigns for contact {contact_id}: {str(e)}")
             return 0
     
-    def get_contact_risk_score(self, contact) -> float:
-        """Calculate risk score for a contact based on available data"""
+    def get_contact_priority_score(self, contact) -> float:
+        """Calculate priority score for a contact based on industry and company profile"""
         try:
-            # Base score from breach status
-            status_scores = {
-                'high': 8.0,
-                'medium': 6.0,
-                'low': 4.0,
-                'unknown': 5.0
-            }
-            
-            base_score = status_scores.get(contact.breach_status, 5.0)
-            
+            base_score = 5.0
+
             # Adjust based on company size (if available)
-            if hasattr(contact, 'company_size'):
-                if contact.company_size and 'large' in contact.company_size.lower():
+            if hasattr(contact, 'company_size') and contact.company_size:
+                if 'large' in contact.company_size.lower() or 'enterprise' in contact.company_size.lower():
+                    base_score += 2.0
+                elif '51-200' in contact.company_size or '201-500' in contact.company_size:
                     base_score += 1.0
-                elif contact.company_size and 'small' in contact.company_size.lower():
+                elif 'small' in contact.company_size.lower() or '1-10' in contact.company_size:
                     base_score -= 0.5
-            
-            # Adjust based on industry risk
-            high_risk_industries = ['healthcare', 'finance', 'government', 'education']
-            if contact.industry and contact.industry.lower() in high_risk_industries:
-                base_score += 0.5
-            
-            return min(10.0, base_score)
-            
+
+            # Adjust based on industry (high-value industries get priority)
+            high_value_industries = ['technology', 'finance', 'healthcare', 'saas', 'enterprise software']
+            if contact.industry and contact.industry.lower() in high_value_industries:
+                base_score += 1.5
+
+            return min(10.0, max(0.0, base_score))
+
         except Exception as e:
-            logger.error(f"Error calculating risk score for contact {contact.id}: {str(e)}")
+            logger.error(f"Error calculating priority score for contact {contact.id}: {str(e)}")
             return 5.0
     
     def enroll_contact_standard(self, contact, campaign, template):
         """Standard enrollment method - uses EmailSequenceService for proper scheduling"""
         try:
             from services.email_sequence_service import EmailSequenceService
-            
+
             # Use the email sequence service for proper enrollment with correct timing
             sequence_service = EmailSequenceService()
-            
-            # Map contact breach status to template type
-            template_type = 'breached' if contact.breach_status in ['high', 'medium'] else 'proactive'
-            
+
             # Enroll contact using the proper sequence service
             result = sequence_service.enroll_contact_in_campaign(
                 contact_id=contact.id,
                 campaign_id=campaign.id,
-                force_breach_check=False  # Use existing breach status
+                force_breach_check=False  # No breach checking in industry-based system
             )
-            
+
             if result['success']:
                 logger.info(f"Standard enrollment successful for {contact.email}: {result['emails_scheduled']} emails scheduled")
             else:
                 logger.error(f"Standard enrollment failed for {contact.email}: {result.get('error')}")
                 raise Exception(result.get('error'))
-            
+
         except Exception as e:
             logger.error(f"Error in standard enrollment for {contact.email}: {str(e)}")
             raise

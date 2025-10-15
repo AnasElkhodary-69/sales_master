@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Template Management - SalesBreachPro{% endblock %}
+{% block title %}Template Management - Sales Master{% endblock %}
 
 {% block extra_head %}
 <style>
@@ -9,19 +9,23 @@
         border-left: 4px solid #007bff;
     }
     
-    .template-card.breached {
-        border-left-color: #dc3545;
+    .template-card.technology {
+        border-left-color: #3b82f6;
     }
-    
-    .template-card.not_breached {
-        border-left-color: #28a745;
+
+    .template-card.finance {
+        border-left-color: #10b981;
     }
-    
-    .template-card.unknown {
-        border-left-color: #17a2b8;
+
+    .template-card.healthcare {
+        border-left-color: #ef4444;
     }
-    
-    .template-card.all {
+
+    .template-card.retail {
+        border-left-color: #f59e0b;
+    }
+
+    .template-card.general {
         border-left-color: #6c757d;
     }
     
@@ -197,15 +201,15 @@
                     <div class="btn-group btn-group-sm" role="group">
                         <input type="radio" class="btn-check" name="template-filter" id="all-templates" checked>
                         <label class="btn btn-outline-secondary" for="all-templates">All</label>
-                        
-                        <input type="radio" class="btn-check" name="template-filter" id="high-risk">
-                        <label class="btn btn-outline-danger" for="high-risk">High Risk</label>
-                        
-                        <input type="radio" class="btn-check" name="template-filter" id="medium-risk">
-                        <label class="btn btn-outline-warning" for="medium-risk">Medium Risk</label>
-                        
-                        <input type="radio" class="btn-check" name="template-filter" id="low-risk">
-                        <label class="btn btn-outline-success" for="low-risk">Low Risk</label>
+
+                        <input type="radio" class="btn-check" name="template-filter" id="technology">
+                        <label class="btn btn-outline-primary" for="technology">Technology</label>
+
+                        <input type="radio" class="btn-check" name="template-filter" id="finance">
+                        <label class="btn btn-outline-success" for="finance">Finance</label>
+
+                        <input type="radio" class="btn-check" name="template-filter" id="healthcare">
+                        <label class="btn btn-outline-danger" for="healthcare">Healthcare</label>
                     </div>
                 </div>
                 <div class="card-body">
@@ -413,12 +417,13 @@
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="breach_status" class="form-label">Target Audience</label>
-                                <select class="form-select" id="breach_status" name="breach_status" required>
-                                    <option value="breached">🔴 Breached Companies</option>
-                                    <option value="not_breached">🟢 Not Breached Companies</option>
-                                    <option value="unknown">⚪ Unknown Status</option>
-                                    <option value="all">📧 All Companies</option>
+                                <label for="target_industry" class="form-label">Target Industry</label>
+                                <select class="form-select" id="target_industry" name="target_industry" required>
+                                    <option value="technology">💻 Technology</option>
+                                    <option value="finance">💰 Finance</option>
+                                    <option value="healthcare">🏥 Healthcare</option>
+                                    <option value="retail">🛒 Retail</option>
+                                    <option value="general">📧 General</option>
                                 </select>
                             </div>
                         </div>
@@ -452,12 +457,13 @@
                         <input type="text" class="form-control" id="sequence_name" name="name" required>
                     </div>
                     <div class="mb-3">
-                        <label for="sequence_breach_status" class="form-label">Target Audience</label>
-                        <select class="form-select" id="sequence_breach_status" name="breach_status" required>
-                            <option value="breached">🔴 Breached Companies</option>
-                            <option value="not_breached">🟢 Not Breached Companies</option>
-                            <option value="unknown">⚪ Unknown Status</option>
-                            <option value="all">📧 All Companies</option>
+                        <label for="sequence_target_industry" class="form-label">Target Industry</label>
+                        <select class="form-select" id="sequence_target_industry" name="target_industry" required>
+                            <option value="technology">💻 Technology</option>
+                            <option value="finance">💰 Finance</option>
+                            <option value="healthcare">🏥 Healthcare</option>
+                            <option value="retail">🛒 Retail</option>
+                            <option value="general">📧 General</option>
                         </select>
                     </div>
                     <div class="mb-3">
@@ -509,9 +515,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const filter = this.id;
             
             templateItems.forEach(item => {
-                const risk = item.dataset.risk;
-                
-                if (filter === 'all-templates' || filter === risk + '-risk') {
+                const industry = item.dataset.industry;
+
+                if (filter === 'all-templates' || filter === industry) {
                     item.style.display = 'block';
                 } else {
                     item.style.display = 'none';

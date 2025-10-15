@@ -1,9 +1,9 @@
-// Main JavaScript for SalesBreachPro
+// Main JavaScript for Sales Master
 
 // Global application object
-window.SalesBreachPro = {
+window.SalesMaster = {
     init: function() {
-        console.log('SalesBreachPro initialized');
+        console.log('Sales Master initialized');
         this.setupEventListeners();
         this.initTooltips();
     },
@@ -84,7 +84,7 @@ window.SalesBreachPro = {
         
         copyToClipboard: function(text) {
             navigator.clipboard.writeText(text).then(function() {
-                SalesBreachPro.utils.showAlert('Copied to clipboard!', 'success');
+                SalesMaster.utils.showAlert('Copied to clipboard!', 'success');
             });
         }
     },
@@ -92,17 +92,17 @@ window.SalesBreachPro = {
     // Dashboard specific functions
     dashboard: {
         refreshStats: function() {
-            SalesBreachPro.api.get('/api/stats', function(error, data) {
+            SalesMaster.api.get('/api/stats', function(error, data) {
                 if (error) {
                     console.error('Error refreshing stats:', error);
-                    SalesBreachPro.utils.showAlert('Failed to refresh stats', 'danger');
+                    SalesMaster.utils.showAlert('Failed to refresh stats', 'danger');
                 } else {
                     // Update stats on page
-                    SalesBreachPro.dashboard.updateStatsDisplay(data);
+                    SalesMaster.dashboard.updateStatsDisplay(data);
                 }
             });
         },
-        
+
         updateStatsDisplay: function(stats) {
             // Update stat cards with new data
             // This would be implemented based on the specific HTML structure
@@ -140,26 +140,24 @@ window.SalesBreachPro = {
         }
     },
     
-    // Breach lookup functions
-    breach: {
-        lookupDomain: function(domain, callback) {
-            SalesBreachPro.api.get(`/api/breach-lookup/${domain}`, function(error, data) {
-                if (callback) callback(error, data);
-            });
+    // Contact and industry targeting functions
+    contacts: {
+        filterByIndustry: function(industry) {
+            console.log('Filtering contacts by industry:', industry);
         },
-        
-        displayBreachInfo: function(breachData) {
-            // Display breach information in UI
-            console.log('Displaying breach info:', breachData);
+
+        displayContactInfo: function(contactData) {
+            // Display contact information in UI
+            console.log('Displaying contact info:', contactData);
         }
     }
 };
 
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
-    SalesBreachPro.init();
-    
-    // Page-specific initialization  
+    SalesMaster.init();
+
+    // Page-specific initialization
     // Upload functionality is handled by ContactUploader in upload.html template
 });
 
@@ -169,4 +167,4 @@ $(document).ready(function() {
 });
 
 // Export for global access
-window.App = SalesBreachPro;
+window.App = SalesMaster;

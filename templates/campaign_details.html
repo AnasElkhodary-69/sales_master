@@ -312,41 +312,26 @@
 
                     <!-- Status Filter Buttons -->
                     <div class="mb-3">
-                        <label class="form-label small text-muted">Filter by Status:</label>
+                        <label class="form-label small text-muted">Filter by Email Status:</label>
                         <div class="btn-group w-100" role="group" id="statusFilterButtons">
                             <input type="radio" class="btn-check" name="statusFilter" id="statusAll" value="" checked>
                             <label class="btn btn-outline-secondary btn-sm" for="statusAll">
-                                <i class="fas fa-list me-1"></i>All
+                                <i class="fas fa-list me-1"></i>All Contacts
                             </label>
 
-                            <input type="radio" class="btn-check" name="statusFilter" id="statusBreached" value="breached">
-                            <label class="btn btn-outline-danger btn-sm" for="statusBreached">
-                                🔴 Breached
-                            </label>
-
-                            <input type="radio" class="btn-check" name="statusFilter" id="statusSecure" value="not_breached">
-                            <label class="btn btn-outline-success btn-sm" for="statusSecure">
-                                🟢 Secure
-                            </label>
-
-                            <input type="radio" class="btn-check" name="statusFilter" id="statusRisky" value="risky">
-                            <label class="btn btn-outline-warning btn-sm" for="statusRisky">
-                                🟡 Risky
+                            <input type="radio" class="btn-check" name="statusFilter" id="statusActive" value="active">
+                            <label class="btn btn-outline-success btn-sm" for="statusActive">
+                                ✓ Active
                             </label>
 
                             <input type="radio" class="btn-check" name="statusFilter" id="statusBounced" value="bounced">
-                            <label class="btn btn-outline-dark btn-sm" for="statusBounced">
-                                ⚫ Bounced
+                            <label class="btn btn-outline-warning btn-sm" for="statusBounced">
+                                ⚠ Bounced
                             </label>
 
                             <input type="radio" class="btn-check" name="statusFilter" id="statusBlocked" value="blocked">
                             <label class="btn btn-outline-danger btn-sm" for="statusBlocked">
                                 🚫 Blocked
-                            </label>
-
-                            <input type="radio" class="btn-check" name="statusFilter" id="statusScanning" value="unassigned">
-                            <label class="btn btn-outline-info btn-sm" for="statusScanning">
-                                🔵 Scanning
                             </label>
                         </div>
                     </div>
@@ -739,7 +724,7 @@
                                 <tr>
                                     <th>Contact</th>
                                     <th>Company</th>
-                                    <th>Breach Status</th>
+                                    <th>Industry</th>
                                     <th>Sequence Status</th>
                                     <th>Current Step</th>
                                     <th>Emails Sent</th>
@@ -761,17 +746,8 @@
                                     </td>
                                     <td>{{ contact.company or '-' }}</td>
                                     <td>
-                                        {% set breach_status = contact_data.breach_status or contact.breach_status or 'unknown' %}
-                                        <span class="badge bg-{{ 'danger' if breach_status == 'breached' else 'success' if breach_status == 'not_breached' else 'info' if breach_status == 'unassigned' else 'warning' }}">
-                                            {% if breach_status == 'breached' %}
-                                                Breached
-                                            {% elif breach_status == 'not_breached' %}
-                                                Secure
-                                            {% elif breach_status == 'unassigned' %}
-                                                <i class="fas fa-spinner fa-spin me-1"></i>Scanning in Progress
-                                            {% else %}
-                                                Unknown
-                                            {% endif %}
+                                        <span class="text-muted small">
+                                            {{ contact.industry or contact_data.industry or 'Not specified' }}
                                         </span>
                                     </td>
                                     <td>
@@ -1317,48 +1293,25 @@ function populateContactsList(contacts) {
     noContactsMessage.style.display = 'none';
     
     contactsList.innerHTML = contacts.map(contact => {
-        const displayName = (contact.first_name || contact.last_name) 
+        const displayName = (contact.first_name || contact.last_name)
             ? `${contact.first_name || ''} ${contact.last_name || ''}`.trim()
             : contact.email;
-        
-        // Map status to display - check email_status first for blocked
-        let breachStatusColor, breachStatusText;
+
+        // Show email status and industry
+        let statusBadge = '';
         if (contact.email_status === 'blocked') {
-            breachStatusColor = 'danger';
-            breachStatusText = 'Blocked';
-        } else {
-            switch(contact.breach_status) {
-                case 'breached':
-                    breachStatusColor = 'danger';
-                    breachStatusText = 'Breached';
-                    break;
-                case 'not_breached':
-                    breachStatusColor = 'success';
-                    breachStatusText = 'Secure';
-                    break;
-                case 'risky':
-                    breachStatusColor = 'warning';
-                    breachStatusText = 'Risky';
-                    break;
-                case 'bounced':
-                    breachStatusColor = 'dark';
-                    breachStatusText = 'Bounced';
-                    break;
-                case 'unassigned':
-                    breachStatusColor = 'info';
-                    breachStatusText = 'Scanning';
-                    break;
-                default:
-                    breachStatusColor = 'secondary';
-                    breachStatusText = 'Unknown';
-            }
+            statusBadge = '<span class="badge bg-danger">Blocked</span>';
+        } else if (contact.email_status === 'bounced') {
+            statusBadge = '<span class="badge bg-warning">Bounced</span>';
+        } else if (contact.industry) {
+            statusBadge = `<span class="badge bg-secondary">${contact.industry}</span>`;
         }
-        
+
         return `
-            <div class="list-group-item" data-status="${contact.email_status === 'blocked' ? 'blocked' : (contact.breach_status || 'unknown')}">
+            <div class="list-group-item" data-status="${contact.email_status || 'active'}">
                 <div class="form-check">
-                    <input class="form-check-input contact-checkbox" type="checkbox" 
-                           value="${contact.id}" id="contact_${contact.id}" 
+                    <input class="form-check-input contact-checkbox" type="checkbox"
+                           value="${contact.id}" id="contact_${contact.id}"
                            onchange="updateSelectedCount()">
                     <label class="form-check-label w-100" for="contact_${contact.id}">
                         <div class="d-flex justify-content-between align-items-center">
@@ -1367,7 +1320,7 @@ function populateContactsList(contacts) {
                                 <div class="text-muted small">${contact.email}</div>
                                 ${contact.company ? `<div class="text-muted small">${contact.company}</div>` : ''}
                             </div>
-                            <span class="badge bg-${breachStatusColor}">${breachStatusText}</span>
+                            ${statusBadge}
                         </div>
                     </label>
                 </div>

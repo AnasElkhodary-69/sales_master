@@ -281,13 +281,9 @@ def get_template_for_sequence_step(campaign, sequence_step, template_type):
 
         email_template_type = step_types.get(sequence_step, 'follow_up')
 
-        # Determine risk level based on template_type
-        risk_level = 'breached' if template_type == 'breached' else 'not_breached'
-
-        # Find template
+        # Find template based on template_type and sequence_step
         template = EmailTemplate.query.filter_by(
             template_type=email_template_type,
-            risk_level=risk_level,
             sequence_step=sequence_step,
             active=True
         ).first()
@@ -296,7 +292,6 @@ def get_template_for_sequence_step(campaign, sequence_step, template_type):
         if not template:
             template = EmailTemplate.query.filter_by(
                 template_type=email_template_type,
-                risk_level=risk_level,
                 active=True
             ).first()
 
@@ -363,7 +358,9 @@ def substitute_variables(text, contact, campaign):
         '{email}': contact.email,
         '{domain}': contact.domain or contact.email.split('@')[1] if '@' in contact.email else '',
         '{campaign_name}': campaign.name,
-        '{breach_status}': contact.breach_status or 'unknown'
+        '{industry}': contact.industry or 'your industry',
+        '{business_type}': contact.business_type or '',
+        '{company_size}': contact.company_size or ''
     }
 
     result = text

@@ -178,9 +178,9 @@ class BrevoModernService:
             return html_content
     
     def personalize_email_content(self, template: str, contact: Dict, breach_data: Optional[Dict] = None) -> str:
-        """Personalize email content with contact and breach data"""
+        """Personalize email content with contact data (industry-based targeting)"""
         try:
-            # Basic contact personalization
+            # Contact personalization with industry-based fields
             replacements = {
                 '{{first_name}}': contact.get('first_name', ''),
                 '{{last_name}}': contact.get('last_name', ''),
@@ -190,25 +190,21 @@ class BrevoModernService:
                 '{{domain}}': contact.get('domain', ''),
                 '{{title}}': contact.get('title', ''),
                 '{{industry}}': contact.get('industry', ''),
+                '{{business_type}}': contact.get('business_type', ''),
+                '{{company_size}}': contact.get('company_size', ''),
             }
-            
-            # Breach-specific personalization
+
+            # Note: breach_data parameter kept for backward compatibility but not used
             if breach_data:
-                replacements.update({
-                    '{{breach_name}}': breach_data.get('breach_name', ''),
-                    '{{breach_year}}': str(breach_data.get('breach_year', '')),
-                    '{{risk_score}}': str(breach_data.get('risk_score', '')),
-                    '{{records_affected}}': str(breach_data.get('records_affected', '')),
-                    '{{data_types}}': breach_data.get('data_types', ''),
-                })
-            
+                logger.info("breach_data parameter is deprecated - system now uses industry-based targeting")
+
             # Apply replacements
             content = template
             for placeholder, value in replacements.items():
                 content = content.replace(placeholder, value or '')
-            
+
             return content
-            
+
         except Exception as e:
             logger.error(f"Error personalizing email content: {str(e)}")
             return template
@@ -497,9 +493,21 @@ class BrevoModernService:
 
 
     # ===== ADVANCED EMAIL PIPELINE FEATURES =====
-    
+
     def schedule_breach_sequence(self, contact: Dict, breach_data: Dict) -> Dict:
-        """Schedule intelligent email sequence based on breach urgency"""
+        """
+        DEPRECATED: Breach-based sequencing has been replaced with industry-based targeting.
+        This method is kept for backward compatibility but returns a deprecation notice.
+        """
+        logger.warning("schedule_breach_sequence is deprecated - use industry-based targeting instead")
+        return {
+            'success': False,
+            'error': 'Breach-based sequencing is deprecated. Please use industry-based campaign targeting instead.',
+            'deprecated': True
+        }
+
+    def schedule_breach_sequence_OLD_DISABLED(self, contact: Dict, breach_data: Dict) -> Dict:
+        """OLD METHOD - Disabled breach-based sequence scheduling"""
         try:
             risk_score = float(breach_data.get('risk_score', 0))
             industry = contact.get('industry', 'default').lower()
@@ -893,13 +901,12 @@ class BrevoModernService:
                     'reply_rate': 0,
                     'engagement_score': 0
                 },
-                'breach_specific': {
-                    'critical_open_rate': 0,
-                    'high_risk_response_rate': 0,
-                    'avg_response_time_hours': 0,
-                    'conversion_rate': 0
-                },
                 'industry_breakdown': {},
+                'campaign_performance': {
+                    'avg_response_time_hours': 0,
+                    'conversion_rate': 0,
+                    'engagement_by_industry': {}
+                },
                 'time_analysis': {
                     'best_send_hour': 0,
                     'best_send_day': '',

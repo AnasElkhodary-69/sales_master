@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ 'Edit' if template else 'Create' }} Template - SalesBreachPro{% endblock %}
+{% block title %}{{ 'Edit' if template else 'Create' }} Template - Sales Master{% endblock %}
 
 {% block extra_head %}
 <!-- Quill Editor CSS -->
@@ -90,12 +90,16 @@
                             </div>
                         </div>
 
-                        <!-- Campaign Target field temporarily hidden -->
-                        <div class="row mb-3" style="display: none;">
+                        <!-- Target Industry field -->
+                        <div class="row mb-3">
                             <div class="col-md-6">
-                                <label for="breach_status" class="form-label">Campaign Target</label>
-                                <select class="form-select" id="breach_status" name="breach_status">
-                                    <option value="proactive" {{ 'selected' if template and template.risk_level == 'proactive' else 'selected' }}>Proactive Outreach</option>
+                                <label for="target_industry" class="form-label">Target Industry</label>
+                                <select class="form-select" id="target_industry" name="target_industry">
+                                    <option value="general" {{ 'selected' if template and template.target_industry == 'general' else 'selected' }}>General</option>
+                                    <option value="technology" {{ 'selected' if template and template.target_industry == 'technology' else '' }}>Technology</option>
+                                    <option value="finance" {{ 'selected' if template and template.target_industry == 'finance' else '' }}>Finance</option>
+                                    <option value="healthcare" {{ 'selected' if template and template.target_industry == 'healthcare' else '' }}>Healthcare</option>
+                                    <option value="retail" {{ 'selected' if template and template.target_industry == 'retail' else '' }}>Retail</option>
                                 </select>
                             </div>
                         </div>
