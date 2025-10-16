@@ -79,6 +79,51 @@
         font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
         font-size: 0.875rem;
     }
+
+    /* Variables Accordion Styling */
+    #variablesAccordion.accordion-flush .accordion-item {
+        border: none;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    #variablesAccordion.accordion-flush .accordion-item:last-child {
+        border-bottom: none;
+    }
+
+    #variablesAccordion .accordion-button {
+        background-color: #f8f9fa;
+        color: #212529;
+        font-weight: 500;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem;
+    }
+
+    #variablesAccordion .accordion-button:not(.collapsed) {
+        background-color: #e9ecef;
+        color: #212529;
+        box-shadow: none;
+    }
+
+    #variablesAccordion .accordion-button:focus {
+        box-shadow: none;
+        border: none;
+    }
+
+    #variablesAccordion .accordion-body {
+        padding: 0.5rem;
+    }
+
+    #variablesAccordion .btn-variable {
+        margin: 0.125rem;
+        white-space: nowrap;
+    }
+
+    /* Readonly sender fields styling */
+    .form-control[readonly] {
+        background-color: #f8f9fa;
+        cursor: not-allowed;
+        border-color: #dee2e6;
+    }
 </style>
 {% endblock %}
 
@@ -125,14 +170,34 @@
                     <!-- Sender Information -->
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label for="senderName" class="form-label">Sender Name</label>
-                            <input type="text" class="form-control" id="senderName" value="Emily Carter">
+                            <label for="senderName" class="form-label">
+                                Sender Name
+                                <small class="text-muted">(From Client)</small>
+                            </label>
+                            <input type="text" class="form-control" id="senderName"
+                                   value="{{ template.client.sender_name if template.client else 'No Client Assigned' }}"
+                                   readonly>
+                            <div class="form-text">Configured in Client settings</div>
                         </div>
                         <div class="col-md-6">
-                            <label for="senderEmail" class="form-label">Sender Email</label>
-                            <input type="email" class="form-control" id="senderEmail" value="emily.carter@savety.ai">
+                            <label for="senderEmail" class="form-label">
+                                Sender Email
+                                <small class="text-muted">(From Client)</small>
+                            </label>
+                            <input type="email" class="form-control" id="senderEmail"
+                                   value="{{ template.client.sender_email if template.client else 'no-client@example.com' }}"
+                                   readonly>
+                            <div class="form-text">Configured in Client settings</div>
                         </div>
                     </div>
+
+                    {% if not template.client %}
+                    <div class="alert alert-warning mb-3">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>No Client Assigned:</strong> This template needs a client to send emails.
+                        <a href="{{ url_for('templates.edit_template', template_id=template.id) }}">Edit template</a> to assign a client.
+                    </div>
+                    {% endif %}
 
                     <!-- Subject Line -->
                     <div class="mb-3">
@@ -142,43 +207,126 @@
 
                     <!-- Variable Insertion -->
                     <div class="mb-3">
-                        <label class="form-label">Insert Variables</label>
-                        <div class="border rounded p-2" style="max-height: 120px; overflow-y: auto;">
-                            <div class="mb-2">
-                                <strong class="text-muted small">Contact Variables:</strong><br>
-                                <button type="button" class="btn btn-outline-primary btn-variable" onclick="insertVariable('first_name')">
-                                    {first_name}
-                                </button>
-                                <button type="button" class="btn btn-outline-primary btn-variable" onclick="insertVariable('last_name')">
-                                    {last_name}
-                                </button>
-                                <button type="button" class="btn btn-outline-primary btn-variable" onclick="insertVariable('company')">
-                                    {company}
-                                </button>
-                                <button type="button" class="btn btn-outline-primary btn-variable" onclick="insertVariable('email')">
-                                    {email}
-                                </button>
-                                <button type="button" class="btn btn-outline-primary btn-variable" onclick="insertVariable('domain')">
-                                    {domain}
-                                </button>
+                        <label class="form-label"><i class="fas fa-tags me-1"></i>Insert Variables <small class="text-muted">(Click to insert)</small></label>
+
+                        <div class="border rounded p-0" style="overflow: hidden; background: white;">
+                            <div class="accordion accordion-flush" id="variablesAccordion">
+                            <!-- Contact Variables -->
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#contactVars">
+                                        <i class="fas fa-user text-primary me-2"></i>Contact Variables
+                                    </button>
+                                </h2>
+                                <div id="contactVars" class="accordion-collapse collapse show" data-bs-parent="#variablesAccordion">
+                                    <div class="accordion-body p-2">
+                                        <button type="button" class="btn btn-outline-primary btn-sm btn-variable" onclick="insertVariable('first_name')" title="Contact's first name">
+                                            {first_name}
+                                        </button>
+                                        <button type="button" class="btn btn-outline-primary btn-sm btn-variable" onclick="insertVariable('last_name')" title="Contact's last name">
+                                            {last_name}
+                                        </button>
+                                        <button type="button" class="btn btn-outline-primary btn-sm btn-variable" onclick="insertVariable('email')" title="Contact's email">
+                                            {email}
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="mb-2">
-                                <strong class="text-muted small">Sender Variables:</strong><br>
-                                <button type="button" class="btn btn-outline-secondary btn-variable" onclick="insertVariable('sender_name')">
-                                    {sender_name}
-                                </button>
+
+                            <!-- Company Variables -->
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#companyVars">
+                                        <i class="fas fa-building text-success me-2"></i>Company Variables
+                                    </button>
+                                </h2>
+                                <div id="companyVars" class="accordion-collapse collapse" data-bs-parent="#variablesAccordion">
+                                    <div class="accordion-body p-2">
+                                        <button type="button" class="btn btn-outline-success btn-sm btn-variable" onclick="insertVariable('company')" title="Company name">
+                                            {company}
+                                        </button>
+                                        <button type="button" class="btn btn-outline-success btn-sm btn-variable" onclick="insertVariable('domain')" title="Company domain">
+                                            {domain}
+                                        </button>
+                                        <button type="button" class="btn btn-outline-success btn-sm btn-variable" onclick="insertVariable('industry')" title="Industry">
+                                            {industry}
+                                        </button>
+                                        <button type="button" class="btn btn-outline-success btn-sm btn-variable" onclick="insertVariable('business_type')" title="Business type">
+                                            {business_type}
+                                        </button>
+                                        <button type="button" class="btn btn-outline-success btn-sm btn-variable" onclick="insertVariable('company_size')" title="Company size">
+                                            {company_size}
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
-                            <div>
-                                <strong class="text-muted small">Breach Variables:</strong><br>
-                                <button type="button" class="btn btn-outline-danger btn-variable" onclick="insertVariable('breach_count')">
-                                    {breach_count}
-                                </button>
-                                <button type="button" class="btn btn-outline-danger btn-variable" onclick="insertVariable('breach_sources_list')">
-                                    {breach_sources_list}
-                                </button>
-                                <button type="button" class="btn btn-outline-danger btn-variable" onclick="insertVariable('total_breached_accounts')">
-                                    {total_breached_accounts}
-                                </button>
+
+                            <!-- Client Variables -->
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#clientVars">
+                                        <i class="fas fa-crown text-warning me-2"></i>Client Variables (Your Branding)
+                                    </button>
+                                </h2>
+                                <div id="clientVars" class="accordion-collapse collapse" data-bs-parent="#variablesAccordion">
+                                    <div class="accordion-body p-2">
+                                        <button type="button" class="btn btn-outline-warning btn-sm btn-variable" onclick="insertVariable('client_company_name')" title="Your company">
+                                            {client_company_name}
+                                        </button>
+                                        <button type="button" class="btn btn-outline-warning btn-sm btn-variable" onclick="insertVariable('client_contact_name')" title="Your contact">
+                                            {client_contact_name}
+                                        </button>
+                                        <button type="button" class="btn btn-outline-warning btn-sm btn-variable" onclick="insertVariable('client_sender_name')" title="Sender name">
+                                            {client_sender_name}
+                                        </button>
+                                        <button type="button" class="btn btn-outline-warning btn-sm btn-variable" onclick="insertVariable('client_sender_email')" title="Sender email">
+                                            {client_sender_email}
+                                        </button>
+                                        <button type="button" class="btn btn-outline-warning btn-sm btn-variable" onclick="insertVariable('client_phone')" title="Your phone">
+                                            {client_phone}
+                                        </button>
+                                        <button type="button" class="btn btn-outline-warning btn-sm btn-variable" onclick="insertVariable('client_website')" title="Your website">
+                                            {client_website}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Campaign Variables -->
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#campaignVars">
+                                        <i class="fas fa-bullhorn text-info me-2"></i>Campaign Variables
+                                    </button>
+                                </h2>
+                                <div id="campaignVars" class="accordion-collapse collapse" data-bs-parent="#variablesAccordion">
+                                    <div class="accordion-body p-2">
+                                        <button type="button" class="btn btn-outline-info btn-sm btn-variable" onclick="insertVariable('campaign_name')" title="Campaign name">
+                                            {campaign_name}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Example -->
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#exampleVars">
+                                        <i class="fas fa-lightbulb text-secondary me-2"></i>Example Signature
+                                    </button>
+                                </h2>
+                                <div id="exampleVars" class="accordion-collapse collapse" data-bs-parent="#variablesAccordion">
+                                    <div class="accordion-body p-2">
+                                        <small class="text-muted">
+                                            <code style="font-size: 0.7rem; display: block; white-space: pre;">Best regards,
+{client_sender_name}
+{client_company_name}
+{client_sender_email} | {client_phone}
+{client_website}</code>
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
                             </div>
                         </div>
                     </div>
@@ -383,7 +531,8 @@ function updatePreview() {
         body: document.getElementById('emailBodyEditor').value,
         test_email: document.getElementById('testDataEmail').value,
         use_real_data: document.getElementById('useRealData').checked,
-        template_type: currentTemplate.type
+        template_type: currentTemplate.type,
+        template_id: currentTemplate.id  // Pass template ID to fetch client data
     };
 
     fetch('/templates/api/live-preview', {
@@ -459,7 +608,8 @@ function sendTestEmail() {
         recipient_email: recipientEmail,
         test_email: document.getElementById('testDataEmail').value,
         use_real_data: document.getElementById('useRealData').checked,
-        template_type: currentTemplate.type
+        template_type: currentTemplate.type,
+        template_id: currentTemplate.id  // Pass template ID to fetch client data and API key
     };
 
     showAlert('Sending test email...', 'info');

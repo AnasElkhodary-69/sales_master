@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for
-from models.database import db, EmailTemplate, EmailSequenceConfig, Settings
+from models.database import db, EmailTemplate, EmailSequenceConfig, Settings, Client
 from datetime import datetime
 import json
 import os
@@ -73,7 +73,12 @@ def create_template():
             sequence_order = request.form.get('sequence_order', 1)
             sequence_step = int(sequence_order) - 1
             print(f"DEBUG CREATE TEMPLATE: sequence_order={sequence_order}, sequence_step={sequence_step}")
-            
+
+            # Get client_id from form
+            client_id = request.form.get('client_id')
+            if client_id:
+                client_id = int(client_id) if client_id.strip() else None
+
             template = EmailTemplate(
                 name=request.form['name'],
                 template_type=request.form['template_type'],
@@ -84,32 +89,42 @@ def create_template():
                 created_at=datetime.utcnow(),
                 delay_amount=int(request.form.get('delay_amount', 0)),
                 delay_unit=request.form.get('delay_unit', 'days'),
+                target_industry=request.form.get('target_industry', 'general'),
+                category=request.form.get('target_industry', 'general'),
+                client_id=client_id,
                 available_variables=json.loads(request.form.get('available_variables', '[]'))
             )
-            
+
             db.session.add(template)
             db.session.commit()
-            
+
             flash('Template created successfully!', 'success')
             return redirect(url_for('templates.templates'))
-            
+
         except Exception as e:
             db.session.rollback()
             flash(f'Error creating template: {str(e)}', 'error')
             print(f"Error creating template: {e}")
-    
-    return render_template('template_editor.html', template=None)
+
+    # Get clients for dropdown
+    clients = Client.query.filter_by(is_active=True).order_by(Client.company_name).all()
+    return render_template('template_editor.html', template=None, clients=clients)
 
 @templates_bp.route('/<int:template_id>/edit', methods=['GET', 'POST'])
 def edit_template(template_id):
     """Edit existing email template"""
     template = EmailTemplate.query.get_or_404(template_id)
-    
+
     if request.method == 'POST':
         try:
             sequence_order = request.form.get('sequence_order', 1)
             sequence_step = int(sequence_order) - 1
-            
+
+            # Get client_id from form
+            client_id = request.form.get('client_id')
+            if client_id:
+                client_id = int(client_id) if client_id.strip() else None
+
             template.name = request.form['name']
             template.template_type = request.form['template_type']
             template.sequence_step = sequence_step
@@ -117,18 +132,23 @@ def edit_template(template_id):
             template.email_body = request.form['email_body']
             template.delay_amount = int(request.form.get('delay_amount', 0))
             template.delay_unit = request.form.get('delay_unit', 'days')
+            template.target_industry = request.form.get('target_industry', 'general')
+            template.category = request.form.get('target_industry', 'general')
+            template.client_id = client_id
             template.available_variables = json.loads(request.form.get('available_variables', '[]'))
             template.updated_at = datetime.utcnow()
-            
+
             db.session.commit()
             flash('Template updated successfully!', 'success')
             return redirect(url_for('templates.templates'))
-            
+
         except Exception as e:
             db.session.rollback()
             flash(f'Error updating template: {str(e)}', 'error')
-    
-    return render_template('template_editor.html', template=template)
+
+    # Get clients for dropdown
+    clients = Client.query.filter_by(is_active=True).order_by(Client.company_name).all()
+    return render_template('template_editor.html', template=template, clients=clients)
 
 @templates_bp.route('/<int:template_id>/preview')
 def preview_template(template_id):
@@ -249,15 +269,42 @@ def live_preview():
         test_email = request.json.get('test_email', '')
         use_real_data = request.json.get('use_real_data', False)
         template_type = request.json.get('template_type', '')
+        template_id = request.json.get('template_id')  # Get template ID to fetch client data
 
-        # Test data defaults - use blank values for all variables when not available
+        # Get client data from template if available
+        client = None
+        if template_id:
+            template = EmailTemplate.query.get(template_id)
+            if template and template.client_id:
+                client = Client.query.get(template.client_id)
+
+        # Test data defaults - include ALL variables with sample data
         test_data = {
-            'first_name': '',
-            'last_name': '',
-            'company': '',
-            'email': test_email or '',
-            'domain': '',
-            'sender_name': 'Emily Carter',  # Keep sender info
+            # Contact variables
+            'first_name': 'John',
+            'last_name': 'Smith',
+            'email': test_email or 'john.smith@example.com',
+
+            # Company variables
+            'company': 'Acme Corp',
+            'domain': 'acmecorp.com',
+            'industry': 'Technology',
+            'business_type': 'B2B Software',
+            'company_size': '50-200 employees',
+
+            # Client variables (use real client data if available, otherwise use defaults)
+            'client_company_name': client.company_name if client else 'Your Company',
+            'client_contact_name': client.contact_name if client else client.sender_name if client else 'Your Name',
+            'client_sender_name': client.sender_name if client else 'Your Sender Name',
+            'client_sender_email': client.sender_email if client else 'you@example.com',
+            'client_phone': client.phone if client else '+1 (555) 000-0000',
+            'client_website': client.website if client else 'https://yourwebsite.com',
+
+            # Campaign variables
+            'campaign_name': 'Q1 Outreach Campaign',
+
+            # Legacy breach variables
+            'sender_name': client.sender_name if client else 'Your Sender Name',
             'breach_count': '',
             'breach_sources_list': '',
             'total_breached_accounts': '',
@@ -312,6 +359,7 @@ def send_test_email():
         test_email = request.json.get('test_email', '')
         use_real_data = request.json.get('use_real_data', False)
         template_type = request.json.get('template_type', '')
+        template_id = request.json.get('template_id')  # Get template ID to fetch client data
 
         if not recipient_email:
             return jsonify({
@@ -319,14 +367,44 @@ def send_test_email():
                 'error': 'Recipient email is required'
             }), 400
 
-        # Test data defaults - use blank values for all variables when not available
+        # Get client data from template if available
+        client = None
+        if template_id:
+            template = EmailTemplate.query.get(template_id)
+            if template and template.client_id:
+                client = Client.query.get(template.client_id)
+                # Override sender info with client's data if available
+                if client:
+                    sender_name = client.sender_name
+                    sender_email = client.sender_email
+
+        # Test data defaults - include ALL variables with sample data
         test_data = {
-            'first_name': '',
-            'last_name': '',
-            'company': '',
-            'email': test_email or '',
-            'domain': '',
-            'sender_name': sender_name,  # Keep sender info
+            # Contact variables
+            'first_name': 'John',
+            'last_name': 'Smith',
+            'email': test_email or 'john.smith@example.com',
+
+            # Company variables
+            'company': 'Acme Corp',
+            'domain': 'acmecorp.com',
+            'industry': 'Technology',
+            'business_type': 'B2B Software',
+            'company_size': '50-200 employees',
+
+            # Client variables (use real client data if available, otherwise use defaults)
+            'client_company_name': client.company_name if client else 'Your Company',
+            'client_contact_name': client.contact_name if client else 'Your Name',
+            'client_sender_name': client.sender_name if client else sender_name,
+            'client_sender_email': client.sender_email if client else sender_email,
+            'client_phone': client.phone if client else '+1 (555) 000-0000',
+            'client_website': client.website if client else 'https://yourwebsite.com',
+
+            # Campaign variables
+            'campaign_name': 'Q1 Outreach Campaign',
+
+            # Legacy variables
+            'sender_name': sender_name,
             'breach_count': '',
             'breach_sources_list': '',
             'total_breached_accounts': '',
@@ -364,9 +442,21 @@ def send_test_email():
             # Add test prefix to subject
             final_subject = f"[TEST] {final_subject}"
 
+            # Try to find the client based on sender_email to use their Brevo API key
+            client = Client.query.filter_by(sender_email=sender_email).first()
+
+            if client and client.brevo_api_key:
+                # Use client's Brevo API key
+                brevo_api_key = client.brevo_api_key
+                print(f"Using client {client.company_name}'s Brevo API key for test email")
+            else:
+                # Fallback to default API key
+                brevo_api_key = os.getenv('BREVO_API_KEY')
+                print(f"Using default Brevo API key for test email (sender: {sender_email})")
+
             # Create email service
             class Config:
-                BREVO_API_KEY = os.getenv('BREVO_API_KEY')
+                BREVO_API_KEY = brevo_api_key
                 BREVO_SENDER_EMAIL = sender_email
                 BREVO_SENDER_NAME = sender_name
 

@@ -78,7 +78,7 @@
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <label for="name" class="form-label">Template Name *</label>
-                                <input type="text" class="form-control" id="name" name="name" 
+                                <input type="text" class="form-control" id="name" name="name"
                                        value="{{ template.name if template else '' }}" required>
                             </div>
                             <div class="col-md-6">
@@ -90,8 +90,20 @@
                             </div>
                         </div>
 
-                        <!-- Target Industry field -->
+                        <!-- Client and Industry Selection -->
                         <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="client_id" class="form-label">Client *</label>
+                                <select class="form-select" id="client_id" name="client_id" required>
+                                    <option value="">Select a client...</option>
+                                    {% for client in clients %}
+                                    <option value="{{ client.id }}" {{ 'selected' if template and template.client_id == client.id else '' }}>
+                                        {{ client.company_name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                <div class="form-text">This template will only be available for the selected client</div>
+                            </div>
                             <div class="col-md-6">
                                 <label for="target_industry" class="form-label">Target Industry</label>
                                 <select class="form-select" id="target_industry" name="target_industry">
@@ -185,33 +197,60 @@
                         <h5 class="mb-0"><i class="fas fa-tags me-2"></i>Template Variables</h5>
                     </div>
                     <div class="card-body variables-panel">
-                        <p class="text-muted mb-3">Click to insert variables into your template:</p>
-                        
-                        <h6 class="text-primary mb-2">Contact Information</h6>
+                        <p class="text-muted mb-3"><small>Click any variable to insert it into your template:</small></p>
+
+                        <!-- Contact Variables -->
+                        <h6 class="text-primary mb-2"><i class="fas fa-user me-1"></i>Contact Variables</h6>
                         <div class="mb-3">
-                            <span class="variable-tag" data-variable="first_name">{first_name}</span>
-                            <span class="variable-tag" data-variable="last_name">{last_name}</span>
-                            <span class="variable-tag" data-variable="name">{name}</span>
-                            <span class="variable-tag" data-variable="email">{email}</span>
+                            <span class="variable-tag" data-variable="first_name" title="Contact's first name">{first_name}</span>
+                            <span class="variable-tag" data-variable="last_name" title="Contact's last name">{last_name}</span>
+                            <span class="variable-tag" data-variable="email" title="Contact's email address">{email}</span>
                         </div>
 
-                        <h6 class="text-success mb-2">Company Information</h6>
+                        <!-- Company Variables -->
+                        <h6 class="text-success mb-2"><i class="fas fa-building me-1"></i>Company Variables</h6>
                         <div class="mb-3">
-                            <span class="variable-tag" data-variable="company">{company}</span>
-                            <span class="variable-tag" data-variable="domain">{domain}</span>
-                            <span class="variable-tag" data-variable="title">{title}</span>
-                            <span class="variable-tag" data-variable="industry">{industry}</span>
+                            <span class="variable-tag" data-variable="company" title="Contact's company name">{company}</span>
+                            <span class="variable-tag" data-variable="domain" title="Company domain">{domain}</span>
+                            <span class="variable-tag" data-variable="industry" title="Company industry">{industry}</span>
+                            <span class="variable-tag" data-variable="business_type" title="Type of business">{business_type}</span>
+                            <span class="variable-tag" data-variable="company_size" title="Company size">{company_size}</span>
                         </div>
 
-                        <h6 class="text-info mb-2">Sample Values</h6>
-                        <small class="text-muted">
-                            • {first_name} → John<br>
-                            • {last_name} → Smith<br>
-                            • {name} → John Smith<br>
-                            • {company} → Acme Corp<br>
-                            • {industry} → Healthcare<br>
-                            • {title} → IT Director<br>
-                        </small>
+                        <!-- Client Variables (Multi-tenant Branding) -->
+                        <h6 class="text-warning mb-2"><i class="fas fa-crown me-1"></i>Client Variables (Your Branding)</h6>
+                        <div class="mb-3">
+                            <span class="variable-tag" data-variable="client_company_name" title="Your company name">{client_company_name}</span>
+                            <span class="variable-tag" data-variable="client_contact_name" title="Your contact name">{client_contact_name}</span>
+                            <span class="variable-tag" data-variable="client_sender_name" title="Your sender name">{client_sender_name}</span>
+                            <span class="variable-tag" data-variable="client_sender_email" title="Your sender email">{client_sender_email}</span>
+                            <span class="variable-tag" data-variable="client_phone" title="Your phone number">{client_phone}</span>
+                            <span class="variable-tag" data-variable="client_website" title="Your website URL">{client_website}</span>
+                        </div>
+
+                        <!-- Campaign Variables -->
+                        <h6 class="text-info mb-2"><i class="fas fa-bullhorn me-1"></i>Campaign Variables</h6>
+                        <div class="mb-3">
+                            <span class="variable-tag" data-variable="campaign_name" title="Campaign name">{campaign_name}</span>
+                        </div>
+
+                        <!-- Example Usage -->
+                        <div class="alert alert-light mt-3 p-2">
+                            <h6 class="mb-2"><i class="fas fa-lightbulb me-1"></i>Example Usage:</h6>
+                            <small class="text-muted">
+                                <strong>Contact:</strong> {first_name} → John<br>
+                                <strong>Company:</strong> {company} → Acme Corp<br>
+                                <strong>Client:</strong> {client_company_name} → Ai2Go<br>
+                                <strong>Signature Example:</strong><br>
+                                <code style="font-size: 0.75rem;">
+                                Best regards,<br>
+                                {client_sender_name}<br>
+                                {client_company_name}<br>
+                                {client_sender_email}<br>
+                                {client_phone}
+                                </code>
+                            </small>
+                        </div>
                     </div>
                 </div>
 
@@ -276,14 +315,28 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Sample data for preview
     const sampleData = {
+        // Contact variables
         'first_name': 'John',
         'last_name': 'Smith',
-        'name': 'John Smith',
         'email': 'john.smith@acmecorp.com',
+
+        // Company variables
         'company': 'Acme Corp',
         'domain': 'acmecorp.com',
-        'title': 'IT Director',
-        'industry': 'Healthcare'
+        'industry': 'Healthcare',
+        'business_type': 'B2B Software',
+        'company_size': '50-200 employees',
+
+        // Client variables (your branding)
+        'client_company_name': 'Ai2Go',
+        'client_contact_name': 'Sarah Johnson',
+        'client_sender_name': 'Sarah from Ai2Go',
+        'client_sender_email': 'sarah@ai2go.com',
+        'client_phone': '+1 (555) 123-4567',
+        'client_website': 'https://ai2go.com',
+
+        // Campaign variables
+        'campaign_name': 'Q1 Outreach Campaign'
     };
     
     // Update preview function

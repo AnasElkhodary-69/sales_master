@@ -170,12 +170,13 @@ def new_campaign():
             print(f"Request path: {request.path}")
             print("===========================================")
             try:
-                # Handle target risk levels (multiple checkboxes)
-                target_risk_levels = request.form.getlist('target_risk_levels')
+                # Handle target industries (multiple checkboxes)
+                target_industries = request.form.getlist('target_industries')
                 
                 # Get template or sequence ID based on campaign type
                 campaign_type = request.form.get('campaign_type')
                 template_id = None
+                sequence_config_id = None
                 selected_variant_id = None
 
                 if campaign_type == 'single':
@@ -183,24 +184,20 @@ def new_campaign():
                     selected_variant_id = request.form.get('selected_variant_id')
                     print(f"Single campaign: template_id={template_id}, selected_variant_id={selected_variant_id}")
                 elif campaign_type == 'sequence':
-                    # For sequences, use the first template (sequence_step = 0) of the matching category
-                    sequence_id = request.form.get('sequence_id')
+                    # For sequences, store the sequence_config_id
+                    sequence_config_id = request.form.get('sequence_id')
+                    print(f"Sequence campaign: sequence_config_id={sequence_config_id}")
 
-                    # Find the initial template for this category/template_type
+                    # Get the first template for initial email (optional, for backward compatibility)
                     initial_template = EmailTemplate.query.filter(
                         EmailTemplate.sequence_step == 0,
                         EmailTemplate.is_active == True
                     ).first()
-                    
+
                     if initial_template:
                         template_id = initial_template.id
-                    else:
-                        # Fallback to any template with sequence_step = 0
-                        fallback_template = EmailTemplate.query.filter(EmailTemplate.sequence_step == 0).first()
-                        if fallback_template:
-                            template_id = fallback_template.id
-                
-                # Ensure template_id is always set
+
+                # Ensure at least template_id is set for backward compatibility
                 if not template_id:
                     fallback_template = EmailTemplate.query.first()
                     if fallback_template:
@@ -215,18 +212,21 @@ def new_campaign():
                 approval_mode = request.form.get('approval_mode', 'automatic')
                 requires_approval = approval_mode in ['manual_approval', 'batch_approval']
 
+                # Get client_id from form
+                client_id = request.form.get('client_id')
+
                 campaign = Campaign(
                     name=request.form['name'],
                     description=request.form.get('description', ''),
+                    client_id=int(client_id) if client_id else None,
                     sender_name=request.form.get('sender_name'),
                     sender_email=request.form.get('sender_email'),
-                    template_type=request.form.get('template_type', 'unknown'),
                     template_id=template_id if template_id else None,
-                    target_risk_levels=target_risk_levels,
+                    sequence_config_id=int(sequence_config_id) if sequence_config_id else None,
+                    target_industries=request.form.getlist('target_industries'),  # Use industry targeting
                     daily_limit=int(request.form.get('daily_limit', 50)),
                     status='active',  # Set to active when launched
                     auto_enroll=auto_enroll,
-                    # Breach-based enrollment removed,
                     # Email approval workflow fields
                     requires_approval=requires_approval,
                     approval_mode=approval_mode
@@ -282,37 +282,42 @@ def new_campaign():
             print(f"DEBUG: Full traceback: {traceback.format_exc()}")
             templates = []
         
-        # Create sequences from EmailTemplate objects grouped by breach_template_type
+        # Load real sequences from EmailSequenceConfig
+        print("DEBUG: Loading sequences from EmailSequenceConfig")
         sequences = []
-        template_groups = {}
-        
-        # Group templates by risk_level (e.g., 'breached', 'unknown') 
-        # Each risk level becomes its own sequence
-        for template in templates:
-            template_type = template.category or template.template_type or 'unknown'
-            if template_type not in template_groups:
-                template_groups[template_type] = []
-            template_groups[template_type].append(template)
-        
-        # Create sequence objects for each group
-        for template_type, template_list in template_groups.items():
-            # Sort templates by sequence_step to ensure correct ordering
-            sorted_templates = sorted(template_list, key=lambda t: t.sequence_step or 0)
-            
-            sequences.append({
-                'id': template_type,  # Use template_type as unique ID
-                'name': f'{template_type.title()} Email Sequence',
-                'risk_level': template_type,
-                'description': f'{len(sorted_templates)}-email sequence for {template_type} contacts',
-                'template_count': len(sorted_templates),
-                'templates': sorted_templates  # Include the actual templates
-            })
-        
-        print(f"DEBUG: Found {len(templates)} templates, {len(template_groups)} groups, created {len(sequences)} sequences")
-        for group_name, group_templates in template_groups.items():
-            print(f"DEBUG: Group '{group_name}' has {len(group_templates)} templates")
-        for i, seq in enumerate(sequences):
-            print(f"DEBUG: Sequence {i}: {seq}")
+        try:
+            from models.database import EmailSequenceConfig
+
+            sequence_configs = EmailSequenceConfig.query.filter_by(is_active=True).all()
+            print(f"DEBUG: Found {len(sequence_configs)} active sequence configs in database")
+
+            for seq_config in sequence_configs:
+                # Count EmailTemplate records for this sequence's client and industry
+                # Templates are linked by client_id and target_industry/category
+                step_count = EmailTemplate.query.filter(
+                    EmailTemplate.client_id == seq_config.client_id,
+                    db.or_(
+                        EmailTemplate.target_industry == seq_config.target_industry,
+                        EmailTemplate.category == seq_config.target_industry
+                    ),
+                    EmailTemplate.is_active == True
+                ).count()
+
+                sequences.append({
+                    'id': seq_config.id,
+                    'name': seq_config.name,
+                    'description': seq_config.description or f'{step_count}-step sequence',
+                    'target_industry': seq_config.target_industry,
+                    'client_id': seq_config.client_id,  # Add client_id for filtering
+                    'max_follow_ups': seq_config.max_follow_ups,
+                    'template_count': step_count
+                })
+                print(f"DEBUG: Loaded sequence: {seq_config.name} (ID: {seq_config.id}, Client: {seq_config.client_id}, Templates: {step_count})")
+
+        except Exception as e:
+            print(f"DEBUG: Error loading sequences from database: {e}")
+            import traceback
+            traceback.print_exc()
         
         # If no templates exist in database, use demo templates as fallback
         if not templates:
@@ -344,30 +349,10 @@ def new_campaign():
             # Convert SQLAlchemy objects to dict for template consistency
             templates = [template.to_dict() for template in templates]
         
-        # If no sequences were created from templates, use demo sequences as fallback
-        print(f"DEBUG: Checking if we need demo sequences: sequences={len(sequences)}")
+        # If no sequences found, show empty list (user needs to create sequences)
+        print(f"DEBUG: Total sequences loaded: {len(sequences)}")
         if not sequences:
-            demo_sequences = [
-                {
-                    'id': 'breached',
-                    'name': 'Breach Response Follow-up Sequence',
-                    'risk_level': 'breached',
-                    'description': '5-email sequence for breached contacts'
-                },
-                {
-                    'id': 'unknown',
-                    'name': 'Security Assessment Follow-up Sequence',
-                    'risk_level': 'unknown',
-                    'description': '3-email sequence for unknown status contacts'
-                },
-                {
-                    'id': 'proactive',
-                    'name': 'Proactive Security Follow-up Sequence',
-                    'risk_level': 'proactive',
-                    'description': '2-email sequence for proactive contacts'
-                }
-            ]
-            sequences = demo_sequences
+            print("DEBUG: No sequences found in database. User needs to create sequences first.")
         
         # Debug logging
         print("DEBUG: Final sequences ready for template")
@@ -437,30 +422,26 @@ def new_campaign():
             }
         ]
         
-        demo_sequences = [
-            {
-                'id': 1,
-                'name': 'Breach Response Follow-up Sequence',
-                'risk_level': 'breached',
-                'description': '5-email sequence for breached contacts'
-            },
-            {
-                'id': 2,
-                'name': 'Security Assessment Follow-up Sequence',
-                'risk_level': 'unknown',
-                'description': '3-email sequence for unknown status contacts'
-            },
-            {
-                'id': 3,
-                'name': 'Proactive Security Follow-up Sequence',
-                'risk_level': 'secure',
-                'description': '2-email sequence for secure contacts'
-            }
-        ]
-        
-        return render_template('new_campaign.html', 
-                             templates=demo_templates, 
-                             sequences=demo_sequences,
+        # Load sequences even in error state
+        sequences = []
+        try:
+            from models.database import EmailSequenceConfig
+            sequence_configs = EmailSequenceConfig.query.filter_by(is_active=True).all()
+            for seq_config in sequence_configs:
+                step_count = seq_config.steps.count()
+                sequences.append({
+                    'id': seq_config.id,
+                    'name': seq_config.name,
+                    'description': seq_config.description or f'{step_count}-step sequence',
+                    'target_industry': seq_config.target_industry,
+                    'max_follow_ups': seq_config.max_follow_ups
+                })
+        except:
+            sequences = []
+
+        return render_template('new_campaign.html',
+                             templates=demo_templates,
+                             sequences=sequences,
                              contact_stats=contact_stats,
                              error="Some features may be limited")
 

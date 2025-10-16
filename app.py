@@ -59,6 +59,11 @@ def create_app():
     app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(basedir, "data", "app.db")}'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+    # Disable template caching for development
+    app.config['TEMPLATES_AUTO_RELOAD'] = True
+    app.jinja_env.auto_reload = True
+    app.jinja_env.cache = {}
+
     # File upload configuration
     app.config['MAX_CONTENT_LENGTH'] = int(os.getenv('MAX_CONTENT_LENGTH', '16777216'))  # 16MB default
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {

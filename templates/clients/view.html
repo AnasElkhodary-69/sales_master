@@ -161,7 +161,7 @@
                                     </td>
                                     <td>{{ campaign.created_at.strftime('%b %d, %Y') if campaign.created_at }}</td>
                                     <td>
-                                        <a href="{{ url_for('campaigns.campaign_details', campaign_id=campaign.id) }}"
+                                        <a href="{{ url_for('campaigns.view_campaign', campaign_id=campaign.id) }}"
                                            class="btn btn-sm btn-outline-primary" title="View Details">
                                             <i class="fas fa-eye"></i>
                                         </a>

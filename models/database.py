@@ -308,6 +308,9 @@ class EmailTemplate(db.Model):
     name = db.Column(db.String(255), nullable=False)
     template_type = db.Column(db.String(50), nullable=False)  # initial, follow_up
 
+    # Client relationship (for multi-tenant SaaS)
+    client_id = db.Column(db.Integer, db.ForeignKey('clients.id'), nullable=True)
+
     # Removed: risk_level, breach_template_type
     # Now uses industry/purpose categorization
     category = db.Column(db.String(100))  # e.g., "Sales Outreach", "Partnership", "Product Launch"
@@ -463,6 +466,9 @@ class Client(db.Model):
     company_name = db.Column(db.String(255), nullable=False, unique=True)
     domain = db.Column(db.String(255))
     industry = db.Column(db.String(100))
+    website = db.Column(db.String(255))
+    phone = db.Column(db.String(50))
+    contact_name = db.Column(db.String(255))
 
     # Sender Configuration (for campaigns)
     sender_email = db.Column(db.String(255), nullable=False, unique=True)
@@ -486,6 +492,8 @@ class Client(db.Model):
 
     # Relationships
     campaigns = db.relationship('Campaign', backref='client', lazy='dynamic')
+    templates = db.relationship('EmailTemplate', backref='client', lazy='dynamic')
+    sequences = db.relationship('EmailSequenceConfig', backref='client', lazy='dynamic')
 
     def __repr__(self):
         return f'<Client {self.company_name} - {self.sender_email}>'
@@ -496,6 +504,9 @@ class Client(db.Model):
             'company_name': self.company_name,
             'domain': self.domain,
             'industry': self.industry,
+            'website': self.website,
+            'phone': self.phone,
+            'contact_name': self.contact_name,
             'sender_email': self.sender_email,
             'sender_name': self.sender_name,
             'reply_to_email': self.reply_to_email,
@@ -531,6 +542,9 @@ class EmailSequenceConfig(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text)
+
+    # Client relationship (for multi-tenant SaaS)
+    client_id = db.Column(db.Integer, db.ForeignKey('clients.id'), nullable=True)
 
     # Sequence behavior settings
     max_follow_ups = db.Column(db.Integer, default=5)

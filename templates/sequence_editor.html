@@ -73,13 +73,28 @@
                     <div class="card-body">
                         <!-- Basic Info -->
                         <div class="row mb-3">
-                            <div class="col-md-8">
+                            <div class="col-md-12">
                                 <label for="name" class="form-label">Sequence Name *</label>
-                                <input type="text" class="form-control" id="name" name="name" 
+                                <input type="text" class="form-control" id="name" name="name"
                                        value="{{ sequence.name if sequence else '' }}" required
                                        placeholder="e.g., High-Risk Prospect Follow-up">
                             </div>
-                            <div class="col-md-4">
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="client_id" class="form-label">Client *</label>
+                                <select class="form-select" id="client_id" name="client_id" required>
+                                    <option value="">Select a client...</option>
+                                    {% for client in clients %}
+                                    <option value="{{ client.id }}" {{ 'selected' if sequence and sequence.client_id == client.id else '' }}>
+                                        {{ client.company_name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                <div class="form-text">This sequence will only be available for the selected client</div>
+                            </div>
+                            <div class="col-md-6">
                                 <label for="target_industry" class="form-label">Target Industry *</label>
                                 <select class="form-select" id="target_industry" name="target_industry" required>
                                     <option value="general" {{ 'selected' if sequence and sequence.target_industry == 'general' else '' }}>📧 General</option>

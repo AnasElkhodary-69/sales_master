@@ -250,19 +250,30 @@
                                     <input type="hidden" id="campaignType" name="campaign_type" required>
                                 </div>
                                 
+                                <!-- Client Selector -->
+                                <div class="mb-3">
+                                    <label for="clientSelect" class="form-label">Select Client/Company *</label>
+                                    <select class="form-select" id="clientSelect" name="client_id" required>
+                                        <option value="">Choose a client...</option>
+                                    </select>
+                                    <div class="form-text">Client configuration will auto-populate sender information</div>
+                                </div>
+
                                 <div class="row">
                                     <div class="col-md-6">
                                         <div class="mb-3">
                                             <label for="senderName" class="form-label">Sender Name *</label>
-                                            <input type="text" class="form-control" id="senderName" name="sender_name" 
-                                                   value="{{ campaign.sender_name if edit_mode else 'Security Team' }}" required>
+                                            <input type="text" class="form-control" id="senderName" name="sender_name"
+                                                   value="{{ campaign.sender_name if edit_mode else '' }}" readonly required>
+                                            <div class="form-text">Auto-filled from selected client</div>
                                         </div>
                                     </div>
                                     <div class="col-md-6">
                                         <div class="mb-3">
                                             <label for="senderEmail" class="form-label">Sender Email *</label>
-                                            <input type="email" class="form-control" id="senderEmail" name="sender_email" 
-                                                   value="{{ campaign.sender_email if edit_mode else 'emily.carter@savety.ai' }}" required>
+                                            <input type="email" class="form-control" id="senderEmail" name="sender_email"
+                                                   value="{{ campaign.sender_email if edit_mode else '' }}" readonly required>
+                                            <div class="form-text">Auto-filled from selected client</div>
                                         </div>
                                     </div>
                                 </div>
@@ -388,7 +399,7 @@
                                         <select class="form-select" id="templateSelect" name="template_id">
                                             <option value="">Select an email template...</option>
                                             {% for template in templates %}
-                                            <option value="{{ template.id }}" data-type="{{ template.template_type }}">
+                                            <option value="{{ template.id }}" data-type="{{ template.template_type }}" data-client-id="{{ template.client_id if template.client_id else '' }}">
                                                 {{ template.name }} ({{ template.template_type.replace('_', ' ').title() }})
                                             </option>
                                             {% endfor %}
@@ -455,7 +466,7 @@
                                         <select class="form-select" id="sequenceSelect" name="sequence_id">
                                             <option value="">Select an email sequence...</option>
                                             {% for sequence in sequences %}
-                                            <option value="{{ sequence.id }}">
+                                            <option value="{{ sequence.id }}" data-client-id="{{ sequence.client_id if sequence.client_id else '' }}">
                                                 {{ sequence.name }} - {{ sequence.description }}
                                             </option>
                                             {% endfor %}
@@ -887,27 +898,35 @@ function validateCurrentStep() {
     switch (currentStep) {
         case 1: // Campaign Details
             const campaignName = document.getElementById('campaignName');
+            const clientSelect = document.getElementById('clientSelect');
             const senderName = document.getElementById('senderName');
             const senderEmail = document.getElementById('senderEmail');
-            
+
             if (!campaignName || !campaignName.value.trim()) {
                 showError('Please enter a Campaign Name to continue.');
                 campaignName.focus();
                 return false;
             }
-            
+
+            // Client selection validation
+            if (!clientSelect || !clientSelect.value) {
+                showError('Please select a Client/Company to continue.');
+                if (clientSelect) clientSelect.focus();
+                return false;
+            }
+
             if (!senderName || !senderName.value.trim()) {
-                showError('Please enter a Sender Name to continue.');
-                senderName.focus();
+                showError('Please select a client first. Sender Name will be auto-filled.');
+                if (clientSelect) clientSelect.focus();
                 return false;
             }
-            
+
             if (!senderEmail || !senderEmail.value.trim()) {
-                showError('Please enter a Sender Email to continue.');
-                senderEmail.focus();
+                showError('Please select a client first. Sender Email will be auto-filled.');
+                if (clientSelect) clientSelect.focus();
                 return false;
             }
-            
+
             // Basic email validation
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
             if (!emailRegex.test(senderEmail.value)) {
@@ -915,13 +934,13 @@ function validateCurrentStep() {
                 senderEmail.focus();
                 return false;
             }
-            
+
             // Campaign type validation
             if (!selectedCampaignType) {
                 showError('Please select a Campaign Type (Single Email or Email Sequence).');
                 return false;
             }
-            
+
             break;
             
         case 2: // Select Contacts
@@ -1255,8 +1274,132 @@ function updateSummary() {
         totalContacts > 0 ? totalContacts + ' contacts (filtered by industry)' : '-';
 }
 
+// Load clients on page load
+function loadClients() {
+    fetch('/clients/api/list')
+        .then(response => response.json())
+        .then(data => {
+            console.log('Clients API response:', data);
+            const clientSelect = document.getElementById('clientSelect');
+
+            if (data.success && data.clients && clientSelect) {
+                data.clients.forEach(client => {
+                    const option = document.createElement('option');
+                    option.value = client.id;
+                    option.textContent = `${client.company_name} (${client.sender_email})`;
+                    option.dataset.senderName = client.sender_name;
+                    option.dataset.senderEmail = client.sender_email;
+                    clientSelect.appendChild(option);
+                });
+
+                if (data.clients.length === 0) {
+                    showError('No clients found. Please create a client first before creating a campaign.');
+                }
+            } else {
+                console.error('Invalid API response:', data);
+                showError('Failed to load clients. Please refresh the page.');
+            }
+        })
+        .catch(error => {
+            console.error('Error loading clients:', error);
+            showError('Failed to load clients. Please refresh the page.');
+        });
+}
+
+// Handle client selection change
+function handleClientSelection() {
+    const clientSelect = document.getElementById('clientSelect');
+    const senderName = document.getElementById('senderName');
+    const senderEmail = document.getElementById('senderEmail');
+
+    const selectedClientId = clientSelect.value;
+
+    if (clientSelect && clientSelect.selectedIndex > 0) {
+        const selectedOption = clientSelect.options[clientSelect.selectedIndex];
+        senderName.value = selectedOption.dataset.senderName || '';
+        senderEmail.value = selectedOption.dataset.senderEmail || '';
+
+        // Filter templates and sequences by client
+        filterTemplatesByClient(selectedClientId);
+        filterSequencesByClient(selectedClientId);
+    } else {
+        senderName.value = '';
+        senderEmail.value = '';
+        // Show all templates/sequences if no client selected
+        filterTemplatesByClient(null);
+        filterSequencesByClient(null);
+    }
+}
+
+// Filter template dropdown by client_id
+function filterTemplatesByClient(clientId) {
+    const templateSelect = document.getElementById('templateSelect');
+    if (!templateSelect) return;
+
+    const allOptions = templateSelect.querySelectorAll('option');
+    allOptions.forEach(option => {
+        if (option.value === '') {
+            // Keep the placeholder option
+            option.style.display = '';
+            return;
+        }
+
+        // Show option if no client filter or if it matches the client
+        const optionClientId = option.dataset.clientId;
+        if (!clientId || optionClientId === clientId) {
+            option.style.display = '';
+        } else {
+            option.style.display = 'none';
+        }
+    });
+
+    // Reset selection if current selection is now hidden
+    const currentOption = templateSelect.options[templateSelect.selectedIndex];
+    if (currentOption && currentOption.style.display === 'none') {
+        templateSelect.selectedIndex = 0;
+    }
+}
+
+// Filter sequence dropdown by client_id
+function filterSequencesByClient(clientId) {
+    const sequenceSelect = document.getElementById('sequenceSelect');
+    if (!sequenceSelect) return;
+
+    const allOptions = sequenceSelect.querySelectorAll('option');
+    allOptions.forEach(option => {
+        if (option.value === '') {
+            // Keep the placeholder option
+            option.style.display = '';
+            return;
+        }
+
+        // Show option if no client filter or if it matches the client
+        const optionClientId = option.dataset.clientId;
+        if (!clientId || optionClientId === clientId) {
+            option.style.display = '';
+        } else {
+            option.style.display = 'none';
+        }
+    });
+
+    // Reset selection if current selection is now hidden
+    const currentOption = sequenceSelect.options[sequenceSelect.selectedIndex];
+    if (currentOption && currentOption.style.display === 'none') {
+        sequenceSelect.selectedIndex = 0;
+    }
+}
+
 // Basic initialization
 document.addEventListener('DOMContentLoaded', function() {
+    // Load clients
+    loadClients();
+
+    // Setup client selection change handler
+    const clientSelect = document.getElementById('clientSelect');
+    if (clientSelect) {
+        clientSelect.addEventListener('change', handleClientSelection);
+    }
+
     // Setup Select All checkbox for industries
     const selectAllCheckbox = document.getElementById('selectAllIndustries');
     if (selectAllCheckbox) {

@@ -2,6 +2,8 @@
 
 {% block title %}Add New Client - Sales Master{% endblock %}
 
+<!-- TEMPLATE UPDATED 2025-10-15 22:06 - NEW FIELDS ADDED -->
+
 {% block content %}
 <div class="container-fluid">
     <!-- Header -->
@@ -37,9 +39,30 @@
                                 <div class="form-text">The legal name of the client company</div>
                             </div>
                             <div class="col-md-6">
+                                <label for="contact_name" class="form-label">Contact Name</label>
+                                <input type="text" class="form-control" id="contact_name" name="contact_name" placeholder="John Smith">
+                                <div class="form-text">Primary contact person name</div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="website" class="form-label">Website</label>
+                                <input type="url" class="form-control" id="website" name="website" placeholder="https://example.com">
+                                <div class="form-text">Company website URL</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="phone" class="form-label">Phone Number</label>
+                                <input type="tel" class="form-control" id="phone" name="phone" placeholder="+1 (555) 000-0000">
+                                <div class="form-text">Contact phone number</div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
                                 <label for="domain" class="form-label">Domain</label>
                                 <input type="text" class="form-control" id="domain" name="domain" placeholder="example.com">
-                                <div class="form-text">Company website domain (optional)</div>
+                                <div class="form-text">Company email domain (optional)</div>
                             </div>
                         </div>
 

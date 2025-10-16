@@ -303,26 +303,56 @@ def get_template_for_sequence_step(campaign, sequence_step, template_type):
 
 
 def send_email_via_brevo(contact, campaign, template, email_seq):
-    """Send email via Brevo API"""
+    """Send email via Brevo API using client-specific credentials"""
     try:
-        from services.email_service import create_email_service
+        from services.brevo_modern_service import BrevoModernService
+        from models.database import Client
         from flask import current_app
 
-        # Create email service
-        email_service = create_email_service(current_app.config)
+        # Get the client for this campaign
+        client = None
+        if campaign.client_id:
+            client = Client.query.get(campaign.client_id)
 
-        # Prepare email content with variable substitution
-        subject = substitute_variables(template.subject_line or template.subject, contact, campaign)
-        body = substitute_variables(template.email_body or template.content, contact, campaign)
+        # Create client-specific configuration
+        if client and client.brevo_api_key:
+            # Use client's specific Brevo credentials
+            class ClientConfig:
+                BREVO_API_KEY = client.brevo_api_key
+                BREVO_SENDER_EMAIL = client.sender_email
+                BREVO_SENDER_NAME = client.sender_name
 
-        # Send email
-        success, result_data = email_service.send_single_email(
-            to_email=contact.email,
-            subject=subject,
-            html_content=body,
-            text_content=body,  # Simple text version
-            contact_id=contact.id
-        )
+            email_service = BrevoModernService(ClientConfig())
+            logger.info(f"Using client-specific credentials for {client.company_name}: {client.sender_email}")
+        else:
+            # Fallback to default/global credentials
+            from services.email_service import create_email_service
+            email_service = create_email_service(current_app.config)
+            logger.warning(f"No client credentials found for campaign {campaign.id}, using default sender")
+
+        # Prepare email content with variable substitution (including client variables)
+        subject = substitute_variables(template.subject_line or template.subject, contact, campaign, client)
+        body = substitute_variables(template.email_body or template.content, contact, campaign, client)
+
+        # Send email with client-specific sender info
+        if client:
+            success, result_data = email_service.send_single_email(
+                to_email=contact.email,
+                subject=subject,
+                html_content=body,
+                text_content=body,  # Simple text version
+                from_email=client.sender_email,
+                from_name=client.sender_name,
+                contact_id=contact.id
+            )
+        else:
+            success, result_data = email_service.send_single_email(
+                to_email=contact.email,
+                subject=subject,
+                html_content=body,
+                text_content=body,  # Simple text version
+                contact_id=contact.id
+            )
 
         if success:
             return {
@@ -346,11 +376,12 @@ def send_email_via_brevo(contact, campaign, template, email_seq):
         }
 
 
-def substitute_variables(text, contact, campaign):
-    """Replace template variables with actual contact data"""
+def substitute_variables(text, contact, campaign, client=None):
+    """Replace template variables with actual contact and client data"""
     if not text:
         return ""
 
+    # Contact and campaign variables
     substitutions = {
         '{first_name}': contact.first_name or 'there',
         '{last_name}': contact.last_name or '',
@@ -362,6 +393,18 @@ def substitute_variables(text, contact, campaign):
         '{business_type}': contact.business_type or '',
         '{company_size}': contact.company_size or ''
     }
+
+    # Client-specific variables (for multi-tenant branding)
+    if client:
+        client_substitutions = {
+            '{client_company_name}': client.company_name or '',
+            '{client_contact_name}': client.contact_name or client.sender_name or '',
+            '{client_sender_name}': client.sender_name or '',
+            '{client_sender_email}': client.sender_email or '',
+            '{client_phone}': client.phone or '',
+            '{client_website}': client.website or ''
+        }
+        substitutions.update(client_substitutions)
 
     result = text
     for placeholder, value in substitutions.items():

@@ -128,8 +128,11 @@
                                         <span class="badge bg-secondary">Basic</span>
                                         {% endif %}
                                     </td>
-                                    <td>
-                                        <span class="badge bg-primary">{{ client.campaign_count }}</span>
+                                    <td class="text-center">
+                                        <span class="badge bg-primary" style="cursor: pointer;"
+                                              onclick="showClientCampaigns({{ client.id }})">
+                                            {{ client.campaign_count }}
+                                        </span>
                                     </td>
                                     <td>
                                         <small>{{ client.emails_sent_this_month }}/{{ client.monthly_email_limit }}</small>
@@ -182,6 +185,32 @@
                     </div>
                     {% endif %}
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Client Campaigns Modal -->
+<div class="modal fade" id="clientCampaignsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-bullhorn me-2"></i>Client Campaigns
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="clientCampaignsContent">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
@@ -287,6 +316,101 @@ function deleteClient(clientId, clientName) {
         },
         'btn-danger'
     );
+}
+
+function showClientCampaigns(clientId) {
+    // Show modal with loading state
+    const modal = new bootstrap.Modal(document.getElementById('clientCampaignsModal'));
+    modal.show();
+
+    // Reset content
+    document.getElementById('clientCampaignsContent').innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    `;
+
+    // Fetch client's campaigns
+    fetch(`/clients/api/${clientId}/campaigns`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.campaigns) {
+                let html = '';
+
+                if (data.campaigns.length === 0) {
+                    html = `
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-inbox fs-1 mb-3"></i>
+                            <p>This client has no campaigns yet.</p>
+                        </div>
+                    `;
+                } else {
+                    html = '<div class="list-group">';
+
+                    data.campaigns.forEach(campaign => {
+                        const statusBadge = campaign.status === 'active'
+                            ? '<span class="badge bg-success">Active</span>'
+                            : '<span class="badge bg-secondary">Paused</span>';
+
+                        const contactCount = campaign.contact_count || 0;
+                        const emailsSent = campaign.emails_sent || 0;
+
+                        html += `
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div class="flex-grow-1">
+                                        <h6 class="mb-1">
+                                            <a href="/campaigns/${campaign.id}" class="text-decoration-none">
+                                                ${campaign.name}
+                                            </a>
+                                        </h6>
+                                        <small class="text-muted">
+                                            Created: ${campaign.created_at ? new Date(campaign.created_at).toLocaleDateString() : 'N/A'}
+                                        </small>
+                                    </div>
+                                    <div class="text-end">
+                                        ${statusBadge}
+                                    </div>
+                                </div>
+                                <div class="mt-2">
+                                    <div class="row text-center">
+                                        <div class="col-4">
+                                            <small class="text-muted d-block">Contacts</small>
+                                            <strong class="text-primary">${contactCount}</strong>
+                                        </div>
+                                        <div class="col-4">
+                                            <small class="text-muted d-block">Emails Sent</small>
+                                            <strong class="text-success">${emailsSent}</strong>
+                                        </div>
+                                        <div class="col-4">
+                                            <small class="text-muted d-block">Responses</small>
+                                            <strong class="text-info">${campaign.responses || 0}</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+
+                    html += '</div>';
+                }
+
+                document.getElementById('clientCampaignsContent').innerHTML = html;
+            } else {
+                throw new Error(data.message || 'Failed to load campaigns');
+            }
+        })
+        .catch(error => {
+            document.getElementById('clientCampaignsContent').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    Failed to load campaigns. Please try again.
+                </div>
+            `;
+            console.error('Error loading client campaigns:', error);
+        });
 }
 </script>
 {% endblock %}

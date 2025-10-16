@@ -1,5 +1,5 @@
 from flask import render_template, request, jsonify, flash, redirect, url_for
-from models.database import db, EmailTemplate, EmailSequenceConfig, Settings
+from models.database import db, EmailTemplate, EmailSequenceConfig, Settings, Client
 from datetime import datetime
 import json
 
@@ -146,16 +146,21 @@ def register_template_routes(app):
                     max_follow_ups_value = '5'
                 else:
                     max_follow_ups_value = str(max_follow_ups_value).strip()
-                
+
                 if not max_follow_ups_value or max_follow_ups_value == '':
                     max_follow_ups_value = '5'
-                
+
                 try:
                     max_follow_ups = int(max_follow_ups_value)
                 except ValueError:
                     print(f"Invalid max_follow_ups value: '{max_follow_ups_value}', using default 5")
                     max_follow_ups = 5
-                
+
+                # Get client_id from form
+                client_id = request.form.get('client_id')
+                if client_id:
+                    client_id = int(client_id) if client_id.strip() else None
+
                 # Create sequence with all fields
                 sequence = EmailSequenceConfig(
                     name=request.form['name'],
@@ -165,15 +170,16 @@ def register_template_routes(app):
                     stop_on_bounce=request.form.get('stop_on_bounce') == 'on',
                     target_industry=request.form.get('target_industry', 'general'),
                     created_by=request.form.get('created_by', 'System'),
+                    client_id=client_id,
                     is_active=True
                 )
-                
+
                 db.session.add(sequence)
                 db.session.commit()
-                
+
                 flash(f'Follow-up sequence "{sequence.name}" created successfully!', 'success')
                 return redirect(url_for('templates'))
-                
+
             except Exception as e:
                 # More detailed error message for debugging
                 print(f"Error creating sequence: {str(e)}")
@@ -181,11 +187,13 @@ def register_template_routes(app):
                 import traceback
                 print(f"Full traceback: {traceback.format_exc()}")
                 flash(f'Error creating sequence: {str(e)}', 'error')
-        
+
         # GET request - render the form
         try:
             print("Rendering sequence_editor.html for GET request")
-            return render_template('sequence_editor.html', sequence=None, action='create')
+            # Get clients for dropdown
+            clients = Client.query.filter_by(is_active=True).order_by(Client.company_name).all()
+            return render_template('sequence_editor.html', sequence=None, action='create', clients=clients)
         except Exception as e:
             print(f"Error rendering template: {str(e)}")
             import traceback
@@ -196,7 +204,7 @@ def register_template_routes(app):
     def edit_sequence(sequence_id):
         """Edit existing follow-up sequence"""
         sequence = EmailSequenceConfig.query.get_or_404(sequence_id)
-        
+
         if request.method == 'POST':
             try:
                 # Handle max_follow_ups with proper validation
@@ -204,7 +212,12 @@ def register_template_routes(app):
                 if not max_follow_ups_value:
                     max_follow_ups_value = '5'
                 max_follow_ups = int(max_follow_ups_value)
-                
+
+                # Get client_id from form
+                client_id = request.form.get('client_id')
+                if client_id:
+                    client_id = int(client_id) if client_id.strip() else None
+
                 # Update all sequence fields
                 sequence.name = request.form['name']
                 sequence.description = request.form.get('description', '')
@@ -212,17 +225,20 @@ def register_template_routes(app):
                 sequence.stop_on_reply = request.form.get('stop_on_reply') == 'on'
                 sequence.stop_on_bounce = request.form.get('stop_on_bounce') == 'on'
                 sequence.target_industry = request.form.get('target_industry', 'general')
+                sequence.client_id = client_id
                 sequence.updated_at = datetime.utcnow()
-                
+
                 db.session.commit()
-                
+
                 flash(f'Sequence "{sequence.name}" updated successfully!', 'success')
                 return redirect(url_for('templates'))
-                
+
             except Exception as e:
                 flash(f'Error updating sequence: {str(e)}', 'error')
-                
-        return render_template('sequence_editor.html', sequence=sequence, action='edit')
+
+        # Get clients for dropdown
+        clients = Client.query.filter_by(is_active=True).order_by(Client.company_name).all()
+        return render_template('sequence_editor.html', sequence=sequence, action='edit', clients=clients)
     
     @app.route('/sequences/delete/<int:sequence_id>', methods=['POST'])
     def delete_sequence(sequence_id):
@@ -286,18 +302,34 @@ def register_template_routes(app):
     def get_template_variables():
         """Get available template variables for UI helper"""
         variables = [
-            {'name': 'first_name', 'description': 'Contact first name'},
-            {'name': 'last_name', 'description': 'Contact last name'},
-            {'name': 'company', 'description': 'Company name'},
-            {'name': 'domain', 'description': 'Company domain'},
-            {'name': 'title', 'description': 'Contact job title'},
-            {'name': 'industry', 'description': 'Company industry'},
-            {'name': 'breach_name', 'description': 'Name of security breach'},
-            {'name': 'breach_year', 'description': 'Year of breach'},
-            {'name': 'breach_date', 'description': 'Date of breach'},
-            {'name': 'records_affected', 'description': 'Number of records affected'},
-            {'name': 'risk_score', 'description': 'Risk score (0-10)'},
-            {'name': 'severity', 'description': 'Breach severity level'}
+            # Contact Variables
+            {'name': 'first_name', 'description': 'Contact first name', 'category': 'Contact'},
+            {'name': 'last_name', 'description': 'Contact last name', 'category': 'Contact'},
+            {'name': 'company', 'description': 'Contact company name', 'category': 'Contact'},
+            {'name': 'domain', 'description': 'Contact company domain', 'category': 'Contact'},
+            {'name': 'email', 'description': 'Contact email address', 'category': 'Contact'},
+            {'name': 'industry', 'description': 'Contact company industry', 'category': 'Contact'},
+            {'name': 'business_type', 'description': 'Contact business type', 'category': 'Contact'},
+            {'name': 'company_size', 'description': 'Contact company size', 'category': 'Contact'},
+
+            # Client Variables (Multi-tenant branding)
+            {'name': 'client_company_name', 'description': 'Your company name', 'category': 'Client'},
+            {'name': 'client_contact_name', 'description': 'Your contact name', 'category': 'Client'},
+            {'name': 'client_sender_name', 'description': 'Your sender name', 'category': 'Client'},
+            {'name': 'client_sender_email', 'description': 'Your sender email', 'category': 'Client'},
+            {'name': 'client_phone', 'description': 'Your phone number', 'category': 'Client'},
+            {'name': 'client_website', 'description': 'Your website URL', 'category': 'Client'},
+
+            # Campaign Variables
+            {'name': 'campaign_name', 'description': 'Campaign name', 'category': 'Campaign'},
+
+            # Legacy breach-related variables (if still used)
+            {'name': 'breach_name', 'description': 'Name of security breach', 'category': 'Legacy'},
+            {'name': 'breach_year', 'description': 'Year of breach', 'category': 'Legacy'},
+            {'name': 'breach_date', 'description': 'Date of breach', 'category': 'Legacy'},
+            {'name': 'records_affected', 'description': 'Number of records affected', 'category': 'Legacy'},
+            {'name': 'risk_score', 'description': 'Risk score (0-10)', 'category': 'Legacy'},
+            {'name': 'severity', 'description': 'Breach severity level', 'category': 'Legacy'}
         ]
         return jsonify(variables)
     

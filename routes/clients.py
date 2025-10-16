@@ -51,6 +51,9 @@ def create_client():
             # Create new client
             client = Client(
                 company_name=company_name,
+                contact_name=request.form.get('contact_name', '').strip(),
+                website=request.form.get('website', '').strip(),
+                phone=request.form.get('phone', '').strip(),
                 domain=request.form.get('domain', '').strip(),
                 industry=request.form.get('industry', 'general'),
                 sender_email=sender_email,
@@ -114,6 +117,9 @@ def edit_client(client_id):
 
             # Update client
             client.company_name = company_name
+            client.contact_name = request.form.get('contact_name', '').strip()
+            client.website = request.form.get('website', '').strip()
+            client.phone = request.form.get('phone', '').strip()
             client.domain = request.form.get('domain', '').strip()
             client.industry = request.form.get('industry', 'general')
             client.sender_email = sender_email
@@ -267,6 +273,61 @@ def api_client_stats():
                 'total_emails_sent': total_sent,
                 'emails_remaining': total_limit - total_sent
             }
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
+
+
+@clients_bp.route('/api/<int:client_id>/campaigns')
+def api_get_client_campaigns(client_id):
+    """API endpoint to get all campaigns for a specific client"""
+    try:
+        client = Client.query.get_or_404(client_id)
+
+        # Get all campaigns for this client
+        campaigns = Campaign.query.filter_by(client_id=client_id).order_by(Campaign.created_at.desc()).all()
+
+        campaigns_data = []
+        for campaign in campaigns:
+            # Get emails sent for this campaign
+            from models.database import Email, Response
+
+            emails_sent = Email.query.filter_by(campaign_id=campaign.id).count()
+
+            # Get response count - Response is linked to Email, not Campaign directly
+            # So we need to count responses for emails in this campaign
+            responses = db.session.query(Response).join(
+                Email, Response.email_id == Email.id
+            ).filter(Email.campaign_id == campaign.id).count()
+
+            # Get contact count - use ContactCampaignStatus if available
+            try:
+                from models.database import ContactCampaignStatus
+                contact_count = ContactCampaignStatus.query.filter_by(campaign_id=campaign.id).count()
+            except:
+                # Fallback: count unique contacts from emails
+                contact_count = db.session.query(Email.contact_id).filter_by(
+                    campaign_id=campaign.id
+                ).distinct().count()
+
+            campaigns_data.append({
+                'id': campaign.id,
+                'name': campaign.name,
+                'status': campaign.status,
+                'created_at': campaign.created_at.isoformat() if campaign.created_at else None,
+                'contact_count': contact_count,
+                'emails_sent': emails_sent,
+                'responses': responses
+            })
+
+        return jsonify({
+            'success': True,
+            'campaigns': campaigns_data,
+            'client_name': client.company_name
         })
 
     except Exception as e:
