@@ -8,7 +8,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from utils.decorators import login_required
 from models.database import (
     db, Campaign, TemplateVariant, Contact, EmailTemplate, EmailSequenceConfig,
-    Email, Response, Settings, ContactCampaignStatus
+    Email, Response, Settings, ContactCampaignStatus, EmailSequence
 )
 
 # Create campaigns blueprint
@@ -1087,22 +1087,12 @@ def remove_contact_from_campaign(campaign_id, contact_id):
 
         db.session.commit()
 
-        # Use the comprehensive cleanup utility for thorough cleaning
-        from utils.contact_cleanup import deep_clean_contact_campaign_data, verify_contact_clean_state
-
-        # Verify the cleanup was complete
-        verification = verify_contact_clean_state(contact_id, campaign_id)
-
-        if not verification['is_clean']:
-            print(f"⚠ Warning: Cleanup may be incomplete: {verification['issues_found']}")
-
         # Get contact info for response
         contact_name = contact.email
-        
+
         return jsonify({
             'success': True,
-            'message': f'Successfully removed {contact_name} from campaign',
-            'cleanup_verification': verification
+            'message': f'Successfully removed {contact_name} from campaign'
         })
 
     except Exception as e:

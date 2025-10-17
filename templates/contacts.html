@@ -566,12 +566,12 @@
 
                     <div class="mb-3">
                         <label for="editCampaign" class="form-label">
-                            <i class="fas fa-bullhorn me-1"></i>Assign to Campaign (Optional)
+                            <i class="fas fa-bullhorn me-1"></i>Assign to Campaigns (Optional)
                         </label>
-                        <select class="form-select" id="editCampaign">
-                            <option value="">-- No Campaign Assignment --</option>
+                        <select class="form-select" id="editCampaign" multiple size="5">
+                            <option value="" disabled>-- No Campaign Assignment --</option>
                         </select>
-                        <small class="form-text text-muted">Select a campaign to assign this contact to</small>
+                        <small class="form-text text-muted">Hold Ctrl/Cmd to select multiple campaigns</small>
                     </div>
                 </form>
             </div>
@@ -661,17 +661,17 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <p>Select a campaign to assign <strong id="bulkContactCount">0</strong> selected contact(s) to:</p>
+                <p>Select campaign(s) to assign <strong id="bulkContactCount">0</strong> selected contact(s) to:</p>
 
                 <div class="mb-3">
-                    <label for="bulkCampaignSelect" class="form-label">Campaign</label>
-                    <select class="form-select" id="bulkCampaignSelect">
-                        <option value="">-- Select Campaign --</option>
+                    <label for="bulkCampaignSelect" class="form-label">Campaigns (hold Ctrl/Cmd to select multiple)</label>
+                    <select class="form-select" id="bulkCampaignSelect" multiple size="6">
+                        <option value="" disabled>-- Select Campaigns --</option>
                     </select>
                 </div>
 
                 <div class="alert alert-info">
-                    <small><i class="fas fa-info-circle me-1"></i>Contacts will be added to the selected campaign and will start receiving emails based on the campaign's schedule.</small>
+                    <small><i class="fas fa-info-circle me-1"></i>Contacts will be added to the selected campaign(s) and will start receiving emails based on each campaign's schedule.</small>
                 </div>
             </div>
             <div class="modal-footer">
@@ -701,11 +701,11 @@ function showSuccess(message) {
     `;
     document.body.insertAdjacentHTML('afterbegin', alertHtml);
 
-    // Auto-remove after 5 seconds
+    // Auto-remove after 10 seconds
     setTimeout(() => {
         const alert = document.querySelector('.alert-success');
         if (alert) alert.remove();
-    }, 5000);
+    }, 10000);
 }
 
 function showConfirm(message, onConfirm) {
@@ -876,7 +876,9 @@ const saveContactBtn = document.getElementById('saveContactBtn');
 if (saveContactBtn) {
     saveContactBtn.addEventListener('click', function() {
         const contactId = document.getElementById('editContactId')?.value;
-        const campaignId = document.getElementById('editCampaign')?.value || '';
+        const selectElement = document.getElementById('editCampaign');
+        const selectedOptions = Array.from(selectElement.selectedOptions);
+        const campaignIds = selectedOptions.map(option => parseInt(option.value)).filter(id => !isNaN(id));
 
         const formData = {
             email: document.getElementById('editEmail')?.value || '',
@@ -889,7 +891,7 @@ if (saveContactBtn) {
             business_type: document.getElementById('editBusinessType')?.value || '',
             company_size: document.getElementById('editCompanySize')?.value || '',
             status: document.getElementById('editStatus')?.value || 'active',
-            campaign_id: campaignId
+            campaign_ids: campaignIds
         };
         
         if (contactId) {
@@ -907,11 +909,17 @@ if (saveContactBtn) {
                     if (modal) {
                         bootstrap.Modal.getInstance(modal).hide();
                     }
-                    
+
+                    // Show success message (includes campaign enrollment feedback)
+                    showSuccess(result.message || 'Contact updated successfully');
+
                     // Update statistics in case the contact's active status changed
                     updateContactStats();
-                    
-                    location.reload(); // Still need to reload to update the table row data
+
+                    // Reload after showing message
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1500);
                 } else {
                     showError('Error updating contact: ' + (result.message || 'Unknown error'));
                 }
@@ -1395,7 +1403,12 @@ function showContactCampaigns(contactId) {
                             <div class="list-group-item">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
-                                        <h6 class="mb-1">${campaign.name}</h6>
+                                        <h6 class="mb-1">
+                                            <a href="/campaigns/${campaign.id}" class="text-decoration-none" target="_blank">
+                                                ${campaign.name}
+                                                <i class="fas fa-external-link-alt fa-xs ms-1"></i>
+                                            </a>
+                                        </h6>
                                         <small class="text-muted">
                                             Enrolled: ${campaign.enrolled_at ? new Date(campaign.enrolled_at).toLocaleDateString() : 'N/A'}
                                         </small>
@@ -1459,10 +1472,12 @@ if (bulkAssignCampaignBtn) {
 const confirmBulkAssignBtn = document.getElementById('confirmBulkAssignBtn');
 if (confirmBulkAssignBtn) {
     confirmBulkAssignBtn.addEventListener('click', function() {
-        const campaignId = document.getElementById('bulkCampaignSelect').value;
+        const selectElement = document.getElementById('bulkCampaignSelect');
+        const selectedOptions = Array.from(selectElement.selectedOptions);
+        const campaignIds = selectedOptions.map(option => parseInt(option.value)).filter(id => !isNaN(id));
 
-        if (!campaignId) {
-            showError('Please select a campaign.');
+        if (campaignIds.length === 0) {
+            showError('Please select at least one campaign.');
             return;
         }
 
@@ -1480,7 +1495,7 @@ if (confirmBulkAssignBtn) {
             },
             body: JSON.stringify({
                 contact_ids: contactIds,
-                campaign_id: parseInt(campaignId)
+                campaign_ids: campaignIds
             })
         })
         .then(response => response.json())
@@ -1490,8 +1505,8 @@ if (confirmBulkAssignBtn) {
                 const modal = bootstrap.Modal.getInstance(document.getElementById('bulkCampaignModal'));
                 modal.hide();
 
-                // Show success message
-                showSuccess(`Successfully assigned ${result.assigned_count} contact(s) to campaign!`);
+                // Show success message with detailed backend message
+                showSuccess(result.message || `Successfully assigned ${result.assigned_count} contact(s) to campaign!`);
 
                 // Reset selection
                 const masterCheckbox = document.getElementById('masterCheckbox');

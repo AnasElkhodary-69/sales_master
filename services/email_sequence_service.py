@@ -28,9 +28,9 @@ class EmailSequenceService:
             if contact.industry in campaign.target_industries:
                 return contact.industry
 
-        # Use campaign's template_type if set
-        if campaign.template_type:
-            return campaign.template_type
+        # If campaign has target industries but contact doesn't match, use first target
+        if campaign.target_industries and len(campaign.target_industries) > 0:
+            return campaign.target_industries[0]
 
         # Default to 'general' template type
         return 'general'
@@ -53,36 +53,23 @@ class EmailSequenceService:
             return timedelta(days=delay_amount)
     
     def _get_effective_delay(self, template: EmailTemplate) -> timedelta:
-        """Get the effective delay for a template, prioritizing new delay_amount/delay_unit"""
-        # Use new delay system if available
-        if hasattr(template, 'delay_amount') and hasattr(template, 'delay_unit'):
-            if template.delay_amount and template.delay_amount > 0:
-                return self._calculate_delay_timedelta(template.delay_amount, template.delay_unit)
-        
-        # Fall back to old delay_days system
-        if template.delay_days and template.delay_days > 0:
-            return timedelta(days=template.delay_days)
-        
+        """Get the effective delay for a template"""
+        # Use delay_amount and delay_unit
+        if template.delay_amount and template.delay_amount > 0:
+            return self._calculate_delay_timedelta(template.delay_amount, template.delay_unit)
+
         # No delay
         return timedelta(0)
     
     def _get_delay_info(self, template: EmailTemplate) -> Dict:
         """Get delay information for display/logging purposes"""
-        # Use new delay system if available
-        if hasattr(template, 'delay_amount') and hasattr(template, 'delay_unit'):
-            if template.delay_amount and template.delay_amount > 0:
-                return {
-                    'amount': template.delay_amount,
-                    'unit': template.delay_unit
-                }
-        
-        # Fall back to old delay_days system
-        if template.delay_days and template.delay_days > 0:
+        # Use delay_amount and delay_unit
+        if template.delay_amount and template.delay_amount > 0:
             return {
-                'amount': template.delay_days,
-                'unit': 'days'
+                'amount': template.delay_amount,
+                'unit': template.delay_unit
             }
-        
+
         # No delay
         return {
             'amount': 0,
@@ -106,62 +93,73 @@ class EmailSequenceService:
             # Get contact and campaign
             contact = Contact.query.get(contact_id)
             campaign = Campaign.query.get(campaign_id)
-            
+
             if not contact or not campaign:
                 return {
                     'success': False,
                     'error': f'Contact {contact_id} or Campaign {campaign_id} not found'
                 }
-            
+
             # Check if contact is already enrolled
             existing_status = ContactCampaignStatus.query.filter_by(
-                contact_id=contact_id, 
+                contact_id=contact_id,
                 campaign_id=campaign_id
             ).first()
-            
+
             if existing_status:
                 return {
                     'success': False,
                     'error': f'Contact {contact.email} already enrolled in campaign {campaign.name}'
                 }
-            
-            # Step 1: Determine template type based on contact industry (replaced breach checking)
-            template_type = self._determine_template_type(contact, campaign)
+
+            # Step 1: Get EmailSequenceConfig from campaign
+            if not campaign.sequence_config_id:
+                return {
+                    'success': False,
+                    'error': f'Campaign {campaign.name} does not have a sequence configuration'
+                }
+
+            sequence_config = EmailSequenceConfig.query.get(campaign.sequence_config_id)
+            if not sequence_config:
+                return {
+                    'success': False,
+                    'error': f'Sequence configuration not found for campaign {campaign.name}'
+                }
 
             # Step 2: Create contact campaign status record
             contact_status = ContactCampaignStatus(
                 contact_id=contact_id,
                 campaign_id=campaign_id,
-                current_sequence_step=0,
-                enrolled_at=datetime.utcnow()
+                current_sequence_step=0
             )
             db.session.add(contact_status)
             db.session.flush()
 
-            # Step 3: Schedule email sequence (scheduler will handle sending all emails)
+            # Step 3: Schedule email sequence using the sequence config
             scheduled_emails = self.schedule_email_sequence(
-                contact_id, campaign_id, template_type
+                contact_id, campaign_id, sequence_config
             )
-            
+
             # Note: All emails (including immediate ones) are handled by the scheduler
             # This prevents duplicate sending and ensures consistent processing
-            
+
             # Step 4: Update campaign stats
             campaign.total_contacts = Campaign.query.get(campaign_id).total_contacts + 1
-            
+
             db.session.commit()
-            
-            logger.info(f"Successfully enrolled {contact.email} in {campaign.name} with {len(scheduled_emails)} emails scheduled")
-            
+
+            logger.info(f"Successfully enrolled {contact.email} in {campaign.name} using sequence '{sequence_config.name}' with {len(scheduled_emails)} emails scheduled")
+
             return {
                 'success': True,
                 'contact_id': contact_id,
                 'campaign_id': campaign_id,
-                'template_type': template_type,
+                'sequence_config': sequence_config.name,
+                'target_industry': sequence_config.target_industry,
                 'emails_scheduled': len(scheduled_emails),
-                'sequence_source': 'Template-based sequence'
+                'sequence_source': f'Sequence Config: {sequence_config.name}'
             }
-            
+
         except Exception as e:
             db.session.rollback()
             logger.error(f"Error enrolling contact {contact_id} in campaign {campaign_id}: {str(e)}")
@@ -192,14 +190,14 @@ class EmailSequenceService:
         }
     
     def schedule_email_sequence(self, contact_id: int, campaign_id: int,
-                              template_type: str) -> List[Dict]:
+                              sequence_config: EmailSequenceConfig) -> List[Dict]:
         """
         Schedule all emails in the sequence for a contact
 
         Args:
             contact_id: Contact ID
             campaign_id: Campaign ID
-            template_type: Template type based on contact's industry/campaign targeting
+            sequence_config: EmailSequenceConfig that defines which templates to use
 
         Returns:
             List of scheduled email records
@@ -207,29 +205,31 @@ class EmailSequenceService:
         try:
             campaign = Campaign.query.get(campaign_id)
 
-            # Get templates for this campaign sequence (based on template_type/industry)
-            # Find templates that match the contact's industry and are active
-            # Order by sequence_step to ensure correct template selection during sending
+            # Get templates from the sequence config
+            # Filter by client_id and target_industry from the sequence config
             templates = EmailTemplate.query.filter_by(
                 active=True,
-                target_industry=template_type  # Industry-based template targeting
+                client_id=sequence_config.client_id,
+                target_industry=sequence_config.target_industry
             ).order_by(EmailTemplate.sequence_step).all()
 
-            # If no templates found for specific industry, try general templates
+            # If no templates found for specific industry, try general templates for this client
             if not templates:
                 templates = EmailTemplate.query.filter_by(
                     active=True,
-                    category='general'  # General templates that work for any industry
+                    client_id=sequence_config.client_id,
+                    category='general'
                 ).order_by(EmailTemplate.sequence_step).all()
-            
-            # If still no templates, try any active templates
+
+            # If still no templates, try any active templates for this client
             if not templates:
                 templates = EmailTemplate.query.filter_by(
-                    active=True
+                    active=True,
+                    client_id=sequence_config.client_id
                 ).order_by(EmailTemplate.sequence_step).all()
-            
+
             if not templates:
-                logger.error(f"No active email templates found for industry '{template_type}'")
+                logger.error(f"No active email templates found for client {sequence_config.client_id} and industry '{sequence_config.target_industry}'")
                 return []
             
             # CRITICAL UNIQUENESS CHECK: Prevent duplicate sequences per contact-campaign
@@ -292,7 +292,6 @@ class EmailSequenceService:
                     contact_id=contact_id,
                     campaign_id=campaign_id,
                     sequence_step=i,  # Step number based on template order
-                    template_type=template_type,  # Store industry/template type for template selection
                     scheduled_date=scheduled_date,
                     scheduled_datetime=scheduled_datetime,  # Store precise datetime for flexible delays
                     status='scheduled'
@@ -312,10 +311,10 @@ class EmailSequenceService:
                     'step_name': template.name,
                     'scheduled_date': scheduled_date.isoformat(),
                     'scheduled_datetime': scheduled_datetime.isoformat(),  # Add precise time to output
-                    'delay_days': template.delay_days,  # Legacy field
                     'delay_amount': delay_info['amount'],
                     'delay_unit': delay_info['unit'],
-                    'template_type': template_type
+                    'sequence_config': sequence_config.name,
+                    'target_industry': sequence_config.target_industry
                 })
                 
                 # Update last_scheduled for next iteration
@@ -485,14 +484,14 @@ class EmailSequenceService:
                     continue
                 
                 # Add to send list
+                campaign = Campaign.query.get(seq.campaign_id)
                 emails_to_send.append({
                     'sequence_id': seq.id,
                     'contact_id': seq.contact_id,
                     'campaign_id': seq.campaign_id,
                     'sequence_step': seq.sequence_step,
-                    'template_type': seq.template_type,
                     'contact': Contact.query.get(seq.contact_id),
-                    'campaign': Campaign.query.get(seq.campaign_id)
+                    'campaign': campaign
                 })
             
             logger.info(f"Found {len(emails_to_send)} emails to send on {target_date}")
@@ -505,10 +504,10 @@ class EmailSequenceService:
     def send_scheduled_email(self, sequence_id: int) -> Dict:
         """
         Send a single scheduled email via Brevo
-        
+
         Args:
             sequence_id: ID of the email sequence record
-            
+
         Returns:
             Dict with send results
         """
@@ -517,22 +516,37 @@ class EmailSequenceService:
             sequence = EmailSequence.query.get(sequence_id)
             if not sequence:
                 return {'success': False, 'error': f'Sequence {sequence_id} not found'}
-            
+
             # Get contact and campaign
             contact = Contact.query.get(sequence.contact_id)
             campaign = Campaign.query.get(sequence.campaign_id)
-            
-            # Get appropriate template using risk_level (stored in template_type field)
+
+            # Get EmailSequenceConfig from campaign
+            if not campaign.sequence_config_id:
+                return {
+                    'success': False,
+                    'error': f'Campaign {campaign.name} does not have a sequence configuration'
+                }
+
+            sequence_config = EmailSequenceConfig.query.get(campaign.sequence_config_id)
+            if not sequence_config:
+                return {
+                    'success': False,
+                    'error': f'Sequence configuration not found for campaign {campaign.name}'
+                }
+
+            # Get appropriate template using the sequence config
             template = self.get_template_for_sequence(
-                sequence.template_type,  # This now contains risk_level
+                sequence_config.target_industry,
                 sequence.sequence_step,
-                campaign_id=campaign.id
+                campaign_id=campaign.id,
+                client_id=sequence_config.client_id
             )
-            
+
             if not template:
                 return {
-                    'success': False, 
-                    'error': f'No template found for {sequence.template_type} step {sequence.sequence_step}'
+                    'success': False,
+                    'error': f'No template found for industry {sequence_config.target_industry} step {sequence.sequence_step}'
                 }
             
             # Render template with contact data
@@ -593,27 +607,34 @@ class EmailSequenceService:
             logger.error(f"Error sending scheduled email {sequence_id}: {str(e)}")
             return {'success': False, 'error': str(e)}
     
-    def get_template_for_sequence(self, template_type: str, sequence_step: int,
-                                 campaign_id: int = None) -> Optional[EmailTemplate]:
-        """Get appropriate template for sequence step and industry/template type"""
+    def get_template_for_sequence(self, target_industry: str, sequence_step: int,
+                                 campaign_id: int = None, client_id: int = None) -> Optional[EmailTemplate]:
+        """Get appropriate template for sequence step and industry"""
         try:
-            # Try to find exact match using target_industry
-            template = EmailTemplate.query.filter_by(
-                target_industry=template_type,
-                sequence_step=sequence_step,
-                active=True
-            ).first()
+            # Try to find exact match using target_industry and client_id
+            query_params = {
+                'target_industry': target_industry,
+                'sequence_step': sequence_step,
+                'active': True
+            }
+            if client_id is not None:
+                query_params['client_id'] = client_id
+
+            template = EmailTemplate.query.filter_by(**query_params).first()
 
             if template:
                 return template
 
-            # Fallback: try general category templates
+            # Fallback: try general category templates for this client
+            fallback_params = {
+                'category': 'general',
+                'sequence_step': sequence_step,
+                'active': True
+            }
+            if client_id is not None:
+                fallback_params['client_id'] = client_id
 
-            template = EmailTemplate.query.filter_by(
-                category='general',
-                sequence_step=sequence_step,
-                active=True
-            ).first()
+            template = EmailTemplate.query.filter_by(**fallback_params).first()
 
             return template
 
@@ -778,7 +799,7 @@ class EmailSequenceService:
             return {
                 'enrolled': True,
                 'current_step': contact_status.current_sequence_step,
-                'enrolled_at': contact_status.enrolled_at.isoformat() if contact_status.enrolled_at else None,
+                'enrolled_at': contact_status.created_at.isoformat() if contact_status.created_at else None,
                 'replied_at': contact_status.replied_at.isoformat() if contact_status.replied_at else None,
                 'sequence_completed': contact_status.sequence_completed_at is not None,
                 'total_sequences': len(sequences),

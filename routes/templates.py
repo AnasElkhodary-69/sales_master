@@ -334,6 +334,13 @@ def live_preview():
             preview_subject = preview_subject.replace(f'{{{key}}}', str(value))
             preview_body = preview_body.replace(f'{{{key}}}', str(value))
 
+        # Convert plain text to HTML for preview (preserve line breaks and paragraphs)
+        if '<html' not in preview_body.lower() and '<div' not in preview_body.lower():
+            # Convert double line breaks to paragraph breaks
+            paragraphs = preview_body.split('\n\n')
+            html_paragraphs = [f'<p style="margin: 0 0 1em 0;">{p.replace(chr(10), "<br>")}</p>' for p in paragraphs if p.strip()]
+            preview_body = ''.join(html_paragraphs)
+
         return jsonify({
             'success': True,
             'subject': preview_subject,
@@ -434,6 +441,17 @@ def send_test_email():
             final_subject = final_subject.replace(f'{{{key}}}', str(value))
             final_body = final_body.replace(f'{{{key}}}', str(value))
 
+        # Convert plain text to HTML if needed (preserve line breaks and paragraphs)
+        if '<html' not in final_body.lower() and '<div' not in final_body.lower():
+            # Convert double line breaks to paragraph breaks
+            paragraphs = final_body.split('\n\n')
+            html_paragraphs = [f'<p>{p.replace(chr(10), "<br>")}</p>' for p in paragraphs if p.strip()]
+            final_body = f'''<html>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+{''.join(html_paragraphs)}
+</body>
+</html>'''
+
         # Send email using Brevo
         try:
             from services.email_service import create_email_service
@@ -442,17 +460,35 @@ def send_test_email():
             # Add test prefix to subject
             final_subject = f"[TEST] {final_subject}"
 
-            # Try to find the client based on sender_email to use their Brevo API key
-            client = Client.query.filter_by(sender_email=sender_email).first()
+            # DEBUG: Log what we have so far
+            print(f"DEBUG send-test: sender_email={sender_email}, sender_name={sender_name}")
+            print(f"DEBUG send-test: template_id={template_id}")
+            if client:
+                print(f"DEBUG send-test: Found client from template: {client.company_name}")
+            else:
+                print(f"DEBUG send-test: No client found from template")
+
+            # If we don't have client yet, try to find based on sender_email
+            if not client:
+                client = Client.query.filter_by(sender_email=sender_email).first()
+                if client:
+                    print(f"DEBUG send-test: Found client by sender_email lookup: {client.company_name}")
 
             if client and client.brevo_api_key:
                 # Use client's Brevo API key
                 brevo_api_key = client.brevo_api_key
-                print(f"Using client {client.company_name}'s Brevo API key for test email")
+                print(f"Using client {client.company_name}'s Brevo API key for test email (***{brevo_api_key[-10:]})")
             else:
                 # Fallback to default API key
                 brevo_api_key = os.getenv('BREVO_API_KEY')
-                print(f"Using default Brevo API key for test email (sender: {sender_email})")
+                if brevo_api_key:
+                    print(f"Using default Brevo API key for test email (sender: {sender_email})")
+                else:
+                    print(f"ERROR: No Brevo API key found! Neither client key nor default key available")
+                    return jsonify({
+                        'success': False,
+                        'error': 'No Brevo API key configured. Please set up a client with API key or configure default key.'
+                    }), 500
 
             # Create email service
             class Config:

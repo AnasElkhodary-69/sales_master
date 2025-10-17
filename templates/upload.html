@@ -122,12 +122,12 @@
                                 </div>
 
                                 <div class="mb-3">
-                                    <label for="defaultCampaign" class="form-label">Assign to Campaign:</label>
-                                    <select class="form-select" id="defaultCampaign" name="campaign_id">
-                                        <option value="">No campaign (assign later)</option>
+                                    <label for="defaultCampaign" class="form-label">Assign to Campaigns (Optional):</label>
+                                    <select class="form-select" id="defaultCampaign" name="campaign_ids" multiple size="5">
+                                        <option value="" disabled>-- No Campaign Assignment --</option>
                                         <!-- Will be populated with campaigns -->
                                     </select>
-                                    <small class="text-muted">All uploaded contacts will be added to this campaign</small>
+                                    <small class="text-muted">Hold Ctrl/Cmd to select multiple campaigns. All uploaded contacts will be added to the selected campaigns.</small>
                                 </div>
                             </div>
                         </div>
@@ -623,11 +623,11 @@ class ContactUploader {
                 const campaignSelect = document.getElementById('defaultCampaign');
 
                 // Clear existing options (except first one)
-                campaignSelect.innerHTML = '<option value="">No campaign (assign later)</option>';
+                campaignSelect.innerHTML = '<option value="" disabled>-- No Campaign Assignment --</option>';
 
                 if (!campaigns || campaigns.length === 0) {
                     console.warn('No campaigns found');
-                    campaignSelect.innerHTML = '<option value="">No active campaigns found</option>';
+                    campaignSelect.innerHTML = '<option value="" disabled>No active campaigns found</option>';
                     return;
                 }
 
@@ -664,11 +664,17 @@ class ContactUploader {
         const formData = new FormData();
         formData.append('file', this.selectedFile);
 
-        // Add campaign selection
-        const campaignId = document.getElementById('defaultCampaign').value;
-        if (campaignId) {
-            formData.append('campaign_id', campaignId);
-        }
+        // Add multiple campaign selections
+        const selectElement = document.getElementById('defaultCampaign');
+        const selectedOptions = Array.from(selectElement.selectedOptions);
+        const campaignIds = selectedOptions.map(option => parseInt(option.value)).filter(id => !isNaN(id));
+
+        console.log('Selected campaign IDs:', campaignIds);
+
+        // Append each campaign ID separately (Flask handles multiple values with same key)
+        campaignIds.forEach(campaignId => {
+            formData.append('campaign_ids', campaignId);
+        });
         
         // Show progress
         this.showProgress();

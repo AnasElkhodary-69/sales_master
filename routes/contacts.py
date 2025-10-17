@@ -614,11 +614,17 @@ def email_management(status):
 def upload_csv():
     """Optimized CSV upload with batch processing and campaign selection"""
     try:
-        # Get campaign selections
-        breached_campaign_id = request.form.get('breached_campaign_id')
-        secure_campaign_id = request.form.get('secure_campaign_id')
-        
-        current_app.logger.info(f"Optimized upload started with campaigns: breached={breached_campaign_id}, secure={secure_campaign_id}")
+        # Get campaign selections (support multiple campaigns)
+        campaign_ids = request.form.getlist('campaign_ids')  # Multiple campaigns from upload.html
+
+        # DEBUG: Detailed campaign_ids logging
+        print(f"\n=== CSV UPLOAD DEBUG START ===")
+        print(f"campaign_ids = {campaign_ids} (type: {type(campaign_ids).__name__})")
+        print(f"campaign_ids count: {len(campaign_ids)}")
+        print(f"All form keys: {list(request.form.keys())}")
+        print(f"=== END CAMPAIGN DEBUG ===\n")
+
+        current_app.logger.info(f"Optimized upload started with {len(campaign_ids)} campaign(s): {campaign_ids}")
         
         if 'file' not in request.files:
             return jsonify({'success': False, 'message': 'No file selected'}), 400
@@ -861,6 +867,56 @@ def upload_csv():
         
         contacts_created = len(new_contact_ids)  # Use actual inserted contacts, not attempted
 
+        # STEP 6: Enroll contacts in selected campaigns (if any)
+        enrolled_count = 0
+        enrollment_by_campaign = {}
+
+        # DEBUG: Enrollment section start
+        print(f"\n=== ENROLLMENT DEBUG START ===")
+        print(f"new_contact_ids = {new_contact_ids[:5] if len(new_contact_ids) > 5 else new_contact_ids} (showing first 5 of {len(new_contact_ids)} total)")
+        print(f"campaign_ids = {campaign_ids} (count: {len(campaign_ids)})")
+        print(f"Enrollment IF condition: new_contact_ids={len(new_contact_ids) > 0} AND campaign_ids={len(campaign_ids) > 0}")
+
+        if new_contact_ids and campaign_ids:
+            print(f"[OK] ENTERING enrollment block")
+            from services.auto_enrollment import create_auto_enrollment_service
+            auto_service = create_auto_enrollment_service(db)
+            print(f"[OK] Created auto_service")
+
+            # Loop through each selected campaign
+            for campaign_id_str in campaign_ids:
+                try:
+                    campaign_id_int = int(campaign_id_str)
+                    print(f"\n[OK] Processing campaign ID: {campaign_id_int}")
+
+                    campaign_enrolled = 0
+                    for idx, contact_id in enumerate(new_contact_ids):
+                        try:
+                            print(f"  Enrolling contact {idx+1}/{len(new_contact_ids)}: contact_id={contact_id}, campaign_id={campaign_id_int}")
+                            success = auto_service.enroll_single_contact(contact_id, campaign_id_int)
+                            print(f"  Result: success={success}")
+                            if success:
+                                enrolled_count += 1
+                                campaign_enrolled += 1
+                        except Exception as enroll_error:
+                            print(f"  ERROR enrolling contact {contact_id}: {enroll_error}")
+                            current_app.logger.warning(f"Failed to enroll contact {contact_id} in campaign {campaign_id_int}: {enroll_error}")
+
+                    enrollment_by_campaign[campaign_id_int] = campaign_enrolled
+                    print(f"[OK] Campaign {campaign_id_int} enrollment complete: {campaign_enrolled}/{len(new_contact_ids)} contacts enrolled")
+
+                except (ValueError, TypeError) as e:
+                    print(f"[ERROR] Invalid campaign ID '{campaign_id_str}': {e}")
+                    current_app.logger.warning(f"Invalid campaign ID: {campaign_id_str}: {e}")
+
+            print(f"[OK] All enrollments complete: total_enrolled={enrolled_count} across {len(campaign_ids)} campaign(s)")
+            current_app.logger.info(f"Enrolled {enrolled_count} total enrollments across {len(campaign_ids)} campaigns: {enrollment_by_campaign}")
+        else:
+            print(f"[SKIP] Enrollment block - condition not met (contacts: {len(new_contact_ids)}, campaigns: {len(campaign_ids)})")
+
+        print(f"Final enrolled_count = {enrolled_count}")
+        print(f"=== ENROLLMENT DEBUG END ===\n")
+
         # Background scanning removed - FlawTrack/breach detection no longer used
         scan_job_id = None
         unique_domains = set(c.domain for c in new_contacts if c.domain)
@@ -1040,3 +1096,192 @@ def api_contacts_list():
     except Exception as e:
         print(f"Error in api_contacts_list: {e}")
         return jsonify({'error': 'Failed to fetch contacts'}), 500
+
+
+@contacts_bp.route('/api/<int:contact_id>/campaigns')
+@login_required
+def get_contact_campaigns(contact_id):
+    """Get all campaigns for a specific contact"""
+    try:
+        from models.database import ContactCampaignStatus
+
+        # Get contact
+        contact = Contact.query.get_or_404(contact_id)
+
+        # Get all campaigns for this contact via ContactCampaignStatus
+        campaign_statuses = ContactCampaignStatus.query.filter_by(contact_id=contact_id).all()
+
+        campaigns = []
+        for status in campaign_statuses:
+            campaign = Campaign.query.get(status.campaign_id)
+            if campaign:
+                campaigns.append({
+                    'id': campaign.id,
+                    'name': campaign.name,
+                    'status': campaign.status,
+                    'created_at': campaign.created_at.isoformat() if campaign.created_at else None,
+                    'contact_status': {
+                        'replied_at': status.replied_at.isoformat() if status.replied_at else None,
+                        'sequence_completed_at': status.sequence_completed_at.isoformat() if status.sequence_completed_at else None,
+                        'completion_reason': status.completion_reason
+                    }
+                })
+
+        return jsonify({
+            'success': True,
+            'contact_id': contact_id,
+            'contact_email': contact.email,
+            'campaigns': campaigns,
+            'total': len(campaigns)
+        })
+
+    except Exception as e:
+        print(f"Error in get_contact_campaigns: {e}")
+        import traceback
+        print(f"Full traceback: {traceback.format_exc()}")
+        return jsonify({'error': 'Failed to load campaigns', 'details': str(e)}), 500
+
+
+@contacts_bp.route('/api/bulk-assign-campaign', methods=['POST'])
+@login_required
+def bulk_assign_campaign():
+    """Assign multiple contacts to multiple campaigns"""
+    try:
+        data = request.get_json()
+
+        contact_ids = data.get('contact_ids', [])
+        campaign_ids = data.get('campaign_ids', [])
+
+        if not contact_ids:
+            return jsonify({'success': False, 'message': 'No contacts selected'}), 400
+
+        if not campaign_ids:
+            return jsonify({'success': False, 'message': 'No campaigns selected'}), 400
+
+        # Import required models
+        from models.database import ContactCampaignStatus
+        from services.campaign_service import schedule_campaign_emails
+
+        # Track overall results
+        total_assigned = 0
+        total_skipped = 0
+        total_errors = []
+        total_already_enrolled = []
+        campaign_results = []
+
+        # Process each campaign
+        for campaign_id in campaign_ids:
+            try:
+                # Get campaign
+                campaign = Campaign.query.get(campaign_id)
+                if not campaign:
+                    total_errors.append(f'Campaign ID {campaign_id} not found')
+                    continue
+
+                # Track results for this specific campaign
+                campaign_assigned = 0
+                campaign_skipped = 0
+                campaign_errors = []
+                campaign_already_enrolled = []
+
+                # Process each contact for this campaign
+                for contact_id in contact_ids:
+                    try:
+                        contact = Contact.query.get(contact_id)
+                        if not contact:
+                            campaign_skipped += 1
+                            campaign_errors.append(f'Contact ID {contact_id} not found')
+                            continue
+
+                        # Check if contact is already in this campaign
+                        existing = ContactCampaignStatus.query.filter_by(
+                            contact_id=contact_id,
+                            campaign_id=campaign_id
+                        ).first()
+
+                        if existing:
+                            campaign_skipped += 1
+                            # Add to already_enrolled list with contact details
+                            contact_name = f"{contact.first_name} {contact.last_name}" if contact.first_name or contact.last_name else contact.email
+                            campaign_already_enrolled.append(f'{contact_name.strip()} ({contact.email})')
+                            continue
+
+                        # Create ContactCampaignStatus
+                        contact_status = ContactCampaignStatus(
+                            contact_id=contact_id,
+                            campaign_id=campaign_id,
+                            added_at=datetime.utcnow()
+                        )
+                        db.session.add(contact_status)
+
+                        # Schedule emails for this contact
+                        schedule_campaign_emails(campaign, [contact])
+
+                        campaign_assigned += 1
+
+                    except Exception as contact_error:
+                        campaign_skipped += 1
+                        campaign_errors.append(f'Contact ID {contact_id}: {str(contact_error)}')
+                        print(f"Error assigning contact {contact_id} to campaign {campaign_id}: {contact_error}")
+                        continue
+
+                # Update totals
+                total_assigned += campaign_assigned
+                total_skipped += campaign_skipped
+                total_errors.extend(campaign_errors)
+                total_already_enrolled.extend(campaign_already_enrolled)
+
+                # Store results for this campaign
+                campaign_results.append({
+                    'campaign_id': campaign_id,
+                    'campaign_name': campaign.name,
+                    'assigned': campaign_assigned,
+                    'skipped': campaign_skipped,
+                    'already_enrolled': len(campaign_already_enrolled)
+                })
+
+            except Exception as campaign_error:
+                total_errors.append(f'Campaign {campaign_id}: {str(campaign_error)}')
+                print(f"Error processing campaign {campaign_id}: {campaign_error}")
+                continue
+
+        # Commit all changes
+        try:
+            db.session.commit()
+        except Exception as commit_error:
+            db.session.rollback()
+            return jsonify({
+                'success': False,
+                'message': f'Failed to save changes: {str(commit_error)}'
+            }), 500
+
+        # Build response message
+        message_parts = []
+        if total_assigned > 0:
+            campaign_count = len([r for r in campaign_results if r['assigned'] > 0])
+            message_parts.append(f'Successfully assigned {total_assigned} enrollment(s) across {campaign_count} campaign(s)')
+
+        if total_already_enrolled:
+            message_parts.append(f'{len(total_already_enrolled)} contact-campaign pair(s) already enrolled')
+
+        if total_errors:
+            message_parts.append(f'{len(total_errors)} error(s) occurred')
+
+        message = '. '.join(message_parts) if message_parts else 'No changes made'
+
+        return jsonify({
+            'success': True,
+            'message': message,
+            'assigned_count': total_assigned,
+            'skipped_count': total_skipped,
+            'campaign_results': campaign_results,
+            'already_enrolled': total_already_enrolled[:10],  # Return first 10 already enrolled
+            'errors': total_errors[:5]  # Return first 5 errors only
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error in bulk_assign_campaign: {e}")
+        import traceback
+        print(f"Full traceback: {traceback.format_exc()}")
+        return jsonify({'success': False, 'message': 'Failed to assign contacts to campaigns', 'error': str(e)}), 500

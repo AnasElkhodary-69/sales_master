@@ -89,33 +89,87 @@ def update_contact(contact_id):
             # Sync is_active field with status field
             contact.is_active = data['status'] == 'active'
 
-        # Handle campaign assignment
-        if 'campaign_id' in data and data['campaign_id']:
+        # Handle campaign assignment (support multiple campaigns)
+        campaign_message = None
+        if 'campaign_ids' in data and data['campaign_ids']:
             try:
-                campaign_id = int(data['campaign_id'])
-                campaign = Campaign.query.get(campaign_id)
-                if campaign:
-                    from models.database import ContactCampaignStatus
-                    # Check if already enrolled
-                    existing_enrollment = ContactCampaignStatus.query.filter_by(
-                        contact_id=contact.id,
-                        campaign_id=campaign_id
-                    ).first()
+                campaign_ids = data['campaign_ids']
+                if not isinstance(campaign_ids, list):
+                    campaign_ids = [campaign_ids]  # Convert single ID to list for compatibility
 
-                    if not existing_enrollment:
-                        # Enroll contact in campaign
-                        enrollment = ContactCampaignStatus(
-                            contact_id=contact.id,
-                            campaign_id=campaign_id,
-                            status='active',
-                            enrolled_at=datetime.utcnow()
-                        )
-                        db.session.add(enrollment)
-            except (ValueError, TypeError):
-                pass  # Invalid campaign_id, skip
+                # Filter out any non-numeric values
+                campaign_ids = [int(cid) for cid in campaign_ids if cid]
+
+                if campaign_ids:
+                    from models.database import ContactCampaignStatus
+                    from services.auto_enrollment import create_auto_enrollment_service
+
+                    auto_service = create_auto_enrollment_service(db)
+                    contact_name = f"{contact.first_name} {contact.last_name}" if contact.first_name or contact.last_name else contact.email
+
+                    enrolled_campaigns = []
+                    already_enrolled_campaigns = []
+                    failed_campaigns = []
+
+                    for campaign_id in campaign_ids:
+                        try:
+                            campaign = Campaign.query.get(campaign_id)
+                            if not campaign:
+                                failed_campaigns.append(f"Campaign ID {campaign_id} not found")
+                                continue
+
+                            # Check if already enrolled
+                            existing_enrollment = ContactCampaignStatus.query.filter_by(
+                                contact_id=contact.id,
+                                campaign_id=campaign_id
+                            ).first()
+
+                            if existing_enrollment:
+                                already_enrolled_campaigns.append(campaign.name)
+                            else:
+                                # Enroll contact in campaign
+                                success = auto_service.enroll_single_contact(contact.id, campaign_id)
+                                if success:
+                                    enrolled_campaigns.append(campaign.name)
+                                    print(f"Successfully enrolled contact {contact.email} into campaign {campaign_id}")
+                                else:
+                                    failed_campaigns.append(campaign.name)
+                                    print(f"Failed to enroll contact {contact.email} into campaign {campaign_id}")
+
+                        except Exception as campaign_error:
+                            failed_campaigns.append(f"Campaign {campaign_id}: {str(campaign_error)}")
+                            print(f"Error enrolling contact {contact.id} in campaign {campaign_id}: {campaign_error}")
+
+                    # Build comprehensive message
+                    message_parts = []
+                    if enrolled_campaigns:
+                        campaigns_str = "', '".join(enrolled_campaigns)
+                        message_parts.append(f"Successfully enrolled {contact_name.strip()} in {len(enrolled_campaigns)} campaign(s): '{campaigns_str}'")
+
+                    if already_enrolled_campaigns:
+                        campaigns_str = "', '".join(already_enrolled_campaigns)
+                        message_parts.append(f"Already enrolled in {len(already_enrolled_campaigns)} campaign(s): '{campaigns_str}'")
+
+                    if failed_campaigns:
+                        message_parts.append(f"{len(failed_campaigns)} enrollment(s) failed")
+
+                    campaign_message = ". ".join(message_parts) if message_parts else "No campaign enrollments processed"
+
+            except (ValueError, TypeError) as e:
+                campaign_message = f"Invalid campaign IDs: {str(e)}"
 
         db.session.commit()
-        return jsonify({'success': True, 'contact': contact.to_dict()})
+
+        # Build response message
+        response_message = 'Contact updated successfully'
+        if campaign_message:
+            response_message = f"{response_message}. {campaign_message}"
+
+        return jsonify({
+            'success': True,
+            'contact': contact.to_dict(),
+            'message': response_message
+        })
     except Exception as e:
         db.session.rollback()
         print(f"Error updating contact: {e}")
@@ -1177,12 +1231,21 @@ def get_contact_campaigns(contact_id):
                     campaign_id=campaign.id
                 ).order_by(Email.sent_at.desc()).first()
 
+                # Determine enrollment status based on replied_at and sequence_completed_at
+                if enrollment.replied_at:
+                    enrollment_status = 'replied'
+                elif enrollment.sequence_completed_at:
+                    enrollment_status = 'completed'
+                else:
+                    enrollment_status = 'active'
+
                 campaigns_list.append({
                     'id': campaign.id,
                     'name': campaign.name,
                     'status': campaign.status,
-                    'enrollment_status': enrollment.status,
-                    'enrolled_at': enrollment.enrolled_at.isoformat() if enrollment.enrolled_at else None,
+                    'enrollment_status': enrollment_status,
+                    'enrolled_at': enrollment.created_at.isoformat() if enrollment.created_at else None,
+                    'replied_at': enrollment.replied_at.isoformat() if enrollment.replied_at else None,
                     'last_email_sent': last_email.sent_at.isoformat() if last_email and last_email.sent_at else None
                 })
 
@@ -1199,73 +1262,112 @@ def get_contact_campaigns(contact_id):
 @api_bp.route('/contacts/bulk-assign-campaign', methods=['POST'])
 @login_required
 def bulk_assign_campaign():
-    """Bulk assign multiple contacts to a campaign"""
+    """Bulk assign multiple contacts to multiple campaigns"""
     try:
         data = request.get_json()
         contact_ids = data.get('contact_ids', [])
-        campaign_id = data.get('campaign_id')
+        campaign_ids = data.get('campaign_ids', [])
 
         if not contact_ids:
             return jsonify({'success': False, 'message': 'No contacts selected'}), 400
 
-        if not campaign_id:
-            return jsonify({'success': False, 'message': 'No campaign selected'}), 400
+        if not campaign_ids:
+            return jsonify({'success': False, 'message': 'No campaigns selected'}), 400
 
-        # Verify campaign exists
-        campaign = Campaign.query.get(campaign_id)
-        if not campaign:
-            return jsonify({'success': False, 'message': 'Campaign not found'}), 404
-
+        # Use auto-enrollment service to properly enroll contacts
+        from services.auto_enrollment import create_auto_enrollment_service
         from models.database import ContactCampaignStatus
 
-        assigned_count = 0
-        skipped_count = 0
+        auto_service = create_auto_enrollment_service(db)
+        total_assigned = 0
+        total_skipped = 0
+        campaign_results = []
 
-        for contact_id in contact_ids:
+        # Process each campaign
+        for campaign_id in campaign_ids:
             try:
-                # Check if contact exists
-                contact = Contact.query.get(contact_id)
-                if not contact:
-                    skipped_count += 1
+                # Verify campaign exists
+                campaign = Campaign.query.get(campaign_id)
+                if not campaign:
                     continue
 
-                # Check if already enrolled
-                existing_enrollment = ContactCampaignStatus.query.filter_by(
-                    contact_id=contact_id,
-                    campaign_id=campaign_id
-                ).first()
+                campaign_assigned = 0
+                campaign_skipped = 0
 
-                if existing_enrollment:
-                    skipped_count += 1
-                    continue
+                # Process each contact for this campaign
+                for contact_id in contact_ids:
+                    try:
+                        # Check if contact exists
+                        contact = Contact.query.get(contact_id)
+                        if not contact:
+                            campaign_skipped += 1
+                            continue
 
-                # Create new enrollment
-                enrollment = ContactCampaignStatus(
-                    contact_id=contact_id,
-                    campaign_id=campaign_id,
-                    status='active',
-                    enrolled_at=datetime.utcnow()
-                )
-                db.session.add(enrollment)
-                assigned_count += 1
+                        # Check if already enrolled
+                        existing = ContactCampaignStatus.query.filter_by(
+                            contact_id=contact_id,
+                            campaign_id=campaign_id
+                        ).first()
 
-            except Exception as e:
-                print(f"Error assigning contact {contact_id} to campaign: {e}")
-                skipped_count += 1
+                        if existing:
+                            campaign_skipped += 1
+                            continue
 
-        db.session.commit()
+                        # Use the working enroll_single_contact method
+                        success = auto_service.enroll_single_contact(contact_id, campaign_id)
+
+                        if success:
+                            campaign_assigned += 1
+                            print(f"Successfully enrolled contact {contact.email} into campaign {campaign_id}")
+                        else:
+                            campaign_skipped += 1
+                            print(f"Failed to enroll contact {contact.email} (may already be enrolled)")
+
+                    except Exception as e:
+                        print(f"Error assigning contact {contact_id} to campaign {campaign_id}: {e}")
+                        campaign_skipped += 1
+
+                # Update totals
+                total_assigned += campaign_assigned
+                total_skipped += campaign_skipped
+
+                # Store results for this campaign
+                campaign_results.append({
+                    'campaign_id': campaign_id,
+                    'campaign_name': campaign.name,
+                    'assigned': campaign_assigned,
+                    'skipped': campaign_skipped
+                })
+
+            except Exception as campaign_error:
+                print(f"Error processing campaign {campaign_id}: {campaign_error}")
+                continue
+
+        # Build response message
+        message_parts = []
+        if total_assigned > 0:
+            campaign_count = len([r for r in campaign_results if r['assigned'] > 0])
+            message_parts.append(f'Successfully assigned {total_assigned} enrollment(s) across {campaign_count} campaign(s)')
+
+        if total_skipped > 0:
+            message_parts.append(f'{total_skipped} contact-campaign pair(s) already enrolled or invalid')
+
+        message = '. '.join(message_parts) if message_parts else 'No changes made'
 
         return jsonify({
             'success': True,
-            'assigned_count': assigned_count,
-            'skipped_count': skipped_count,
-            'message': f'Successfully assigned {assigned_count} contact(s) to campaign. {skipped_count} already enrolled or invalid.'
+            'assigned_count': total_assigned,
+            'skipped_count': total_skipped,
+            'campaign_results': campaign_results,
+            'message': message
         })
 
     except Exception as e:
         db.session.rollback()
-        print(f"Error bulk assigning campaign: {e}")
-        return jsonify({'success': False, 'message': 'Error assigning contacts to campaign'}), 500
+        print(f"Error bulk assigning campaigns: {e}")
+        import traceback
+        print(f"Full traceback: {traceback.format_exc()}")
+        return jsonify({'success': False, 'message': 'Error assigning contacts to campaigns'}), 500
 
 
 # FlawTrack API Health Monitoring Endpoints (REMOVED - Breach scanning discontinued)

@@ -64,14 +64,8 @@ def process_email_queue() -> Dict:
                     email_seq.skip_reason = 'Contact unsubscribed'
                     continue
 
-                # Check if contact has replied (stop sequence if they have)
-                # Check both contact-level and campaign-level reply status
-                if getattr(contact, 'has_responded', False):
-                    logger.info(f"Skipping email to {contact.email} - contact has responded globally")
-                    email_seq.status = 'skipped_replied'
-                    email_seq.skip_reason = 'Contact has responded'
-                    continue
-
+                # Check if contact has replied to THIS campaign (campaign-specific tracking)
+                # DO NOT use global has_responded flag - we want campaign isolation
                 from models.database import ContactCampaignStatus
                 campaign_status = ContactCampaignStatus.query.filter_by(
                     contact_id=contact.id,
@@ -160,11 +154,29 @@ def process_email_queue() -> Dict:
                     db.session.commit()
                     continue
 
+                # Get EmailSequenceConfig from campaign
+                from models.database import EmailSequenceConfig
+
+                if not campaign.sequence_config_id:
+                    logger.error(f"Campaign {campaign.id} does not have a sequence configuration")
+                    email_seq.status = 'failed'
+                    email_seq.error_message = 'No sequence configuration'
+                    failed_count += 1
+                    continue
+
+                sequence_config = EmailSequenceConfig.query.get(campaign.sequence_config_id)
+                if not sequence_config:
+                    logger.error(f"Sequence configuration not found for campaign {campaign.id}")
+                    email_seq.status = 'failed'
+                    email_seq.error_message = 'Sequence configuration not found'
+                    failed_count += 1
+                    continue
+
                 # Get the appropriate template for this sequence step
                 template = get_template_for_sequence_step(
                     campaign,
                     email_seq.sequence_step,
-                    email_seq.template_type
+                    sequence_config
                 )
 
                 if not template:
@@ -267,32 +279,35 @@ def process_email_queue() -> Dict:
         }
 
 
-def get_template_for_sequence_step(campaign, sequence_step, template_type):
-    """Get the appropriate email template for this sequence step"""
+def get_template_for_sequence_step(campaign, sequence_step, sequence_config):
+    """Get the appropriate email template for this sequence step using EmailSequenceConfig"""
     try:
-        # Map sequence step to template type
-        step_types = {
-            0: 'initial',
-            1: 'follow_up',
-            2: 'follow_up',
-            3: 'follow_up',
-            4: 'follow_up'
+        # Query templates using client_id and target_industry from sequence config
+        query_params = {
+            'sequence_step': sequence_step,
+            'active': True,
+            'client_id': sequence_config.client_id,
+            'target_industry': sequence_config.target_industry
         }
 
-        email_template_type = step_types.get(sequence_step, 'follow_up')
+        template = EmailTemplate.query.filter_by(**query_params).first()
 
-        # Find template based on template_type and sequence_step
-        template = EmailTemplate.query.filter_by(
-            template_type=email_template_type,
-            sequence_step=sequence_step,
-            active=True
-        ).first()
+        # Fallback to general category templates for this client
+        if not template:
+            fallback_params = {
+                'sequence_step': sequence_step,
+                'active': True,
+                'client_id': sequence_config.client_id,
+                'category': 'general'
+            }
+            template = EmailTemplate.query.filter_by(**fallback_params).first()
 
-        # Fallback to generic template if specific one not found
+        # Last fallback: any active template for this client and step
         if not template:
             template = EmailTemplate.query.filter_by(
-                template_type=email_template_type,
-                active=True
+                sequence_step=sequence_step,
+                active=True,
+                client_id=sequence_config.client_id
             ).first()
 
         return template
@@ -332,15 +347,32 @@ def send_email_via_brevo(contact, campaign, template, email_seq):
 
         # Prepare email content with variable substitution (including client variables)
         subject = substitute_variables(template.subject_line or template.subject, contact, campaign, client)
-        body = substitute_variables(template.email_body or template.content, contact, campaign, client)
+
+        # Get HTML body if available, otherwise convert plain text to HTML
+        if template.email_body_html:
+            html_body = substitute_variables(template.email_body_html, contact, campaign, client)
+            logger.info(f"Using email_body_html for template {template.id}")
+        else:
+            # Convert plain text to HTML (replace newlines with <br> tags and wrap in HTML)
+            plain_body = substitute_variables(template.email_body or template.content, contact, campaign, client)
+            # Replace different types of line breaks
+            html_body = plain_body.replace('\r\n', '<br>').replace('\n', '<br>').replace('\r', '<br>')
+            # Wrap in basic HTML structure
+            html_body = f'<html><body>{html_body}</body></html>'
+            logger.info(f"Converted plain text to HTML for template {template.id}. Line breaks found: {plain_body.count(chr(10)) + plain_body.count(chr(13))}")
+
+        # Plain text version (strip HTML if present)
+        text_body = substitute_variables(template.email_body or template.content, contact, campaign, client)
+
+        logger.info(f"Sending email - Subject: {subject[:50]}, HTML length: {len(html_body)}, Text length: {len(text_body)}")
 
         # Send email with client-specific sender info
         if client:
             success, result_data = email_service.send_single_email(
                 to_email=contact.email,
                 subject=subject,
-                html_content=body,
-                text_content=body,  # Simple text version
+                html_content=html_body,
+                text_content=text_body,
                 from_email=client.sender_email,
                 from_name=client.sender_name,
                 contact_id=contact.id
@@ -349,8 +381,8 @@ def send_email_via_brevo(contact, campaign, template, email_seq):
             success, result_data = email_service.send_single_email(
                 to_email=contact.email,
                 subject=subject,
-                html_content=body,
-                text_content=body,  # Simple text version
+                html_content=html_body,
+                text_content=text_body,
                 contact_id=contact.id
             )
 
@@ -358,7 +390,7 @@ def send_email_via_brevo(contact, campaign, template, email_seq):
             return {
                 'success': True,
                 'subject': subject,
-                'body': body,
+                'body': html_body,
                 'brevo_message_id': result_data.get('brevo_message_id') if isinstance(result_data, dict) else None,
                 'thread_message_id': result_data.get('thread_message_id') if isinstance(result_data, dict) else None
             }

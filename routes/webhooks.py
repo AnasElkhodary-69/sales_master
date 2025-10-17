@@ -167,35 +167,75 @@ def handle_reply_event(contact, data):
     """
     Handle reply event - STOP the sequence immediately
     This is the most important event for sequence management
+
+    IMPORTANT: Only stops sequences for the specific campaign where reply was detected,
+    NOT globally for all campaigns. This allows the same contact to be in multiple campaigns.
     """
     logger.info(f"Processing REPLY event for contact: {contact.email}")
-    
-    # Find all active campaign statuses for this contact
-    active_statuses = ContactCampaignStatus.query.filter_by(
-        contact_id=contact.id,
-        replied_at=None  # Not already marked as replied
-    ).all()
-    
-    for status in active_statuses:
-        # Mark as replied - this stops the sequence
-        status.replied_at = datetime.utcnow()
-        logger.info(f"Marked contact {contact.email} as replied in campaign {status.campaign_id}")
-        
-        # Update campaign response count
-        campaign = Campaign.query.get(status.campaign_id)
-        if campaign:
-            campaign.response_count = (campaign.response_count or 0) + 1
-    
-    # Also mark the contact as responded
-    contact.has_responded = True
-    contact.responded_at = datetime.utcnow()
-    
-    # Find and update the specific email if we can
+
+    # Find the specific email that was replied to (if message-id provided)
+    replied_campaign_id = None
     if 'message-id' in data:
         email = Email.query.filter_by(brevo_message_id=data['message-id']).first()
         if email:
             email.replied_at = datetime.utcnow()
             email.status = 'replied'
+            replied_campaign_id = email.campaign_id
+            logger.info(f"Reply detected for email in campaign {replied_campaign_id}")
+
+    # If we found the specific campaign, only stop that campaign's sequence
+    if replied_campaign_id:
+        campaign_status = ContactCampaignStatus.query.filter_by(
+            contact_id=contact.id,
+            campaign_id=replied_campaign_id,
+            replied_at=None  # Not already marked as replied
+        ).first()
+
+        if campaign_status:
+            # Mark as replied - this stops the sequence for THIS campaign only
+            campaign_status.replied_at = datetime.utcnow()
+            logger.info(f"Stopped sequence for contact {contact.email} in campaign {replied_campaign_id}")
+
+            # Update campaign response count
+            campaign = Campaign.query.get(replied_campaign_id)
+            if campaign:
+                campaign.response_count = (campaign.response_count or 0) + 1
+
+            # Mark all future scheduled emails for THIS campaign as skipped
+            from models.database import EmailSequence
+            future_emails = EmailSequence.query.filter(
+                EmailSequence.contact_id == contact.id,
+                EmailSequence.campaign_id == replied_campaign_id,
+                EmailSequence.status == 'scheduled'
+            ).all()
+
+            for seq in future_emails:
+                seq.status = 'skipped_replied'
+                seq.skip_reason = 'Contact replied to campaign'
+                logger.info(f"Skipped future email step {seq.sequence_step} for contact {contact.email} in campaign {replied_campaign_id}")
+    else:
+        # If no message-id provided or email not found, we don't know which campaign
+        # So we stop ALL active sequences as a fallback (old behavior)
+        logger.warning(f"No message-id provided for reply from {contact.email}, stopping all active sequences")
+        active_statuses = ContactCampaignStatus.query.filter_by(
+            contact_id=contact.id,
+            replied_at=None  # Not already marked as replied
+        ).all()
+
+        for status in active_statuses:
+            # Mark as replied - this stops the sequence
+            status.replied_at = datetime.utcnow()
+            logger.info(f"Marked contact {contact.email} as replied in campaign {status.campaign_id}")
+
+            # Update campaign response count
+            campaign = Campaign.query.get(status.campaign_id)
+            if campaign:
+                campaign.response_count = (campaign.response_count or 0) + 1
+
+    # DO NOT set global has_responded flag - we want campaign-specific tracking only
+    # This allows the same contact to be in multiple campaigns
+    # contact.has_responded = True  # REMOVED - campaign-specific only
+    # contact.responded_at = datetime.utcnow()  # REMOVED - campaign-specific only
 
 def handle_open_event(contact, data):
     """Handle email open event"""

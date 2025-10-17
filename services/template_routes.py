@@ -339,17 +339,23 @@ def register_template_routes(app):
         risk_level = request.args.get('risk_level')
         breach_status = request.args.get('breach_status')  # Accept breach_status parameter
         template_type = request.args.get('template_type')
-        
+        target_industry = request.args.get('target_industry')  # New parameter
+        client_id = request.args.get('client_id')  # CRITICAL: Filter by client_id
+
         query = EmailTemplate.query.filter_by(active=True)
 
         # Filter by template_type if provided
         if template_type:
             query = query.filter(EmailTemplate.template_type == template_type)
 
-        # Filter by target_industry if breach_status or risk_level is provided (legacy support)
-        filter_value = breach_status or risk_level
+        # Filter by target_industry if provided
+        filter_value = target_industry or breach_status or risk_level
         if filter_value:
             query = query.filter(EmailTemplate.target_industry == filter_value)
+
+        # CRITICAL: Filter by client_id to prevent mixing templates from different clients
+        if client_id:
+            query = query.filter(EmailTemplate.client_id == int(client_id))
 
         templates = query.all()
 

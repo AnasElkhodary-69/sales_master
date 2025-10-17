@@ -252,7 +252,11 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
         
         // Fetch actual templates to get real delay days
-        fetch(`/api/templates?target_industry=${risk}`)
+        const clientId = document.getElementById('client_id').value;
+        const url = clientId ?
+            `/api/templates?target_industry=${risk}&client_id=${clientId}` :
+            `/api/templates?target_industry=${risk}`;
+        fetch(url)
             .then(response => response.json())
             .then(templates => {
                 // Sort templates by sequence order
@@ -345,17 +349,21 @@ document.addEventListener('DOMContentLoaded', function() {
     // Load related templates
     function loadRelatedTemplates() {
         const risk = riskLevel.value;
+        const clientId = document.getElementById('client_id').value;
         const container = document.getElementById('related-templates');
-        
+
         // Show loading state
         container.innerHTML = `
             <div class="text-center text-muted">
                 <i class="fas fa-spinner fa-spin"></i> Loading templates...
             </div>
         `;
-        
-        // Fetch templates that match the target industry
-        fetch(`/api/templates?target_industry=${risk}`)
+
+        // Fetch templates that match the target industry AND client_id
+        const url = clientId ?
+            `/api/templates?target_industry=${risk}&client_id=${clientId}` :
+            `/api/templates?target_industry=${risk}`;
+        fetch(url)
             .then(response => response.json())
             .then(templates => {
                 let templatesHtml = '';
@@ -471,8 +479,13 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Event listeners
+    const clientIdSelect = document.getElementById('client_id');
     maxFollowUps.addEventListener('change', updateSequenceFlow);
     riskLevel.addEventListener('change', function() {
+        updateSequenceFlow();
+        loadRelatedTemplates();
+    });
+    clientIdSelect.addEventListener('change', function() {
         updateSequenceFlow();
         loadRelatedTemplates();
     });
