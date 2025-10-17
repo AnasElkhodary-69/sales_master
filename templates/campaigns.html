@@ -213,10 +213,16 @@
                                                                 <i class="fas fa-{{ 'play' if campaign.status == 'active' else 'pause' if campaign.status == 'paused' else 'check' }} me-1"></i>
                                                                 {{ campaign.status.title() }}
                                                             </span>
-                                                            {% if campaign.template_type and campaign.template_type != 'unknown' %}
-                                                            <span class="badge bg-light text-dark ms-2">{{ campaign.template_type.replace('_', ' ').title() }}</span>
-                                                            {% else %}
-                                                            <span class="badge bg-light text-dark ms-2">Security Campaign</span>
+                                                            {% if campaign.client %}
+                                                            <span class="badge bg-primary text-white ms-2">
+                                                                <i class="fas fa-building me-1"></i>{{ campaign.client.company_name }}
+                                                            </span>
+                                                            {% endif %}
+                                                            {% if campaign.target_industries %}
+                                                            <span class="badge bg-info text-white ms-2">
+                                                                <i class="fas fa-industry me-1"></i>
+                                                                {{ campaign.target_industries[0] if campaign.target_industries|length == 1 else campaign.target_industries|length ~ ' Industries' }}
+                                                            </span>
                                                             {% endif %}
                                                         </div>
                                                         <small class="text-muted">
